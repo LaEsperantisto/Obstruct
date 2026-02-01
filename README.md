@@ -114,21 +114,32 @@ my_func(arg1);
 
 ## Data Structures
 
-- Vec:
+- `Vec`:
 
 A Vec is a resizable list, similar to Rust's Vec. When a variable is declared as a Vec,
 but no value is assigned, it defaults to an empty Vec.
 
-- Array:
+- `Array`:
 
 An Array is declared like this: `[val1, val2]` and is not resizable. The size also needs
-to be known at compile type.
+to be known at compile type. The type of an Array is "declared" similar to Rust, but with
+brackets instead of parentheses, e.g. `[i32, i32]` for the position of a 2D object.
 
-- str:
+- `str`:
 
-A str, aka `String`, is declared with double quotes, like this: `"Hello, world!"` and is resizable.
-When a variable is declared as a str, but no value is assigned, it defaults to an
-empty str.
+A `str`, aka `String` in some languages, is declared with double quotes, like this: `"Hello, world!"` and is
+resizable. When a variable is declared as a str, but no value is assigned, it defaults to
+an empty str.
+
+---
+
+## Main
+
+Every Obstruct program needs to have a `main` function, which is the entry point of the
+program. The `main` function take in _one_ argument, which is the arguments the program
+was called with, in the form of a `Vec<str>`. The main function can return either nothing,
+which means that if there is no error, the exit code will be `0`, but it can return an i32,
+which will be the exit code. If at any point there is an error, the exit code will be `1`.
 
 ---
 
@@ -147,7 +158,7 @@ This language aims to:
 ## Example program
 
 ```Obstruct
-fn main[args: []] {
+fn main[args: Vec<str>] {
     #x = 10;
     #@y = 5.0;
     
@@ -167,7 +178,7 @@ fn main[args: []] {
     $result;
 }
 
-fn int add[a: int, @b: int] {
+fn i32 add[a: i32, @b: i32] {
     return a + b;
 }
 ```
