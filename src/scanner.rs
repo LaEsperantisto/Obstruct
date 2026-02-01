@@ -27,6 +27,7 @@ impl Scanner {
         keywords.insert("del".into(), TokenType::DEL);
         keywords.insert("use".into(), TokenType::USE);
         keywords.insert("for".into(), TokenType::FOR);
+        keywords.insert("fn".into(), TokenType::FN);
 
         Scanner {
             source,

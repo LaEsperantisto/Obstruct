@@ -64,6 +64,7 @@ pub enum TokenType {
     DEL,
     USE,
     FOR,
+    FN,
 
     NIL, // this gives an error - not supposed to be fetched - interpreter badly programmed
     EOF, // End Of File
@@ -134,6 +135,7 @@ impl fmt::Display for TokenType {
             TokenType::DEL => "DEL",
             TokenType::USE => "USE",
             TokenType::FOR => "FOR",
+            TokenType::FN => "FN",
 
             TokenType::NIL => "NIL",
             TokenType::EOF => "EOF",
