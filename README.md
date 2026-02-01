@@ -79,7 +79,7 @@ for i in 0..5 {
 
 ## Functions
 
-- Define a function:
+- Defining a function:
 
 ```Obstruct
 fn return_type my_func[arg1: type, @arg2: type] {
@@ -99,7 +99,7 @@ fn print_num[n: i32] {
 
 The keyword `ret` is used to return from a function
 
-- Call a function:
+- Calling a function:
 
 ```Obstruct
 my_func(arg1);
