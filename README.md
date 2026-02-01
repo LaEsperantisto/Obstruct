@@ -131,6 +131,18 @@ A `str`, aka `String` in some languages, is declared with double quotes, like th
 resizable. When a variable is declared as a str, but no value is assigned, it defaults to
 an empty str.
 
+- `i32`:
+
+Integers in Obstruct are not said `int`, but rather, like Rust, as `i32` or `i64`. `i32`
+Is the default `int` in Obstruct, and the most used, however, you can also use any power
+of 2 from 8 to 64, like in Rust.
+
+- `char`:
+
+Single character are `char`s, which are UTF-8 encoded. Basic escape sequences supported,
+like `\n`, `\t`, `\\`, and `\'`. These are also valid for `str` literals, but the only
+difference is that `\'` is invalid, only `\"` is supported in `str` literals.
+
 ---
 
 ## Main
