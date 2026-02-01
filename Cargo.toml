@@ -6,4 +6,3 @@ description = "A programming language that is heavily tersed / golfed and is sta
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-log = "0.4.29"
