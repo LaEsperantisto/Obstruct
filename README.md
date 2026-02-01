@@ -126,9 +126,19 @@ to be known at compile type.
 
 - str:
 
-A str, aka `String`, is declared with double quotes, like this: `"Hello, world!"` and is resizable.
-When a variable is declared as a str, but no value is assigned, it defaults to an
-empty str.
+A str, aka `String`, is declared with double quotes, like this: `"Hello, world!"` and is
+resizable. When a variable is declared as a str, but no value is assigned, it defaults to
+an empty str.
+
+---
+
+## Main
+
+Every Obstruct program needs to have a `main` function, which is the entry point of the
+program. The `main` function take in _one_ argument, which is the arguments the program
+was called with, in the form of a `Vec<str>`. The main function can return either nothing,
+which means that if there is no error, the exit code will be `0`, but it can return an i32,
+which will be the exit code.
 
 ---
 
@@ -147,7 +157,7 @@ This language aims to:
 ## Example program
 
 ```Obstruct
-fn main[args: []] {
+fn main[args: Vec<str>] {
     #x = 10;
     #@y = 5.0;
     
@@ -167,7 +177,7 @@ fn main[args: []] {
     $result;
 }
 
-fn int add[a: int, @b: int] {
+fn i32 add[a: i32, @b: i32] {
     return a + b;
 }
 ```
