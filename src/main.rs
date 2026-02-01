@@ -1,14 +1,18 @@
+mod environment;
 mod expr;
 mod parser;
 mod scanner;
 mod token;
 mod token_type;
 mod value;
+mod variable;
 
+use crate::environment::Environment;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
-use std::sync::atomic::AtomicBool;
-use std::{env, fs};
+use std::io::ErrorKind;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::{env, fs, io};
 
 static HAD_ERROR: AtomicBool = AtomicBool::new(false);
 
@@ -29,9 +33,18 @@ fn main() -> std::io::Result<()> {
     let mut parser = Parser::new(tokens);
     let expr = parser.parse();
 
-    println!("{}", expr.value());
-
-    Ok(())
+    let mut env = Environment::new();
+    if !HAD_ERROR.load(Ordering::Relaxed) {
+        expr.value(&mut env);
+        println!();
+        if HAD_ERROR.load(Ordering::Relaxed) {
+            Err(io::Error::new(ErrorKind::Other, "Error during execution"))
+        } else {
+            Ok(())
+        }
+    } else {
+        Err(io::Error::new(ErrorKind::Other, "Error during parsing"))
+    }
 }
 
 pub fn error(line: isize, message: &str) {
@@ -39,7 +52,7 @@ pub fn error(line: isize, message: &str) {
 }
 
 pub fn report(line: isize, place: String, message: &str) {
-    println!("[line {} ] Error{}: {}", line, place, message);
+    println!("[line {line}] Error{place}: {message}");
     // println!("\n{} | {}", line.into(), get_line(line));
     HAD_ERROR.store(true, std::sync::atomic::Ordering::Relaxed);
 }

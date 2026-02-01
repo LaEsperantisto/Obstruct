@@ -124,11 +124,11 @@ but no value is assigned, it defaults to an empty Vec.
 An Array is declared like this: `[val1, val2]` and is not resizable. The size also needs
 to be known at compile type.
 
-- String:
+- str:
 
-A String is declared with double quotes, like this: `"Hello, world!"` and is resizable.
-When a variable is declared as a String, but no value is assigned, it defaults to an
-empty String.
+A str, aka `String`, is declared with double quotes, like this: `"Hello, world!"` and is resizable.
+When a variable is declared as a str, but no value is assigned, it defaults to an
+empty str.
 
 ---
 

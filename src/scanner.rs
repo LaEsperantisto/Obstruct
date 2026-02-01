@@ -142,11 +142,7 @@ impl Scanner {
                 }
             }
             '#' => {
-                if self.match_char('@') {
-                    self.add_token(TokenType::HASH_AT);
-                } else {
-                    self.add_token(TokenType::HASH);
-                }
+                self.add_token(TokenType::HASH);
             }
             '@' => self.add_token(TokenType::AT),
             '/' => {
@@ -235,24 +231,45 @@ impl Scanner {
     }
 
     fn string(&mut self) {
-        while self.peek() != '"' && !self.is_at_end() {
-            if self.peek() == '\n' {
-                self.line += 1;
+        let mut value = String::new();
+
+        while !self.is_at_end() {
+            let c = self.advance();
+
+            match c {
+                '"' => {
+                    // End of string
+                    self.add_token_literal(TokenType::STRING, value);
+                    return;
+                }
+                '\\' => {
+                    if self.is_at_end() {
+                        error(self.line, "Unterminated escape sequence in string.");
+                        return;
+                    }
+
+                    let esc = self.advance();
+                    match esc {
+                        'n' => value.push('\n'),
+                        't' => value.push('\t'),
+                        'r' => value.push('\r'),
+                        '\\' => value.push('\\'),
+                        '"' => value.push('"'),
+                        _ => {
+                            error(self.line, &format!("Invalid escape sequence: \\{}", esc));
+                            return;
+                        }
+                    }
+                }
+                '\n' => {
+                    self.line += 1;
+                    value.push('\n');
+                }
+                _ => value.push(c),
             }
-            self.advance();
         }
 
-        if self.is_at_end() {
-            error(self.line, "Unterminated string literal.");
-            return;
-        }
-
-        // Consume the closing "
-        self.advance();
-
-        // Slice out the string without quotes
-        let value = self.source[self.start + 1..self.current - 1].to_string();
-        self.add_token_literal(TokenType::STRING, value);
+        error(self.line, "Unterminated string literal.");
     }
 
     fn number(&mut self) {

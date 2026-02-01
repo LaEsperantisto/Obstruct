@@ -1,6 +1,9 @@
 [package]
-name = "Obstruct"
+name = "obstruct"
 version = "0.0.1"
 edition = "2024"
 description = "A programming language that is heavily tersed / golfed and is statically typed."
 license = "MIT OR Apache-2.0"
+
+[dependencies]
+log = "0.4.29"
