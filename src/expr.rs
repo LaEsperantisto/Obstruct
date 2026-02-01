@@ -31,6 +31,7 @@ pub enum Expr {
     // Statements
     StmtBlock(Vec<Box<Expr>>),
     Print(Box<Expr>),
+    Discard(Box<Expr>),
 
     // Variables
     Variable(String),
@@ -252,6 +253,10 @@ impl Expr {
             Expr::Assign(name, expr) => {
                 let value = expr.value(env);
                 env.assign(name, value);
+                nil()
+            }
+            Expr::Discard(expr) => {
+                expr.value(env);
                 nil()
             }
         }

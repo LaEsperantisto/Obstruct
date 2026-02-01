@@ -112,6 +112,19 @@ my_func(arg1);
 
 ---
 
+## IMPORTANT!
+
+### Block statements
+
+Block statements, or scopes, work just like in Rust: you can have as many statements as
+you want, each one ending with a semicolon, but only the _very last_ statement in a block
+statement (as long as it is also an expression) may not end with a semicolon. This value
+is the value that is returned by the block statement, making them expressions, not
+statements.
+
+
+---
+
 ## Data Structures
 
 - `Vec`:
@@ -182,8 +195,9 @@ fn main[args: Vec<str>] {
         y = 0.0;
     }
     
+    #temp: Vec<i32>;
     for i in 0..x {
-        #temp: Vec;
+      temp.push(i);
     }
     
     let result = add(x, y);

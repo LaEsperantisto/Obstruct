@@ -1,5 +1,4 @@
 use crate::{error, expr::Expr, token::Token, token_type::TokenType};
-use std::hash::Hash;
 
 pub struct Parser<'a> {
     tokens: &'a [Token],
@@ -11,102 +10,90 @@ impl<'a> Parser<'a> {
         Self { tokens, current: 0 }
     }
 
-    // Entry point
+    // ---------- ENTRY ----------
     pub fn parse(&mut self) -> Expr {
-        let expr = self.statement();
-        if !self.is_at_end() {
-            error(
-                -1,
-                &format!(
-                    "Unexpected token at start of statement: {}",
-                    self.advance().token_type
-                ),
-            );
+        let mut statements = Vec::new();
+
+        while !self.is_at_end() {
+            statements.push(Box::new(self.statement()));
+            if !self.match_any(&[TokenType::SEMICOLON]) && !self.is_at_end() {
+                error(self.previous().line, "Expected ';' after statement.");
+            }
         }
-        expr
+
+        Expr::StmtBlock(statements)
     }
 
+    // ---------- STATEMENTS ----------
     fn statement(&mut self) -> Expr {
-        let statements = &[TokenType::DOLLAR, TokenType::HASH, TokenType::IDENTIFIER];
-        if !self.match_any(statements) {
-            let token = self.peek();
-            error(
-                token.line,
-                &format!(
-                    "Unexpected token at start of statement: {:?}",
-                    token.token_type
-                ),
-            );
+        if self.match_any(&[TokenType::DOLLAR]) {
+            return self.print();
         }
 
-        let mut exprs = Vec::new();
+        if self.match_any(&[TokenType::HASH]) {
+            return self.declaration();
+        }
 
-        loop {
-            match self.previous().token_type {
-                TokenType::DOLLAR => exprs.push(Box::new(self.print())),
-                TokenType::HASH => exprs.push(Box::new(self.hash())),
-                TokenType::IDENTIFIER => exprs.push(Box::new(self.identifier())),
-                _ => panic!(
-                    "TOKEN '{}' NOT RECOGNISED! INTERPRETER HORRIBLY PROGRAMMED!",
-                    self.previous().token_type
-                ),
-            }
+        if self.check(TokenType::IDENTIFIER) && self.peek_next(TokenType::EQUAL) {
+            self.advance();
+            return self.assignment();
+        }
 
-            self.consume(TokenType::SEMICOLON, "Expected \";\" after statement.");
+        self.expression()
+    }
 
-            if !self.match_any(statements) {
+    // ---------- BLOCK ----------
+    fn statement_block(&mut self) -> Expr {
+        let mut statements = Vec::new();
+
+        while !self.check(TokenType::RIGHT_BRACE) && !self.is_at_end() {
+            let stmt = self.statement();
+
+            // If next token is `}`, this is the LAST statement → no semicolon allowed
+            if self.check(TokenType::RIGHT_BRACE) {
+                statements.push(Box::new(stmt));
                 break;
             }
+
+            // Otherwise, semicolon is REQUIRED
+            self.consume(TokenType::SEMICOLON, "Expected ';' after statement.");
+            statements.push(Box::new(stmt));
         }
 
-        Expr::StmtBlock(exprs)
+        self.consume(TokenType::RIGHT_BRACE, "Expected '}' after block.");
+        Expr::StmtBlock(statements)
     }
 
-    /// Parse statements
+    // ---------- DECLARATION ----------
+    fn declaration(&mut self) -> Expr {
+        let is_mutable = self.match_any(&[TokenType::AT]);
+
+        self.consume(TokenType::IDENTIFIER, "Expected variable name.");
+        let name = self.previous().lexeme.clone();
+
+        self.consume(TokenType::EQUAL, "Expected '=' after variable name.");
+        let value = self.expression();
+
+        Expr::Declare(name, Box::new(value), is_mutable)
+    }
+
+    // ---------- ASSIGNMENT ----------
+    fn assignment(&mut self) -> Expr {
+        let name = self.previous().lexeme.clone();
+        self.consume(TokenType::EQUAL, "Expected '=' after identifier.");
+        Expr::Assign(name, Box::new(self.expression()))
+    }
+
+    // ---------- PRINT ----------
     fn print(&mut self) -> Expr {
         if self.peek().token_type == TokenType::SEMICOLON {
             Expr::Print(Box::new(Expr::Str("\n".to_string())))
         } else {
-            let expr = self.bools();
-            Expr::Print(Box::new(expr))
+            Expr::Print(Box::new(self.expression()))
         }
     }
 
-    fn hash(&mut self) -> Expr {
-        let is_mutable = self.match_any(&[TokenType::AT]);
-
-        self.consume(TokenType::IDENTIFIER, "Expected variable name after '#'.");
-        let name = self.previous().lexeme.clone();
-
-        self.consume(TokenType::EQUAL, "Expected '=' after declaring variable.");
-
-        Expr::Declare(name, Box::new(self.expression()), is_mutable)
-    }
-
-    fn identifier(&mut self) -> Expr {
-        let name = self.previous().lexeme.clone();
-
-        match self.peek().token_type {
-            TokenType::EQUAL => {
-                self.advance(); // ✅ consume '='
-                let value = self.expression();
-                Expr::Assign(name, Box::new(value))
-            }
-
-            _ => {
-                error(
-                    self.peek().line,
-                    &format!(
-                        "Unexpected token '{}' after identifier",
-                        self.peek().token_type
-                    ),
-                );
-                Expr::Num(0.0)
-            }
-        }
-    }
-
-    /// Parse expressions starting with booleans
+    // ---------- EXPRESSIONS ----------
     fn expression(&mut self) -> Expr {
         self.bools()
     }
@@ -115,12 +102,12 @@ impl<'a> Parser<'a> {
         let mut expr = self.compare();
 
         while self.match_any(&[TokenType::AND, TokenType::OR]) {
-            let operator = self.previous();
+            let op = self.previous().token_type;
             let right = self.compare();
-            expr = match operator.token_type {
+            expr = match op {
                 TokenType::AND => Expr::And(Box::new(expr), Box::new(right)),
                 TokenType::OR => Expr::Or(Box::new(expr), Box::new(right)),
-                _ => expr,
+                _ => unreachable!(),
             };
         }
 
@@ -133,21 +120,21 @@ impl<'a> Parser<'a> {
         while self.match_any(&[
             TokenType::EQUAL_EQUAL,
             TokenType::BANG_EQUAL,
-            TokenType::GREATER_EQUAL,
-            TokenType::LESS_EQUAL,
             TokenType::GREATER,
+            TokenType::GREATER_EQUAL,
             TokenType::LESS,
+            TokenType::LESS_EQUAL,
         ]) {
-            let operator = self.previous();
+            let op = self.previous().token_type;
             let right = self.term();
-            expr = match operator.token_type {
+            expr = match op {
                 TokenType::EQUAL_EQUAL => Expr::EqualEqual(Box::new(expr), Box::new(right)),
                 TokenType::BANG_EQUAL => Expr::BangEqual(Box::new(expr), Box::new(right)),
-                TokenType::GREATER_EQUAL => Expr::GreaterEqual(Box::new(expr), Box::new(right)),
-                TokenType::LESS_EQUAL => Expr::LessEqual(Box::new(expr), Box::new(right)),
-                TokenType::LESS => Expr::Less(Box::new(expr), Box::new(right)),
                 TokenType::GREATER => Expr::Greater(Box::new(expr), Box::new(right)),
-                _ => expr,
+                TokenType::GREATER_EQUAL => Expr::GreaterEqual(Box::new(expr), Box::new(right)),
+                TokenType::LESS => Expr::Less(Box::new(expr), Box::new(right)),
+                TokenType::LESS_EQUAL => Expr::LessEqual(Box::new(expr), Box::new(right)),
+                _ => unreachable!(),
             };
         }
 
@@ -158,12 +145,12 @@ impl<'a> Parser<'a> {
         let mut expr = self.factor();
 
         while self.match_any(&[TokenType::PLUS, TokenType::MINUS]) {
-            let operator = self.previous();
+            let op = self.previous().token_type;
             let right = self.factor();
-            expr = if operator.token_type == TokenType::PLUS {
-                Expr::Add(Box::new(expr), Box::new(right))
-            } else {
-                Expr::Sub(Box::new(expr), Box::new(right))
+            expr = match op {
+                TokenType::PLUS => Expr::Add(Box::new(expr), Box::new(right)),
+                TokenType::MINUS => Expr::Sub(Box::new(expr), Box::new(right)),
+                _ => unreachable!(),
             };
         }
 
@@ -174,13 +161,13 @@ impl<'a> Parser<'a> {
         let mut expr = self.unary();
 
         while self.match_any(&[TokenType::STAR, TokenType::SLASH, TokenType::MOD]) {
-            let operator = self.previous();
+            let op = self.previous().token_type;
             let right = self.unary();
-            expr = match operator.token_type {
+            expr = match op {
                 TokenType::STAR => Expr::Mult(Box::new(expr), Box::new(right)),
-                TokenType::MOD => Expr::Mod(Box::new(expr), Box::new(right)),
                 TokenType::SLASH => Expr::Divide(Box::new(expr), Box::new(right)),
-                _ => expr,
+                TokenType::MOD => Expr::Mod(Box::new(expr), Box::new(right)),
+                _ => unreachable!(),
             };
         }
 
@@ -189,14 +176,9 @@ impl<'a> Parser<'a> {
 
     fn unary(&mut self) -> Expr {
         if self.match_any(&[TokenType::MINUS]) {
-            let right = self.power();
-            Expr::Sub(Box::new(Expr::Num(0.0)), Box::new(right))
-        } else if self.match_any(&[TokenType::PLUS]) {
-            let right = self.power();
-            Expr::Add(Box::new(Expr::Num(0.0)), Box::new(right))
+            Expr::Sub(Box::new(Expr::Num(0.0)), Box::new(self.unary()))
         } else if self.match_any(&[TokenType::BANG]) {
-            let right = self.power();
-            Expr::Not(Box::new(right))
+            Expr::Not(Box::new(self.unary()))
         } else {
             self.power()
         }
@@ -206,23 +188,24 @@ impl<'a> Parser<'a> {
         let mut expr = self.primary();
 
         while self.match_any(&[TokenType::STAR_STAR]) {
-            let _operator = self.previous();
-            let right = self.primary();
-            expr = Expr::Power(Box::new(expr), Box::new(right));
+            expr = Expr::Power(Box::new(expr), Box::new(self.primary()));
         }
 
         expr
     }
 
+    // ---------- PRIMARY ----------
     fn primary(&mut self) -> Expr {
+        if self.match_any(&[TokenType::LEFT_BRACE]) {
+            return self.statement_block();
+        }
+
         if self.match_any(&[TokenType::IDENTIFIER]) {
-            let name = self.previous().lexeme.clone();
-            return Expr::Variable(name);
+            return Expr::Variable(self.previous().lexeme.clone());
         }
 
         if self.match_any(&[TokenType::INT, TokenType::FLOAT]) {
-            let val: f64 = self.previous().literal.parse().unwrap_or(0.0);
-            return Expr::Num(val);
+            return Expr::Num(self.previous().literal.parse().unwrap_or(0.0));
         }
 
         if self.match_any(&[TokenType::TRUE]) {
@@ -234,28 +217,24 @@ impl<'a> Parser<'a> {
         }
 
         if self.match_any(&[TokenType::STRING]) {
-            let val = self.previous().literal.clone();
-            return Expr::Str(val);
+            return Expr::Str(self.previous().literal.clone());
         }
 
         if self.match_any(&[TokenType::LEFT_PAREN]) {
             let expr = self.expression();
-            self.consume(TokenType::RIGHT_PAREN, "Expected ')' after expression.");
+            self.consume(TokenType::RIGHT_PAREN, "Expected ')'.");
             return expr;
         }
 
-        let token = self.peek();
-        error(
-            token.line,
-            &format!("Unexpected token: {:?}", token.token_type),
-        );
+        error(self.peek().line, "Unexpected token.");
+        self.advance();
         Expr::Num(0.0)
     }
 
-    // ----- Utilities -----
+    // ---------- UTIL ----------
     fn match_any(&mut self, types: &[TokenType]) -> bool {
         for t in types {
-            if self.check(t.clone()) {
+            if self.check(*t) {
                 self.advance();
                 return true;
             }
@@ -263,22 +242,24 @@ impl<'a> Parser<'a> {
         false
     }
 
-    fn consume(&mut self, token_type: TokenType, message: &str) -> Token {
-        if self.check(token_type.clone()) {
-            return self.advance();
-        }
-        error(
-            self.peek().line,
-            &format!("{} Found: {:?}", message, self.peek().token_type),
-        );
-        Token::nil()
+    fn check(&self, token_type: TokenType) -> bool {
+        !self.is_at_end() && self.peek().token_type == token_type
     }
 
-    fn check(&self, token_type: TokenType) -> bool {
-        if self.is_at_end() {
-            return false;
+    fn peek_next(&self, token_type: TokenType) -> bool {
+        self.tokens
+            .get(self.current + 1)
+            .map(|t| t.token_type == token_type)
+            .unwrap_or(false)
+    }
+
+    fn consume(&mut self, token_type: TokenType, message: &str) -> Token {
+        if self.check(token_type) {
+            self.advance()
+        } else {
+            error(self.peek().line, message);
+            Token::nil()
         }
-        self.peek().token_type == token_type
     }
 
     fn advance(&mut self) -> Token {
@@ -296,17 +277,33 @@ impl<'a> Parser<'a> {
         self.tokens
             .get(self.current)
             .cloned()
-            .unwrap_or_else(|| Token::nil())
+            .unwrap_or_else(Token::nil)
     }
 
     fn previous(&self) -> Token {
-        if self.current == 0 {
-            Token::nil()
-        } else {
-            self.tokens
-                .get(self.current - 1)
-                .cloned()
-                .unwrap_or_else(|| Token::nil())
-        }
+        self.tokens
+            .get(self.current.saturating_sub(1))
+            .cloned()
+            .unwrap_or_else(Token::nil)
     }
 }
+
+// Grammar:
+/*
+statement_block -> "{" ( statement )+ "}"
+statement       -> print | declaration | expression | return
+
+print           -> "$" expression ";"
+declaration     -> "#" ( "@" )? IDENTIFIER ( "=" expression )? ";"
+return          -> "ret" expression ";"
+
+expression      -> bool
+bool            -> compare ( ( "&" | "|" ) compare )*
+compare         -> term ( ( "==" | ">=" | "<=" | ">" | "<" | "!=" ) term )*
+term            -> factor ( ( "+" | "-" ) factor )*
+factor          -> unary ( ( "*" | "/" | "%" ) unary )*
+unary           -> ( "-" | "+" ) unary | power
+power           -> primary ( ( "**" ) primary )*
+primary         -> NUMBER | STRING | BOOLEAN | IDENTIFIER | "(" expression ")" | statement_block
+
+*/
