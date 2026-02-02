@@ -30,6 +30,10 @@ impl<'a> Parser<'a> {
             return self.print();
         }
 
+        if self.match_any(&[TokenType::FN]) {
+            return self.define_function();
+        }
+
         if self.match_any(&[TokenType::HASH]) {
             return self.declaration();
         }
@@ -55,9 +59,8 @@ impl<'a> Parser<'a> {
             }
 
             self.consume(TokenType::SEMICOLON, "Expected ';' after statement.");
-            statements.push(Box::new(stmt));
+            statements.push(Box::new(Expr::Discard(Box::new(stmt))));
         }
-
         self.consume(TokenType::RIGHT_BRACE, "Expected '}' after block.");
         Expr::StmtBlock(statements)
     }
@@ -72,7 +75,7 @@ impl<'a> Parser<'a> {
         self.consume(TokenType::EQUAL, "Expected '=' after variable name.");
         let value = self.expression();
 
-        Expr::Declare(name, Box::new(value), is_mutable)
+        Expr::DeclareAndAssign(name, Box::new(value), is_mutable)
     }
 
     // ---------- ASSIGNMENT ----------
@@ -82,19 +85,85 @@ impl<'a> Parser<'a> {
         Expr::Assign(name, Box::new(self.expression()))
     }
 
-    // ---------- PRINT ----------
+    // ------- IF / ELSE IF / ELSE ----
+
+    fn if_statement(&mut self) -> Expr {
+        let if_cond = self.expression();
+        // self.current += 1;
+        let if_block = if self.match_any(&[TokenType::LEFT_BRACE]) {
+            self.statement_block()
+        } else {
+            error(
+                self.previous().line,
+                ("Expected '{' after 'if' condition, found '".to_string()
+                    + self.previous().lexeme.as_str()
+                    + "'")
+                    .as_str(),
+            );
+            Expr::Num(0.0)
+        };
+
+        let mut else_block = None;
+
+        if self.match_any(&[TokenType::TILDE_QUESTION_MARK]) {
+            else_block = Some(Box::new(self.if_statement()));
+        } else if self.match_any(&[TokenType::TILDE]) {
+            self.consume(TokenType::LEFT_BRACE, "Expected '{' after 'TILDE'.");
+            else_block = Some(Box::new(self.statement_block()));
+        }
+
+        Expr::If(Box::new(if_cond), Box::new(if_block), else_block)
+    }
+    // ---------- PRINT ---------------
     fn print(&mut self) -> Expr {
         if self.peek().token_type == TokenType::DOLLAR {
             self.advance();
-            Expr::StmtBlock(vec![
+            Expr::StmtBlock(vec![Box::new(Expr::Add(
                 Box::new(self.print()),
-                Box::new(Expr::Print(Box::new(Expr::Str("\n".to_string())))),
-            ])
+                Box::new(Expr::Str("\n".to_string())),
+            ))])
         } else if self.peek().token_type == TokenType::SEMICOLON {
             Expr::Str(String::new())
         } else {
             Expr::Print(Box::new(self.expression()))
         }
+    }
+
+    // ---------- FUNCTIONS ------------
+
+    fn define_function(&mut self) -> Expr {
+        // let mut return_type = "[]".to_string();
+        let (return_type, name) =
+            if self.check(TokenType::IDENTIFIER) && self.peek_next(TokenType::IDENTIFIER) {
+                (self.advance().lexeme, self.advance().lexeme)
+            } else {
+                ("[]".to_string(), self.advance().lexeme)
+            };
+
+        let parameters = if self.match_any(&[TokenType::LEFT_BRACK]) {
+            self.consume(
+                TokenType::RIGHT_BRACK,
+                "Expected ']' after function parameters.",
+            );
+        };
+        self.consume(
+            TokenType::LEFT_BRACE,
+            "Expected '{' after function declaration.",
+        );
+
+        let body = Box::new(self.statement_block());
+
+        Expr::Function(name, body, return_type)
+    }
+
+    fn call_function(&mut self) -> Expr {
+        let name = self.previous().lexeme;
+
+        if self.match_any(&[TokenType::LEFT_PAREN]) {
+            self.consume(TokenType::RIGHT_PAREN, "Missing ')' after function call.");
+        }
+
+        Expr::CallFunc(name)
     }
 
     // ---------- EXPRESSIONS ----------
@@ -206,6 +275,11 @@ impl<'a> Parser<'a> {
             return self.statement_block();
         }
 
+        if self.check(TokenType::IDENTIFIER) && self.peek_next(TokenType::LEFT_PAREN) {
+            self.consume(TokenType::IDENTIFIER, "THIS SHOULD BE UNREACHABLE.");
+            return self.call_function();
+        }
+
         if self.match_any(&[TokenType::IDENTIFIER]) {
             return Expr::Variable(self.previous().lexeme.clone());
         }
@@ -226,10 +300,18 @@ impl<'a> Parser<'a> {
             return Expr::Str(self.previous().literal.clone());
         }
 
+        if self.match_any(&[TokenType::CHAR]) {
+            return Expr::Char(self.previous().literal.clone());
+        }
+
         if self.match_any(&[TokenType::LEFT_PAREN]) {
             let expr = self.expression();
             self.consume(TokenType::RIGHT_PAREN, "Expected ')'.");
             return expr;
+        }
+
+        if self.match_any(&[TokenType::QUESTION_MARK]) {
+            return self.if_statement();
         }
 
         error(
@@ -250,7 +332,6 @@ impl<'a> Parser<'a> {
         }
         false
     }
-
     fn check(&self, token_type: TokenType) -> bool {
         !self.is_at_end() && self.peek().token_type == token_type
     }
@@ -266,7 +347,10 @@ impl<'a> Parser<'a> {
         if self.check(token_type) {
             self.advance()
         } else {
-            error(self.peek().line, message);
+            error(
+                self.peek().line,
+                format!("{} Found: {}", message, self.peek().token_type).as_str(),
+            );
             Token::nil()
         }
     }
@@ -300,11 +384,15 @@ impl<'a> Parser<'a> {
 // Grammar:
 /*
 statement_block -> "{" ( statement )+ "}"
-statement       -> print | declaration | expression | return
+statement       -> print | declaration | expression | return | function
 
-print           -> "$" expression ";"
+print           -> "$" ( "$" )? expression ";"
 declaration     -> "#" ( "@" )? IDENTIFIER ( "=" expression )? ";"
 return          -> "ret" expression ";"
+
+if_statement    -> "?" expression statement_block ( "~?" expression statement_block )* ( "~" statement_block )?
+function_call   -> IDENTIFIER "(" (expression)* ")"
+function        -> "fn" (IDENTIFIER)? IDENTIFIER ( "[" (IDENTIFIER ":" IDENTIFIER)* "]" )? statement_block
 
 expression      -> bool
 bool            -> compare ( ( "&" | "|" ) compare )*
@@ -313,6 +401,6 @@ term            -> factor ( ( "+" | "-" ) factor )*
 factor          -> unary ( ( "*" | "/" | "%" ) unary )*
 unary           -> ( "-" | "+" ) unary | power
 power           -> primary ( ( "**" ) primary )*
-primary         -> NUMBER | STRING | BOOLEAN | IDENTIFIER | "(" expression ")" | statement_block
+primary         -> NUMBER | STRING | BOOLEAN | IDENTIFIER | "(" expression ")" | statement_block | if_statement | function_call
 
 */

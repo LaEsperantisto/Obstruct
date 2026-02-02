@@ -8,6 +8,7 @@ pub enum Expr {
     Num(f64),
     Bool(bool),
     Str(String),
+    Char(String),
 
     // Binary Operators
     Add(Box<Expr>, Box<Expr>),
@@ -31,11 +32,20 @@ pub enum Expr {
     // Statements
     StmtBlock(Vec<Box<Expr>>),
     Print(Box<Expr>),
+    Discard(Box<Expr>),
+
+    // Functions
+    Function(String, Box<Expr>, String),
+    CallFunc(String),
 
     // Variables
     Variable(String),
-    Declare(String, Box<Expr>, bool),
+    DeclareAndAssign(String, Box<Expr>, bool),
+    Declare(String, String, bool),
     Assign(String, Box<Expr>),
+
+    // Control Flow
+    If(Box<Expr>, Box<Expr>, Option<Box<Expr>>), // if condition, if block, else block
 }
 
 impl Expr {
@@ -58,7 +68,10 @@ impl Expr {
                 value_type: "str".to_string(),
                 value: s.clone(),
             },
-
+            Expr::Char(c) => Value {
+                value_type: "str".to_string(),
+                value: c.clone(),
+            },
             // ---- Binary Operators ----
             Expr::Add(l, r) => {
                 let lv = l.value(env);
@@ -71,7 +84,7 @@ impl Expr {
                         .to_string(),
                     },
                     _ => Value {
-                        value_type: "String".to_string(),
+                        value_type: "str".to_string(),
                         value: lv.value + &rv.value,
                     },
                 }
@@ -187,11 +200,7 @@ impl Expr {
                 let rv = r.value(env).value.parse::<f64>().unwrap_or(0.0);
                 Value {
                     value_type: "bool".to_string(),
-                    value: if lv > rv {
-                        "`t".to_string()
-                    } else {
-                        "`f".to_string()
-                    },
+                    value: if lv > rv { "`t" } else { "`f" }.to_string(),
                 }
             }
             Expr::And(l, r) => {
@@ -244,7 +253,7 @@ impl Expr {
                 val
             }
             Expr::Variable(var) => env.get(&var).value,
-            Expr::Declare(name, expr, is_mutable) => {
+            Expr::DeclareAndAssign(name, expr, is_mutable) => {
                 let value = expr.value(env);
                 env.declare(name.clone(), value.clone(), *is_mutable);
                 value
@@ -252,6 +261,38 @@ impl Expr {
             Expr::Assign(name, expr) => {
                 let value = expr.value(env);
                 env.assign(name, value);
+                nil()
+            }
+            Expr::If(if_cond, if_block, else_block) => {
+                if if_cond.value(env).is_true() {
+                    if_block.value(env)
+                } else if else_block.is_some() {
+                    else_block.clone().unwrap().value(env)
+                } else {
+                    nil()
+                }
+            }
+            Expr::Declare(name, var_type, is_mutable) => {
+                let func = env.get_func(format!("{}::new", var_type).as_str());
+                let val = func.0.value(env);
+                env.assign(name, val);
+                nil()
+            }
+            Expr::Function(name, block, return_type) => {
+                env.make_func(name, block.clone(), return_type);
+                nil()
+            }
+            Expr::CallFunc(name) => {
+                let func = env.get_func(name);
+                let val = func.0.value(env);
+                if val.value_type != func.1 {
+                    error(-1, format!("Return type of function is '{}', but return value was '{}' with type '{}'.", func.1, val.value, val.value_type).as_str());
+                }
+                val
+            }
+
+            Expr::Discard(expr) => {
+                let val = expr.value(env);
                 nil()
             }
         }

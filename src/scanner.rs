@@ -150,17 +150,17 @@ impl Scanner {
                 self.add_token(TokenType::HASH);
             }
             '@' => self.add_token(TokenType::AT),
+            '£' => self.add_token(TokenType::POUND),
+            '¬' => self.add_token(TokenType::NOT_SIGN),
             '/' => {
                 if self.match_char('/') {
+                    // Single-line comment
                     while self.peek() != '\n' && !self.is_at_end() {
                         self.advance();
                     }
-                } else if self.match_char('=') {
-                    while self.peek() != '=' && !self.is_at_end() && self.peek_next() != '\\' {
-                        self.advance();
-                    }
-                    self.advance();
-                    self.advance();
+                } else if self.match_char('*') {
+                    // Multi-line comment
+                    self.block_comment();
                 } else {
                     self.add_token(TokenType::SLASH);
                 }
@@ -195,7 +195,7 @@ impl Scanner {
     fn add_token_literal(&mut self, token_type: TokenType, literal: String) {
         let text: String = self.source[self.start..self.current].to_string();
         self.tokens
-            .push(Token::new(token_type, text, literal, self.line - 1));
+            .push(Token::new(token_type, text, literal, self.line));
     }
 
     fn match_char(&mut self, expected: char) -> bool {
@@ -218,11 +218,9 @@ impl Scanner {
     }
 
     fn peek_next(&self) -> char {
-        if self.current + 1 >= self.source.len() {
-            '\0'
-        } else {
-            self.source[self.current + 1..].chars().next().unwrap()
-        }
+        let mut chars = self.source[self.current..].chars();
+        chars.next();
+        chars.next().unwrap_or('\0')
     }
 
     fn is_alpha(&mut self, c: char) -> bool {
@@ -371,5 +369,24 @@ impl Scanner {
                 "Only a single character should be after a backtick (`)",
             );
         }
+    }
+
+    fn block_comment(&mut self) {
+        while !self.is_at_end() {
+            if self.peek() == '\n' {
+                self.line += 1;
+                self.advance();
+            } else if self.peek() == '*' {
+                self.advance();
+                if self.peek() == '/' {
+                    self.advance();
+                    return;
+                }
+            } else {
+                self.advance();
+            }
+        }
+
+        error(self.line, "Unterminated block comment.");
     }
 }

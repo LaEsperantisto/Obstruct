@@ -26,7 +26,7 @@ fn main() -> std::io::Result<()> {
         _ => "/home/aster/main.obs".to_string(),
     };
 
-    let source = fs::read_to_string(filepath)?;
+    let source = fs::read_to_string(filepath)? + "\n\nmain();";
 
     let mut scanner = Scanner::new(source);
     let tokens = scanner.scan_tokens();

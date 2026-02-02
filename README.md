@@ -216,18 +216,19 @@ fn main[args: Vec<str>] {
         y = y - 1.0;
     } ~ {
         y = 0.0;
-    }
+    };
     
     #temp: Vec<i32>;
     for i in 0..x {
       temp.push(i);
-    }
+    };
     
-    let result = add(x, y);
+    #result = add(x, y);
     $result;
-}
+};
 
 fn i32 add[a: i32, @b: i32] {
-    return a + b;
-}
+    b = a + b
+    b
+};
 ```

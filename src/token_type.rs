@@ -18,6 +18,7 @@ pub enum TokenType {
     AND,
     OR,
     POUND,
+    NOT_SIGN,
 
     // One or two character tokens
     STAR,
@@ -89,6 +90,7 @@ impl fmt::Display for TokenType {
             TokenType::AND => "AND",
             TokenType::OR => "OR",
             TokenType::POUND => "POUND",
+            TokenType::NOT_SIGN => "NOT_SIGN",
 
             // One or two character tokens
             TokenType::STAR => "STAR",
