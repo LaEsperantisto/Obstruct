@@ -49,13 +49,11 @@ impl<'a> Parser<'a> {
         while !self.check(TokenType::RIGHT_BRACE) && !self.is_at_end() {
             let stmt = self.statement();
 
-            // If next token is `}`, this is the LAST statement → no semicolon allowed
             if self.check(TokenType::RIGHT_BRACE) {
                 statements.push(Box::new(stmt));
                 break;
             }
 
-            // Otherwise, semicolon is REQUIRED
             self.consume(TokenType::SEMICOLON, "Expected ';' after statement.");
             statements.push(Box::new(stmt));
         }
@@ -86,8 +84,14 @@ impl<'a> Parser<'a> {
 
     // ---------- PRINT ----------
     fn print(&mut self) -> Expr {
-        if self.peek().token_type == TokenType::SEMICOLON {
-            Expr::Print(Box::new(Expr::Str("\n".to_string())))
+        if self.peek().token_type == TokenType::DOLLAR {
+            self.advance();
+            Expr::StmtBlock(vec![
+                Box::new(self.print()),
+                Box::new(Expr::Print(Box::new(Expr::Str("\n".to_string())))),
+            ])
+        } else if self.peek().token_type == TokenType::SEMICOLON {
+            Expr::Str(String::new())
         } else {
             Expr::Print(Box::new(self.expression()))
         }
@@ -177,6 +181,8 @@ impl<'a> Parser<'a> {
     fn unary(&mut self) -> Expr {
         if self.match_any(&[TokenType::MINUS]) {
             Expr::Sub(Box::new(Expr::Num(0.0)), Box::new(self.unary()))
+        } else if self.match_any(&[TokenType::MINUS, TokenType::PLUS]) {
+            Expr::Add(Box::new(Expr::Num(0.0)), Box::new(self.unary()))
         } else if self.match_any(&[TokenType::BANG]) {
             Expr::Not(Box::new(self.unary()))
         } else {
@@ -226,7 +232,10 @@ impl<'a> Parser<'a> {
             return expr;
         }
 
-        error(self.peek().line, "Unexpected token.");
+        error(
+            self.peek().line,
+            format!("Unexpected token '{}'", self.peek().token_type).as_str(),
+        );
         self.advance();
         Expr::Num(0.0)
     }

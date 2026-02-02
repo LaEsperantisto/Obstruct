@@ -77,6 +77,29 @@ for i in 0..5 {
 
 ---
 
+## Print
+
+In Obstruct, printing text onto the screen / terminal is not a function, but rather a
+statement. The equivalent of `print()` in many languages (or `print(end="")` python) is
+`$` in Obstruct:
+
+```Obstruct
+$"Hello, world!";
+```
+
+However, the equivalent of `println()` (or `print()` in python) is instead `$$`:
+
+```Obstruct
+$$1;
+$2;
+```
+
+As shown above, the `$` sign is succeeded by an expression, which will be printed onto
+the screen / terminal. Even though this is a statement, not an expression, it does
+however return the value of the expression.
+
+---
+
 ## Functions
 
 - Defining a function:
