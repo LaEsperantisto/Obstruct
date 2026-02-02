@@ -1,20 +1,18 @@
 use crate::error;
 use crate::expr::Expr;
-use crate::value::{nil, Value};
+use crate::value::{func_val, nil, Value};
 use crate::variable::Variable;
 use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct Environment {
     values: HashMap<String, Variable>,
-    funcs: HashMap<String, (Box<Expr>, String)>,
 }
 
 impl Environment {
     pub fn new() -> Self {
         Self {
             values: HashMap::new(),
-            funcs: HashMap::new(),
         }
     }
 
@@ -27,7 +25,7 @@ impl Environment {
 
     pub fn assign(&mut self, name: &str, value: Value) {
         if !self.get(name).is_mutable {
-            error(-1, "Variable not mutable");
+            error(-1, format!("Variable '{}' not mutable", name).as_str());
         }
         if self.get(name).value.value_type != value.value_type {
             error(
@@ -41,7 +39,7 @@ impl Environment {
                 .as_str(),
             );
         }
-        self.values.get_mut(name).unwrap().value = value;
+        self.values.get_mut(name).unwrap().value = value.clone();
     }
 
     pub fn get(&self, name: &str) -> Variable {
@@ -51,19 +49,57 @@ impl Environment {
         })
     }
 
-    pub fn get_func(&self, name: &str) -> (Box<Expr>, String) {
-        self.funcs.get(name).cloned().unwrap_or_else(|| {
-            error(-1, format!("Undefined variable '{}'", name).as_str());
-            nil_func()
-        })
+    pub fn get_func(&self, name: &str) -> (Box<Expr>, Vec<String>, String) {
+        self.values
+            .get(name)
+            .cloned()
+            .unwrap_or_else(|| {
+                error(-1, format!("Undefined variable '{}'", name).as_str());
+                nil_func()
+            })
+            .value
+            .body
+            .unwrap_or_else(|| {
+                error(-1, format!("Variable '{}' not function", name).as_str());
+                nil_func().value.body.unwrap()
+            })
     }
 
-    pub fn make_func(&mut self, name: &str, block: Box<Expr>, return_type: &str) {
-        self.funcs
-            .insert(name.to_string(), (block, return_type.to_string()));
+    pub fn make_func(
+        &mut self,
+        name: &str,
+        block: Box<Expr>,
+        return_type: &str,
+        parameters: Vec<String>,
+    ) {
+        if self.values.contains_key(name) && !self.values.get(name).unwrap().is_mutable {
+            error(
+                -1,
+                format!("Variable '{}' already defined as immutable", name).as_str(),
+            );
+        } else if self.values.contains_key(name)
+            && self.values.get(name).unwrap().value.value_type != "func"
+        {
+            error(
+                -1,
+                format!(
+                    "Variable '{}' already declared with type '{}'; could not define function.",
+                    name,
+                    self.values.get(name).unwrap().value.value_type
+                )
+                .as_str(),
+            );
+        }
+        self.values.insert(
+            name.to_string(),
+            Variable::new_func(block, parameters, return_type),
+        );
     }
 }
 
-fn nil_func() -> (Box<Expr>, String) {
-    (Box::new(Expr::StmtBlock(vec![])), "[]".to_string())
+fn nil_func() -> Variable {
+    Variable {
+        value: func_val((Box::new(Expr::StmtBlock(vec![])), vec![], "[]".to_string())),
+        is_mutable: false,
+    }
 }

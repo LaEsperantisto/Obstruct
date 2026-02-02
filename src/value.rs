@@ -1,10 +1,12 @@
 use crate::error;
+use crate::expr::Expr;
 use std::fmt;
 
 #[derive(Clone)]
 pub struct Value {
     pub value_type: String,
     pub value: String,
+    pub body: Option<(Box<Expr>, Vec<String>, String)>,
 }
 
 impl Value {
@@ -34,5 +36,14 @@ pub fn nil() -> Value {
     Value {
         value_type: "[]".to_string(),
         value: "".to_string(),
+        body: None,
+    }
+}
+
+pub fn func_val(body: (Box<Expr>, Vec<String>, String)) -> Value {
+    Value {
+        value_type: "func".to_string(),
+        value: "".to_string(),
+        body: Some(body),
     }
 }

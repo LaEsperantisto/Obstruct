@@ -55,6 +55,7 @@ impl Expr {
             Expr::Num(n) => Value {
                 value_type: "f64".to_string(),
                 value: n.to_string(),
+                body: None,
             },
             Expr::Bool(b) => Value {
                 value_type: "bool".to_string(),
@@ -63,14 +64,17 @@ impl Expr {
                 } else {
                     "`f".to_string()
                 },
+                body: None,
             },
             Expr::Str(s) => Value {
                 value_type: "str".to_string(),
                 value: s.clone(),
+                body: None,
             },
             Expr::Char(c) => Value {
                 value_type: "str".to_string(),
                 value: c.clone(),
+                body: None,
             },
             // ---- Binary Operators ----
             Expr::Add(l, r) => {
@@ -82,10 +86,12 @@ impl Expr {
                         value: (lv.value.parse::<f64>().unwrap_or(0.0)
                             + rv.value.parse::<f64>().unwrap_or(0.0))
                         .to_string(),
+                        body: None,
                     },
                     _ => Value {
                         value_type: "str".to_string(),
                         value: lv.value + &rv.value,
+                        body: None,
                     },
                 }
             }
@@ -95,6 +101,7 @@ impl Expr {
                 Value {
                     value_type: "f64".to_string(),
                     value: (lv - rv).to_string(),
+                    body: None,
                 }
             }
             Expr::Mult(l, r) => {
@@ -103,6 +110,7 @@ impl Expr {
                 Value {
                     value_type: "f64".to_string(),
                     value: (lv * rv).to_string(),
+                    body: None,
                 }
             }
             Expr::Divide(l, r) => {
@@ -117,6 +125,7 @@ impl Expr {
                 Value {
                     value_type: "f64".to_string(),
                     value: result.to_string(),
+                    body: None,
                 }
             }
             Expr::Mod(l, r) => {
@@ -125,6 +134,7 @@ impl Expr {
                 Value {
                     value_type: "f64".to_string(),
                     value: (lv % rv).to_string(),
+                    body: None,
                 }
             }
             Expr::Power(l, r) => {
@@ -133,6 +143,7 @@ impl Expr {
                 Value {
                     value_type: "f64".to_string(),
                     value: lv.powf(rv).to_string(),
+                    body: None,
                 }
             }
             Expr::EqualEqual(l, r) => {
@@ -145,6 +156,7 @@ impl Expr {
                     } else {
                         "`f".to_string()
                     },
+                    body: None,
                 }
             }
             Expr::BangEqual(l, r) => {
@@ -157,6 +169,7 @@ impl Expr {
                     } else {
                         "`f".to_string()
                     },
+                    body: None,
                 }
             }
             Expr::GreaterEqual(l, r) => {
@@ -169,6 +182,7 @@ impl Expr {
                     } else {
                         "`f".to_string()
                     },
+                    body: None,
                 }
             }
             Expr::LessEqual(l, r) => {
@@ -181,6 +195,7 @@ impl Expr {
                     } else {
                         "`f".to_string()
                     },
+                    body: None,
                 }
             }
             Expr::Less(l, r) => {
@@ -193,6 +208,7 @@ impl Expr {
                     } else {
                         "`f".to_string()
                     },
+                    body: None,
                 }
             }
             Expr::Greater(l, r) => {
@@ -201,6 +217,7 @@ impl Expr {
                 Value {
                     value_type: "bool".to_string(),
                     value: if lv > rv { "`t" } else { "`f" }.to_string(),
+                    body: None,
                 }
             }
             Expr::And(l, r) => {
@@ -213,6 +230,7 @@ impl Expr {
                     } else {
                         "`f".to_string()
                     },
+                    body: None,
                 }
             }
             Expr::Or(l, r) => {
@@ -225,6 +243,7 @@ impl Expr {
                     } else {
                         "`f".to_string()
                     },
+                    body: None,
                 }
             }
 
@@ -238,6 +257,7 @@ impl Expr {
                     } else {
                         "`f".to_string()
                     },
+                    body: None,
                 }
             }
             Expr::Print(r) => {
@@ -279,20 +299,20 @@ impl Expr {
                 nil()
             }
             Expr::Function(name, block, return_type) => {
-                env.make_func(name, block.clone(), return_type);
+                env.make_func(name, block.clone(), return_type, vec![]);
                 nil()
             }
             Expr::CallFunc(name) => {
                 let func = env.get_func(name);
                 let val = func.0.value(env);
-                if val.value_type != func.1 {
-                    error(-1, format!("Return type of function is '{}', but return value was '{}' with type '{}'.", func.1, val.value, val.value_type).as_str());
+                if val.value_type != func.2 {
+                    error(-1, format!("Return type of function is '{}', but return value was '{}' with type '{}'.", func.2, val.value, val.value_type).as_str());
                 }
                 val
             }
 
             Expr::Discard(expr) => {
-                let val = expr.value(env);
+                expr.value(env);
                 nil()
             }
         }

@@ -1,4 +1,5 @@
-use crate::value::Value;
+use crate::expr::Expr;
+use crate::value::{func_val, Value};
 use std::fmt;
 
 #[derive(Clone)]
@@ -10,6 +11,12 @@ pub struct Variable {
 impl Variable {
     pub fn new(value: Value, is_mutable: bool) -> Variable {
         Variable { value, is_mutable }
+    }
+    pub fn new_func(block: Box<Expr>, parameters: Vec<String>, return_type: &str) -> Variable {
+        Variable {
+            value: func_val((block, parameters, return_type.to_string())),
+            is_mutable: true,
+        }
     }
 }
 
