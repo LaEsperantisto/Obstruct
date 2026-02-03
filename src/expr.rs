@@ -4,6 +4,7 @@ use crate::{error, had_error};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
+    Nothing(),
     // Literals
     Num(f64),
     Bool(bool),
@@ -43,6 +44,7 @@ pub enum Expr {
     DeclareAndAssign(String, Box<Expr>, bool),
     Declare(String, String, bool),
     Assign(String, Box<Expr>),
+    Delete(String),
 
     // Control Flow
     If(Box<Expr>, Box<Expr>, Option<Box<Expr>>), // if condition, if block, else block
@@ -325,6 +327,12 @@ impl Expr {
                 expr.value(env);
                 nil()
             }
+
+            Expr::Delete(expr) => {
+                env.delete(&expr);
+                nil()
+            }
+            Expr::Nothing() => nil(),
         }
     }
 }

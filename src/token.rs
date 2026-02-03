@@ -1,5 +1,5 @@
 use crate::token_type::TokenType;
-use crate::token_type::TokenType::NIL;
+use crate::token_type::TokenType::Nil;
 
 #[derive(Clone)]
 pub struct Token {
@@ -24,7 +24,7 @@ impl Token {
 
     pub fn nil() -> Self {
         Self {
-            token_type: NIL,
+            token_type: Nil,
             lexeme: String::new(),
             literal: String::new(),
             line: -1,

@@ -96,6 +96,10 @@ impl Environment {
             Variable::new_func(block, parameters, return_type, is_mutable),
         );
     }
+
+    pub fn delete(&mut self, name: &str) {
+        self.values.remove(name);
+    }
 }
 
 fn nil_func() -> Variable {

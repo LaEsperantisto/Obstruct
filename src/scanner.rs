@@ -17,17 +17,17 @@ impl Scanner {
     pub fn new(source: String) -> Self {
         let mut keywords = HashMap::new();
 
-        keywords.insert("cls".into(), TokenType::CLS);
-        keywords.insert("ret".into(), TokenType::RET);
-        keywords.insert("comp".into(), TokenType::COMP);
-        keywords.insert("stc".into(), TokenType::STC);
-        keywords.insert("ovr".into(), TokenType::OVR);
-        keywords.insert("exit".into(), TokenType::EXIT);
-        keywords.insert("err".into(), TokenType::ERR);
-        keywords.insert("del".into(), TokenType::DEL);
-        keywords.insert("use".into(), TokenType::USE);
-        keywords.insert("for".into(), TokenType::FOR);
-        keywords.insert("fn".into(), TokenType::FN);
+        keywords.insert("cls".into(), TokenType::Cls);
+        keywords.insert("ret".into(), TokenType::Ret);
+        keywords.insert("comp".into(), TokenType::Comp);
+        keywords.insert("stc".into(), TokenType::Stc);
+        keywords.insert("ovr".into(), TokenType::Ovr);
+        keywords.insert("exit".into(), TokenType::Exit);
+        keywords.insert("err".into(), TokenType::Err);
+        keywords.insert("del".into(), TokenType::Del);
+        keywords.insert("use".into(), TokenType::Use);
+        keywords.insert("for".into(), TokenType::For);
+        keywords.insert("fn".into(), TokenType::Fn);
 
         Scanner {
             source,
@@ -62,96 +62,96 @@ impl Scanner {
     fn scan_token(&mut self) {
         let c = self.advance();
         match c {
-            '(' => self.add_token(TokenType::LEFT_PAREN),
-            ')' => self.add_token(TokenType::RIGHT_PAREN),
-            '{' => self.add_token(TokenType::LEFT_BRACE),
-            '}' => self.add_token(TokenType::RIGHT_BRACE),
-            '[' => self.add_token(TokenType::LEFT_BRACK),
-            ']' => self.add_token(TokenType::RIGHT_BRACK),
-            '&' => self.add_token(TokenType::AND),
-            '|' => self.add_token(TokenType::OR),
-            ',' => self.add_token(TokenType::COMMA),
-            '.' => self.add_token(TokenType::DOT),
-            '%' => self.add_token(TokenType::MOD),
+            '(' => self.add_token(TokenType::LeftParen),
+            ')' => self.add_token(TokenType::RightParen),
+            '{' => self.add_token(TokenType::LeftBrace),
+            '}' => self.add_token(TokenType::RightBrace),
+            '[' => self.add_token(TokenType::LeftBrack),
+            ']' => self.add_token(TokenType::RightBrack),
+            '&' => self.add_token(TokenType::And),
+            '|' => self.add_token(TokenType::Or),
+            ',' => self.add_token(TokenType::Comma),
+            '.' => self.add_token(TokenType::Dot),
+            '%' => self.add_token(TokenType::Mod),
             '-' => {
                 if self.match_char('>') {
-                    self.add_token(TokenType::MINUS_RIGHT);
+                    self.add_token(TokenType::MinusRight);
                 } else {
-                    self.add_token(TokenType::MINUS);
+                    self.add_token(TokenType::Minus);
                 }
             }
-            '+' => self.add_token(TokenType::PLUS),
-            ';' => self.add_token(TokenType::SEMICOLON),
+            '+' => self.add_token(TokenType::Plus),
+            ';' => self.add_token(TokenType::Semicolon),
             ':' => {
                 if self.match_char(':') {
-                    self.add_token(TokenType::DOUBLE_COLON);
+                    self.add_token(TokenType::DoubleColon);
                 } else {
-                    self.add_token(TokenType::COLON);
+                    self.add_token(TokenType::Colon);
                 }
             }
             '*' => {
                 if self.match_char('*') {
-                    self.add_token(TokenType::STAR_STAR);
+                    self.add_token(TokenType::StarStar);
                 } else {
-                    self.add_token(TokenType::STAR);
+                    self.add_token(TokenType::Star);
                 }
             }
             '~' => {
                 if self.match_char('?') {
-                    self.add_token(TokenType::TILDE_QUESTION_MARK);
+                    self.add_token(TokenType::TildeQuestionMark);
                 } else {
-                    self.add_token(TokenType::TILDE);
+                    self.add_token(TokenType::Tilde);
                 }
             }
-            '?' => self.add_token(TokenType::QUESTION_MARK),
+            '?' => self.add_token(TokenType::QuestionMark),
             '$' => {
                 if self.match_char('?') {
-                    self.add_token(TokenType::DOLLAR_QUESTION_MARK);
+                    self.add_token(TokenType::DollarQuestionMark);
                 } else {
-                    self.add_token(TokenType::DOLLAR);
+                    self.add_token(TokenType::Dollar);
                 }
             }
             '^' => {
                 if self.match_char('^') {
-                    self.add_token(TokenType::DOUBLE_UP_ARROW);
+                    self.add_token(TokenType::DoubleUpArrow);
                 } else {
-                    self.add_token(TokenType::UP_ARROW);
+                    self.add_token(TokenType::UpArrow);
                 }
             }
             '!' => {
                 if self.match_char('=') {
-                    self.add_token(TokenType::BANG_EQUAL);
+                    self.add_token(TokenType::BangEqual);
                 } else {
-                    self.add_token(TokenType::BANG);
+                    self.add_token(TokenType::Bang);
                 }
             }
             '=' => {
                 if self.match_char('=') {
-                    self.add_token(TokenType::EQUAL_EQUAL);
+                    self.add_token(TokenType::EqualEqual);
                 } else {
-                    self.add_token(TokenType::EQUAL);
+                    self.add_token(TokenType::Equal);
                 }
             }
             '<' => {
                 if self.match_char('=') {
-                    self.add_token(TokenType::LESS_EQUAL);
+                    self.add_token(TokenType::LessEqual);
                 } else {
-                    self.add_token(TokenType::LESS);
+                    self.add_token(TokenType::Less);
                 }
             }
             '>' => {
                 if self.match_char('=') {
-                    self.add_token(TokenType::GREATER_EQUAL);
+                    self.add_token(TokenType::GreaterEqual);
                 } else {
-                    self.add_token(TokenType::GREATER);
+                    self.add_token(TokenType::Greater);
                 }
             }
             '#' => {
-                self.add_token(TokenType::HASH);
+                self.add_token(TokenType::Hash);
             }
-            '@' => self.add_token(TokenType::AT),
-            '£' => self.add_token(TokenType::POUND),
-            '¬' => self.add_token(TokenType::NOT_SIGN),
+            '@' => self.add_token(TokenType::At),
+            '£' => self.add_token(TokenType::Pound),
+            '¬' => self.add_token(TokenType::NotSign),
             '/' => {
                 if self.match_char('/') {
                     // Single-line comment
@@ -162,7 +162,7 @@ impl Scanner {
                     // Multi-line comment
                     self.block_comment();
                 } else {
-                    self.add_token(TokenType::SLASH);
+                    self.add_token(TokenType::Slash);
                 }
             }
             ' ' | '\r' | '\t' => {}
@@ -242,7 +242,7 @@ impl Scanner {
             match c {
                 '"' => {
                     // End of string
-                    self.add_token_literal(TokenType::STRING, value);
+                    self.add_token_literal(TokenType::String, value);
                     return;
                 }
                 '\\' => {
@@ -287,10 +287,10 @@ impl Scanner {
                 self.advance();
             }
             let value = self.source[self.start..self.current].to_string();
-            self.add_token_literal(TokenType::FLOAT, value);
+            self.add_token_literal(TokenType::Float, value);
         } else {
             let value = self.source[self.start..self.current].to_string();
-            self.add_token_literal(TokenType::INT, value);
+            self.add_token_literal(TokenType::Int, value);
         }
     }
 
@@ -303,7 +303,7 @@ impl Scanner {
         if let Some(token_type) = self.keywords.get(&text) {
             self.add_token(*token_type);
         } else {
-            self.add_token(TokenType::IDENTIFIER);
+            self.add_token(TokenType::Ident);
         }
     }
 
@@ -355,10 +355,10 @@ impl Scanner {
 
         let c = self.advance();
         match c {
-            'f' => self.add_token(TokenType::FALSE),
-            't' => self.add_token(TokenType::TRUE),
+            'f' => self.add_token(TokenType::False),
+            't' => self.add_token(TokenType::True),
             's' => self.tokens.push(Token::new(
-                TokenType::STRING,
+                TokenType::String,
                 String::new(),
                 String::new(),
                 self.line,
