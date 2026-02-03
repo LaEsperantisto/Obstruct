@@ -357,6 +357,12 @@ impl Scanner {
         match c {
             'f' => self.add_token(TokenType::FALSE),
             't' => self.add_token(TokenType::TRUE),
+            's' => self.tokens.push(Token::new(
+                TokenType::STRING,
+                String::new(),
+                String::new(),
+                self.line,
+            )),
             _ => {
                 error(self.line, "Invalid character after backtick (`)");
                 return;

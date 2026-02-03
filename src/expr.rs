@@ -1,6 +1,6 @@
 use crate::environment::Environment;
-use crate::error;
 use crate::value::{nil, Value};
+use crate::{error, had_error};
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -35,7 +35,7 @@ pub enum Expr {
     Discard(Box<Expr>),
 
     // Functions
-    Function(String, Box<Expr>, String),
+    Function(String, Box<Expr>, String, bool),
     CallFunc(String),
 
     // Variables
@@ -88,11 +88,19 @@ impl Expr {
                         .to_string(),
                         body: None,
                     },
-                    _ => Value {
+                    ("str", "str") => Value {
                         value_type: "str".to_string(),
                         value: lv.value + &rv.value,
                         body: None,
                     },
+                    _ => {
+                        error(
+                            -1,
+                            format!("Could not add '{}' with '{}'", lv.value_type, rv.value_type)
+                                .as_str(),
+                        );
+                        nil()
+                    }
                 }
             }
             Expr::Sub(l, r) => {
@@ -151,7 +159,7 @@ impl Expr {
                 let rv = r.value(env);
                 Value {
                     value_type: "bool".to_string(),
-                    value: if lv.value == rv.value {
+                    value: if lv.value == rv.value && lv.value_type == rv.value_type {
                         "`t".to_string()
                     } else {
                         "`f".to_string()
@@ -262,7 +270,9 @@ impl Expr {
             }
             Expr::Print(r) => {
                 let val = r.value(env);
-                print!("{}", val.to_string());
+                if !had_error() {
+                    print!("{}", val.to_string());
+                }
                 val
             }
             Expr::StmtBlock(stmts) => {
@@ -295,11 +305,11 @@ impl Expr {
             Expr::Declare(name, var_type, is_mutable) => {
                 let func = env.get_func(format!("{}::new", var_type).as_str());
                 let val = func.0.value(env);
-                env.assign(name, val);
+                env.declare(name.to_string(), val, *is_mutable);
                 nil()
             }
-            Expr::Function(name, block, return_type) => {
-                env.make_func(name, block.clone(), return_type, vec![]);
+            Expr::Function(name, block, return_type, is_mutable) => {
+                env.make_func(name, block.clone(), return_type, vec![], *is_mutable);
                 nil()
             }
             Expr::CallFunc(name) => {

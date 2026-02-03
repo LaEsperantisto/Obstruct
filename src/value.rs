@@ -6,7 +6,7 @@ use std::fmt;
 pub struct Value {
     pub value_type: String,
     pub value: String,
-    pub body: Option<(Box<Expr>, Vec<String>, String)>,
+    pub body: Option<(Box<Expr>, Vec<(String, String)>, String)>,
 }
 
 impl Value {
@@ -28,7 +28,11 @@ impl Value {
 
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.value)
+        if self.value_type == "func" {
+            write!(f, "{}", self.body.clone().unwrap().2)
+        } else {
+            write!(f, "{}", self.value)
+        }
     }
 }
 
@@ -40,7 +44,7 @@ pub fn nil() -> Value {
     }
 }
 
-pub fn func_val(body: (Box<Expr>, Vec<String>, String)) -> Value {
+pub fn func_val(body: (Box<Expr>, Vec<(String, String)>, String)) -> Value {
     Value {
         value_type: "func".to_string(),
         value: "".to_string(),

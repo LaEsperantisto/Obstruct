@@ -155,9 +155,9 @@ statements.
 A Vec is a resizable list, similar to Rust's Vec. When a variable is declared as a Vec,
 but no value is assigned, it defaults to an empty Vec.
 
-- `Array`:
+- `arr`:
 
-An Array is declared like this: `[val1, val2]` and is not resizable. The size also needs
+An `arr`, aka `Array` in some languages, is declared like this: `[val1, val2]` and is not resizable. The size also needs
 to be known at compile type. The type of an Array is "declared" similar to Rust, but with
 brackets instead of parentheses, e.g. `[i32, i32]` for the position of a 2D object.
 

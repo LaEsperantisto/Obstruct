@@ -1,5 +1,8 @@
+#![allow(dead_code)]
+
 mod environment;
 mod expr;
+mod init;
 mod parser;
 mod scanner;
 mod token;
@@ -8,6 +11,7 @@ mod value;
 mod variable;
 
 use crate::environment::Environment;
+use crate::init::init;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
 use std::io::ErrorKind;
@@ -15,6 +19,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::{env, fs, io};
 
 static HAD_ERROR: AtomicBool = AtomicBool::new(false);
+
+pub fn had_error() -> bool {
+    HAD_ERROR.load(Ordering::Relaxed)
+}
 
 fn main() -> std::io::Result<()> {
     let mut args = env::args().skip(1);
@@ -26,6 +34,9 @@ fn main() -> std::io::Result<()> {
         _ => "/home/aster/main.obs".to_string(),
     };
 
+    let mut env = Environment::new();
+    init(&mut env);
+
     let source = fs::read_to_string(filepath)? + "\n\nmain();";
 
     let mut scanner = Scanner::new(source);
@@ -33,11 +44,10 @@ fn main() -> std::io::Result<()> {
     let mut parser = Parser::new(tokens);
     let expr = parser.parse();
 
-    let mut env = Environment::new();
-    if !HAD_ERROR.load(Ordering::Relaxed) {
+    if !had_error() {
         expr.value(&mut env);
         println!();
-        if HAD_ERROR.load(Ordering::Relaxed) {
+        if had_error() {
             Err(io::Error::new(ErrorKind::Other, "Error during execution"))
         } else {
             Ok(())

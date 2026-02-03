@@ -72,10 +72,28 @@ impl<'a> Parser<'a> {
         self.consume(TokenType::IDENTIFIER, "Expected variable name.");
         let name = self.previous().lexeme.clone();
 
-        self.consume(TokenType::EQUAL, "Expected '=' after variable name.");
-        let value = self.expression();
+        if self.match_any(&[TokenType::COLON]) {
+            let var_type = if self.match_any(&[TokenType::IDENTIFIER]) {
+                self.previous().lexeme.clone()
+            } else {
+                error(
+                    self.previous().line,
+                    format!(
+                        "Expected variable type after colon, but got '{}'.",
+                        self.previous().token_type
+                    )
+                    .as_str(),
+                );
+                String::from("[]")
+            };
 
-        Expr::DeclareAndAssign(name, Box::new(value), is_mutable)
+            Expr::Declare(name, var_type, is_mutable)
+        } else {
+            self.consume(TokenType::EQUAL, "Expected '=' after variable name.");
+            let value = self.expression();
+
+            Expr::DeclareAndAssign(name, Box::new(value), is_mutable)
+        }
     }
 
     // ---------- ASSIGNMENT ----------
@@ -132,7 +150,8 @@ impl<'a> Parser<'a> {
     // ---------- FUNCTIONS ------------
 
     fn define_function(&mut self) -> Expr {
-        // let mut return_type = "[]".to_string();
+        let is_mutable = self.match_any(&[TokenType::AT]);
+
         let (return_type, name) =
             if self.check(TokenType::IDENTIFIER) && self.peek_next(TokenType::IDENTIFIER) {
                 (self.advance().lexeme, self.advance().lexeme)
@@ -140,11 +159,14 @@ impl<'a> Parser<'a> {
                 ("[]".to_string(), self.advance().lexeme)
             };
 
-        let parameters = if self.match_any(&[TokenType::LEFT_BRACK]) {
+        let parameters: Vec<String> = if self.match_any(&[TokenType::LEFT_BRACK]) {
             self.consume(
                 TokenType::RIGHT_BRACK,
                 "Expected ']' after function parameters.",
             );
+            vec![]
+        } else {
+            vec![]
         };
         self.consume(
             TokenType::LEFT_BRACE,
@@ -153,7 +175,7 @@ impl<'a> Parser<'a> {
 
         let body = Box::new(self.statement_block());
 
-        Expr::Function(name, body, return_type)
+        Expr::Function(name, body, return_type, is_mutable)
     }
 
     fn call_function(&mut self) -> Expr {

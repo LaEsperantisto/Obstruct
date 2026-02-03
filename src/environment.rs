@@ -49,7 +49,7 @@ impl Environment {
         })
     }
 
-    pub fn get_func(&self, name: &str) -> (Box<Expr>, Vec<String>, String) {
+    pub fn get_func(&self, name: &str) -> (Box<Expr>, Vec<(String, String)>, String) {
         self.values
             .get(name)
             .cloned()
@@ -70,7 +70,8 @@ impl Environment {
         name: &str,
         block: Box<Expr>,
         return_type: &str,
-        parameters: Vec<String>,
+        parameters: Vec<(String, String)>,
+        is_mutable: bool,
     ) {
         if self.values.contains_key(name) && !self.values.get(name).unwrap().is_mutable {
             error(
@@ -92,7 +93,7 @@ impl Environment {
         }
         self.values.insert(
             name.to_string(),
-            Variable::new_func(block, parameters, return_type),
+            Variable::new_func(block, parameters, return_type, is_mutable),
         );
     }
 }
