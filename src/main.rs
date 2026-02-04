@@ -11,6 +11,7 @@ mod value;
 mod variable;
 
 use crate::environment::Environment;
+use crate::expr::Expr;
 use crate::init::init;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
@@ -40,14 +41,8 @@ fn main() -> std::io::Result<()> {
     init(&mut env);
 
     let source = fs::read_to_string(filepath)? + "\n\nmain();";
-    // unsafe {
-    //     SOURCE = &mut (fs::read_to_string(filepath)? + "\n\nmain();");
-    // }
 
-    let mut scanner = Scanner::new(source);
-    let tokens = scanner.scan_tokens();
-    let mut parser = Parser::new(tokens);
-    let expr = parser.parse();
+    let expr = compile(source);
 
     if !had_error() {
         expr.value(&mut env);
@@ -66,7 +61,7 @@ pub fn error(line: usize, column: usize, message: &str) {
     report(line, column, "".into(), message);
 }
 
-fn get_line(line: usize, column: usize) -> String {
+fn get_line(_line: usize, _column: usize) -> String {
     String::new()
 }
 
@@ -79,3 +74,11 @@ pub fn report(line: usize, column: usize, place: String, message: &str) {
 // fn get_source() -> String {
 //     unsafe { (*SOURCE).clone() }
 // }
+
+pub fn compile(source: String) -> Expr {
+    let mut scanner = Scanner::new(source);
+    let tokens = scanner.scan_tokens();
+    let mut parser = Parser::new(tokens);
+    let expr = parser.parse();
+    expr
+}

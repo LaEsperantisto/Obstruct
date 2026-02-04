@@ -242,7 +242,8 @@ impl Scanner {
     }
 
     fn is_alpha(&mut self, c: char) -> bool {
-        let output = (c.is_ascii_alphabetic() || c == '_') && !(c == '_' && self.prev_c == '_');
+        let output =
+            (c.is_ascii_alphabetic() || c == '_' || c == '¬') && !(c == '_' && self.prev_c == '_');
         self.prev_c = c;
         output
     }

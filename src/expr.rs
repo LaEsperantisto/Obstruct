@@ -51,7 +51,7 @@ pub enum Expr {
     If(Box<Expr>, Box<Expr>, Option<Box<Expr>>), // if condition, if block, else block
     While(Box<Expr>, Box<Expr>),
 
-    Custom(fn() -> Value),
+    Custom(fn(&mut Environment) -> Value),
 }
 
 impl Expr {
@@ -406,7 +406,7 @@ impl Expr {
 
             Expr::Nothing() => nil(),
 
-            Expr::Custom(func) => func(),
+            Expr::Custom(func) => func(env),
         }
     }
 }
