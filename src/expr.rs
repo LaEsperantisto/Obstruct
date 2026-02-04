@@ -27,6 +27,8 @@ pub enum Expr {
     And(Box<Expr>, Box<Expr>),
     Or(Box<Expr>, Box<Expr>),
 
+    Nth(Box<Expr>, Box<Expr>),
+
     // Unary Operators
     Not(Box<Expr>),
 
@@ -52,6 +54,7 @@ pub enum Expr {
     While(Box<Expr>, Box<Expr>),
 
     Custom(fn(&mut Environment) -> Value),
+    Custom2(fn(&mut Environment, Vec<Value>) -> Value),
 }
 
 impl Expr {
@@ -65,6 +68,7 @@ impl Expr {
                 value_type: "f64".to_string(),
                 value: n.to_string(),
                 body: None,
+                native: None,
             },
             Expr::Bool(b) => Value {
                 value_type: "bool".to_string(),
@@ -74,16 +78,19 @@ impl Expr {
                     "`f".to_string()
                 },
                 body: None,
+                native: None,
             },
             Expr::Str(s) => Value {
                 value_type: "str".to_string(),
                 value: s.clone(),
                 body: None,
+                native: None,
             },
             Expr::Char(c) => Value {
                 value_type: "str".to_string(),
                 value: c.clone(),
                 body: None,
+                native: None,
             },
             // ---- Binary Operators ----
             Expr::Add(l, r) => {
@@ -96,16 +103,19 @@ impl Expr {
                             + rv.value.parse::<f64>().unwrap_or(0.0))
                         .to_string(),
                         body: None,
+                        native: None,
                     },
                     ("str", "str") => Value {
                         value_type: "str".to_string(),
                         value: lv.value + &rv.value,
                         body: None,
+                        native: None,
                     },
                     ("f64", "str") => Value {
                         value_type: "str".to_string(),
                         value: lv.value + &rv.value,
                         body: None,
+                        native: None,
                     },
                     _ => {
                         error(
@@ -125,6 +135,7 @@ impl Expr {
                     value_type: "f64".to_string(),
                     value: (lv - rv).to_string(),
                     body: None,
+                    native: None,
                 }
             }
             Expr::Mult(l, r) => {
@@ -134,6 +145,7 @@ impl Expr {
                     value_type: "f64".to_string(),
                     value: (lv * rv).to_string(),
                     body: None,
+                    native: None,
                 }
             }
             Expr::Divide(l, r) => {
@@ -149,6 +161,7 @@ impl Expr {
                     value_type: "f64".to_string(),
                     value: result.to_string(),
                     body: None,
+                    native: None,
                 }
             }
             Expr::Mod(l, r) => {
@@ -158,6 +171,7 @@ impl Expr {
                     value_type: "f64".to_string(),
                     value: (lv % rv).to_string(),
                     body: None,
+                    native: None,
                 }
             }
             Expr::Power(l, r) => {
@@ -167,6 +181,7 @@ impl Expr {
                     value_type: "f64".to_string(),
                     value: lv.powf(rv).to_string(),
                     body: None,
+                    native: None,
                 }
             }
             Expr::EqualEqual(l, r) => {
@@ -180,6 +195,7 @@ impl Expr {
                         "`f".to_string()
                     },
                     body: None,
+                    native: None,
                 }
             }
             Expr::BangEqual(l, r) => {
@@ -193,6 +209,7 @@ impl Expr {
                         "`f".to_string()
                     },
                     body: None,
+                    native: None,
                 }
             }
             Expr::GreaterEqual(l, r) => {
@@ -206,6 +223,7 @@ impl Expr {
                         "`f".to_string()
                     },
                     body: None,
+                    native: None,
                 }
             }
             Expr::LessEqual(l, r) => {
@@ -219,6 +237,7 @@ impl Expr {
                         "`f".to_string()
                     },
                     body: None,
+                    native: None,
                 }
             }
             Expr::Less(l, r) => {
@@ -232,6 +251,7 @@ impl Expr {
                         "`f".to_string()
                     },
                     body: None,
+                    native: None,
                 }
             }
             Expr::Greater(l, r) => {
@@ -241,6 +261,7 @@ impl Expr {
                     value_type: "bool".to_string(),
                     value: if lv > rv { "`t" } else { "`f" }.to_string(),
                     body: None,
+                    native: None,
                 }
             }
             Expr::And(l, r) => {
@@ -254,6 +275,7 @@ impl Expr {
                         "`f".to_string()
                     },
                     body: None,
+                    native: None,
                 }
             }
             Expr::Or(l, r) => {
@@ -267,6 +289,7 @@ impl Expr {
                         "`f".to_string()
                     },
                     body: None,
+                    native: None,
                 }
             }
 
@@ -281,6 +304,7 @@ impl Expr {
                         "`f".to_string()
                     },
                     body: None,
+                    native: None,
                 }
             }
             Expr::Print(r) => {
@@ -340,6 +364,18 @@ impl Expr {
                 nil()
             }
             Expr::CallFunc(name, arguments) => {
+                let var = env.get(name);
+
+                if let Some(native) = var.value.native {
+                    let mut args = vec![];
+
+                    for arg in arguments {
+                        args.push(arg.value(env));
+                    }
+
+                    return native(env, args);
+                }
+
                 let (body, params, return_type) = env.get_func(name);
 
                 if params.len() != arguments.len() {
@@ -375,8 +411,8 @@ impl Expr {
                         0,
                         0,
                         format!(
-                            "Return type of function is '{}', but got '{}' with type '{}'.",
-                            return_type, result.value, result.value_type
+                            "Return type of function is '{}', but got type '{}'.",
+                            return_type, result.value_type
                         )
                         .as_str(),
                     );
@@ -402,11 +438,22 @@ impl Expr {
                 nil()
             }
 
+            Expr::Nth(l, r) => {
+                let val = l.value(env);
+                Expr::CallFunc(
+                    format!("{}::nth", val.value_type).to_string(),
+                    vec![l.clone(), r.clone()],
+                )
+                .value(env)
+            }
+
             Expr::This() => Expr::Variable(env.this()).value(env),
 
             Expr::Nothing() => nil(),
 
             Expr::Custom(func) => func(env),
+
+            Expr::Custom2(func) => func(env, vec![]),
         }
     }
 }

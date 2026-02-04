@@ -1,6 +1,6 @@
 use crate::error;
 use crate::expr::Expr;
-use crate::value::{func_val, nil, Value};
+use crate::value::{func_val, native_func, nil, Value};
 use crate::variable::Variable;
 use std::collections::HashMap;
 
@@ -18,11 +18,7 @@ impl Environment {
         }
     }
 
-    // ---------- SCOPES ----------
-
-    pub fn new_this(&mut self, this: &str) {
-        self.this.push(this.to_string());
-    }
+    // ------------ THIS -----------
 
     pub fn end_this(&mut self) {
         self.this.pop();
@@ -31,6 +27,12 @@ impl Environment {
     pub fn this(&self) -> String {
         self.this.last().unwrap().clone()
     }
+
+    pub fn new_this(&mut self, this: &str) {
+        self.this.push(this.to_string());
+    }
+
+    // ---------- SCOPES ----------
 
     pub fn push_scope(&mut self) {
         self.scopes.push(HashMap::new());
@@ -133,6 +135,10 @@ impl Environment {
             name.to_string(),
             Variable::new_func(block, parameters, return_type, is_mutable),
         );
+    }
+    pub fn declare_native(&mut self, name: &str, func: fn(&mut Environment, Vec<Value>) -> Value) {
+        let scope = self.scopes.last_mut().unwrap();
+        scope.insert(name.to_string(), Variable::new(native_func(func), false));
     }
 
     pub fn get_func(&self, name: &str) -> (Box<Expr>, Vec<(String, String)>, String) {

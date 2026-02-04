@@ -124,7 +124,7 @@ impl<'a> Parser<'a> {
 
         if self.match_any(&[TokenType::Colon]) {
             let var_type = if self.match_any(&[TokenType::Ident]) {
-                self.previous().lexeme.clone()
+                self.r#type()
             } else {
                 let t = self.peek();
                 error(
@@ -210,9 +210,36 @@ impl<'a> Parser<'a> {
 
         let (return_type, name) =
             if self.check(TokenType::Ident) && self.peek_next(TokenType::Ident) {
-                (self.advance().lexeme, self.advance().lexeme)
+                // fn int foo
+                let t = self.advance().lexeme;
+                let n = self.advance().lexeme;
+                (t, n)
+            } else if self.check(TokenType::LeftBrack) {
+                // fn [type] foo
+                let t = self.r#type();
+                if self.check(TokenType::Ident) {
+                    let n = self.advance().lexeme;
+                    (t, n)
+                } else {
+                    let tok = self.peek();
+                    error(
+                        tok.line,
+                        tok.column,
+                        "Expected function name after return type.",
+                    );
+                    (t, String::new())
+                }
+            } else if self.check(TokenType::Ident) {
+                let n = self.advance().lexeme;
+                ("[]".to_string(), n)
             } else {
-                ("[]".to_string(), self.advance().lexeme)
+                let t = self.peek();
+                error(
+                    t.line,
+                    t.column,
+                    format!("Expected function name. Found: {}", t.token_type).as_str(),
+                );
+                ("[]".to_string(), String::new())
             };
 
         let parameters: Vec<(String, String)> = if self.match_any(&[TokenType::LeftBrack]) {
@@ -364,13 +391,24 @@ impl<'a> Parser<'a> {
     }
 
     fn power(&mut self) -> Expr {
-        let mut expr = self.primary();
+        let mut expr = self.nth();
 
         while self.match_any(&[TokenType::StarStar]) {
-            expr = Expr::Power(Box::new(expr), Box::new(self.primary()));
+            expr = Expr::Power(Box::new(expr), Box::new(self.nth()));
         }
 
         expr
+    }
+
+    fn nth(&mut self) -> Expr {
+        let val = self.primary();
+        if self.match_any(&[TokenType::LeftBrack]) {
+            let expr = self.expression();
+            self.consume(TokenType::RightBrack, "Expected ']' after indexing.");
+            Expr::Nth(Box::new(val), Box::new(expr))
+        } else {
+            val
+        }
     }
 
     // ---------- PRIMARY ----------
@@ -422,6 +460,29 @@ impl<'a> Parser<'a> {
             return Expr::This();
         }
         Expr::Nothing()
+    }
+
+    fn r#type(&mut self) -> String {
+        if self.match_any(&[TokenType::Ident]) {
+            self.previous().literal
+        } else {
+            self.consume(TokenType::LeftBrack, "Expected '['.");
+
+            let mut output = String::from("[");
+
+            if !self.check(TokenType::RightBrack) {
+                loop {
+                    output.push_str(&self.r#type());
+                    if !self.match_any(&[TokenType::Comma]) {
+                        break;
+                    }
+                }
+            }
+
+            self.consume(TokenType::RightBrack, "Expected ']' after type.");
+            output.push(']');
+            output
+        }
     }
 
     // ---------- UTIL ----------
@@ -491,13 +552,15 @@ statement_block -> "{" ( statement )+ "}"
 statement       -> ( print | declaration | expression | return | function ) ";"
 
 print           -> "$" ( "$" )? expression
-declaration     -> "#" ( "@" )? IDENTIFIER ( "=" expression )?
+declaration     -> "#" ( "@" )? IDENTIFIER ( ":" type )? ( "=" expression )? // need one or both
 return          -> "ret" expression
 while           -> "£" expression statement_block
 
 if_statement    -> "?" expression statement_block ( "~?" expression statement_block )* ( "~" statement_block )?
 function_call   -> IDENTIFIER "(" (expression)* ")"
-function        -> "fn" (IDENTIFIER)? IDENTIFIER ( "[" (IDENTIFIER ":" IDENTIFIER)* "]" )? statement_block
+function        -> "fn" (type)? IDENTIFIER ( "[" (IDENTIFIER ":" IDENTIFIER)* "]" )? statement_block
+
+type            -> IDENTIFIER | "[" type* "]"
 
 expression      -> bool
 bool            -> compare ( ( "&" | "|" ) compare )*
@@ -505,7 +568,8 @@ compare         -> term ( ( "==" | ">=" | "<=" | ">" | "<" | "!=" ) term )*
 term            -> factor ( ( "+" | "-" ) factor )*
 factor          -> unary ( ( "*" | "/" | "%" ) unary )*
 unary           -> ( "-" | "+" ) unary | power
-power           -> primary ( ( "**" ) primary )*
+power           -> nth ( ( "**" ) nth )*
+nth             -> primary ( "[" expression "]" )?
 primary         -> NUMBER | STRING | BOOLEAN | IDENTIFIER | "(" expression ")" | statement_block | if_statement | function_call
 
 */
