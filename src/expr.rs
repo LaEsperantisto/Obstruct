@@ -1,4 +1,5 @@
-use crate::environment::Environment;
+use crate::env::Environment;
+use crate::type_env::TypeEnvironment;
 use crate::value::{nil, Value};
 use crate::{error, had_error};
 
@@ -6,7 +7,8 @@ use crate::{error, had_error};
 pub enum Expr {
     Nothing(),
     // Literals
-    Num(f64),
+    Float(f64),
+    Int(i32),
     Bool(bool),
     Str(String),
     Char(String),
@@ -14,7 +16,7 @@ pub enum Expr {
     // Binary Operators
     Add(Box<Expr>, Box<Expr>),
     Sub(Box<Expr>, Box<Expr>),
-    Mult(Box<Expr>, Box<Expr>),
+    Mul(Box<Expr>, Box<Expr>),
     Divide(Box<Expr>, Box<Expr>),
     Mod(Box<Expr>, Box<Expr>),
     Power(Box<Expr>, Box<Expr>),
@@ -64,8 +66,14 @@ impl Expr {
         }
         match self {
             // ---- Literals ----
-            Expr::Num(n) => Value {
+            Expr::Float(n) => Value {
                 value_type: "f64".to_string(),
+                value: n.to_string(),
+                body: None,
+                native: None,
+            },
+            Expr::Int(n) => Value {
+                value_type: "i32".to_string(),
                 value: n.to_string(),
                 body: None,
                 native: None,
@@ -111,7 +119,7 @@ impl Expr {
                         body: None,
                         native: None,
                     },
-                    ("f64", "str") => Value {
+                    (_, "str") | ("str", _) => Value {
                         value_type: "str".to_string(),
                         value: lv.value + &rv.value,
                         body: None,
@@ -138,7 +146,7 @@ impl Expr {
                     native: None,
                 }
             }
-            Expr::Mult(l, r) => {
+            Expr::Mul(l, r) => {
                 let lv = l.value(env).value.parse::<f64>().unwrap_or(0.0);
                 let rv = r.value(env).value.parse::<f64>().unwrap_or(0.0);
                 Value {
@@ -397,7 +405,7 @@ impl Expr {
                 for i in 0..params.len() {
                     let arg_val = arguments[i].value(env);
                     if arg_val.value_type != params[i].1 {
-                        error(0,0, format!("Expected type '{}', but got '{}' with type '{}' in function call '{}'",arg_val.value_type,params[i].0,params[i].1,name).as_str())
+                        error(0, 0, format!("Expected type '{}', but got '{}' with type '{}' in function call '{}'", arg_val.value_type, params[i].0, params[i].1, name).as_str())
                     }
                     env.declare(params[i].0.clone(), arg_val, false);
                 }
@@ -454,6 +462,149 @@ impl Expr {
             Expr::Custom(func) => func(env),
 
             Expr::Custom2(func) => func(env, vec![]),
+        }
+    }
+
+    pub fn type_of(&self, tenv: &mut TypeEnvironment) -> String {
+        match self {
+            Expr::Float(_) => "f64".into(),
+            Expr::Int(_) => "i32".into(),
+            Expr::Bool(_) => "bool".into(),
+            Expr::Str(_) => "str".into(),
+            Expr::Char(_) => "str".into(),
+
+            Expr::Add(l, r) => {
+                let lt = l.type_of(tenv);
+                let rt = r.type_of(tenv);
+
+                match (lt.as_str(), rt.as_str()) {
+                    ("f64", "f64") => "f64".into(),
+                    ("str", _) | (_, "str") => "str".into(),
+                    _ => panic!("Type error: cannot add {} + {}", lt, rt),
+                }
+            }
+
+            Expr::Sub(l, r)
+            | Expr::Mul(l, r)
+            | Expr::Divide(l, r)
+            | Expr::Mod(l, r)
+            | Expr::Power(l, r) => {
+                let lt = l.type_of(tenv);
+                let rt = r.type_of(tenv);
+
+                if lt != "f64" || rt != "f64" {
+                    panic!("Type error: arithmetic requires f64");
+                }
+
+                "f64".into()
+            }
+
+            Expr::EqualEqual(_, _)
+            | Expr::BangEqual(_, _)
+            | Expr::Greater(_, _)
+            | Expr::GreaterEqual(_, _)
+            | Expr::Less(_, _)
+            | Expr::LessEqual(_, _) => "bool".into(),
+
+            Expr::And(l, r) | Expr::Or(l, r) => {
+                if l.type_of(tenv) != "bool" || r.type_of(tenv) != "bool" {
+                    panic!("Type error: logical ops need bool");
+                }
+                "bool".into()
+            }
+
+            Expr::Not(e) => {
+                if e.type_of(tenv) != "bool" {
+                    panic!("Type error: ! needs bool");
+                }
+                "bool".into()
+            }
+
+            Expr::Variable(name) => tenv.get(name),
+
+            Expr::DeclareAndAssign(name, expr, _) => {
+                let t = expr.type_of(tenv);
+                tenv.declare(name.clone(), t.clone());
+                t
+            }
+
+            Expr::Declare(name, ty, _) => {
+                tenv.declare(name.clone(), ty.clone());
+                "[]".into()
+            }
+
+            Expr::Assign(name, expr) => {
+                let expected = tenv.get(name);
+                let got = expr.type_of(tenv);
+
+                if expected != got {
+                    panic!("Type error: expected {}, got {}", expected, got);
+                }
+
+                expected
+            }
+
+            Expr::StmtBlock(stmts) => {
+                tenv.push();
+                let mut last = "[]".to_string();
+                for s in stmts {
+                    last = s.type_of(tenv);
+                }
+                tenv.pop();
+                last
+            }
+
+            Expr::If(cond, a, b) => {
+                if cond.type_of(tenv) != "bool" {
+                    panic!("if condition must be bool");
+                }
+
+                let t1 = a.type_of(tenv);
+                let t2 = b.as_ref().map(|x| x.type_of(tenv)).unwrap_or("[]".into());
+
+                if t1 != t2 {
+                    panic!("if branches return different types");
+                }
+
+                t1
+            }
+
+            Expr::While(cond, _) => {
+                if cond.type_of(tenv) != "bool" {
+                    panic!("while condition must be bool");
+                }
+                "[]".into()
+            }
+
+            Expr::Function(name, body, return_type, _, params) => {
+                tenv.declare(name.clone(), "func".into());
+
+                tenv.push();
+                for (p, t) in params {
+                    tenv.declare(p.clone(), t.clone());
+                }
+
+                let actual = body.type_of(tenv);
+                tenv.pop();
+
+                if &actual != return_type {
+                    panic!(
+                        "Function {} should return {}, got {}",
+                        name, return_type, actual
+                    );
+                }
+
+                "func".into()
+            }
+
+            Expr::CallFunc(_, _) => {
+                // you can later store full function signatures
+                "unknown".into()
+            }
+
+            Expr::Nothing() => "[]".into(),
+
+            _ => "[]".into(),
         }
     }
 }

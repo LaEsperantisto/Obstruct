@@ -123,18 +123,7 @@ impl<'a> Parser<'a> {
         let name = self.previous().lexeme.clone();
 
         if self.match_any(&[TokenType::Colon]) {
-            let var_type = if self.match_any(&[TokenType::Ident]) {
-                self.r#type()
-            } else {
-                let t = self.peek();
-                error(
-                    t.line,
-                    t.column,
-                    format!("Expected variable type after colon, found {}", t.token_type).as_str(),
-                );
-
-                String::from("[]")
-            };
+            let var_type = self.r#type();
 
             Expr::Declare(name, var_type, is_mutable)
         } else {
@@ -368,7 +357,7 @@ impl<'a> Parser<'a> {
             let op = self.previous().token_type;
             let right = self.unary();
             expr = match op {
-                TokenType::Star => Expr::Mult(Box::new(expr), Box::new(right)),
+                TokenType::Star => Expr::Mul(Box::new(expr), Box::new(right)),
                 TokenType::Slash => Expr::Divide(Box::new(expr), Box::new(right)),
                 TokenType::Mod => Expr::Mod(Box::new(expr), Box::new(right)),
                 _ => unreachable!(),
@@ -426,8 +415,12 @@ impl<'a> Parser<'a> {
             return Expr::Variable(self.previous().lexeme.clone());
         }
 
-        if self.match_any(&[TokenType::Int, TokenType::Float]) {
-            return Expr::Num(self.previous().literal.parse().unwrap_or(0.0));
+        if self.match_any(&[TokenType::Float]) {
+            return Expr::Float(self.previous().literal.parse().unwrap_or(0.0));
+        }
+
+        if self.match_any(&[TokenType::Int]) {
+            return Expr::Int(self.previous().literal.parse().unwrap_or(0));
         }
 
         if self.match_any(&[TokenType::True]) {

@@ -1,23 +1,25 @@
 #![allow(dead_code)]
 
-mod environment;
+mod env;
 mod expr;
 mod init;
 mod parser;
 mod scanner;
 mod token;
 mod token_type;
+mod type_env;
 mod value;
 mod variable;
 
-use crate::environment::Environment;
+use crate::env::Environment;
 use crate::expr::Expr;
 use crate::init::init;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
+use crate::type_env::TypeEnvironment;
 use std::io::ErrorKind;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::{env, fs, io};
+use std::{fs, io};
 
 static HAD_ERROR: AtomicBool = AtomicBool::new(false);
 
@@ -28,7 +30,7 @@ pub fn had_error() -> bool {
 }
 
 fn main() -> std::io::Result<()> {
-    let mut args = env::args().skip(1);
+    let mut args = std::env::args().skip(1);
 
     let arg1 = args.next();
 
@@ -38,6 +40,7 @@ fn main() -> std::io::Result<()> {
     };
 
     let mut env = Environment::new();
+    let mut tenv = TypeEnvironment::new();
     init(&mut env);
 
     let source = fs::read_to_string(filepath)? + "\n\nmain();";
@@ -45,12 +48,21 @@ fn main() -> std::io::Result<()> {
     let expr = compile(source);
 
     if !had_error() {
-        expr.value(&mut env);
-        println!();
+        expr.type_of(&mut tenv);
+
         if had_error() {
-            Err(io::Error::new(ErrorKind::Other, "Error during execution"))
+            Err(io::Error::new(
+                ErrorKind::Other,
+                "Error during type verification",
+            ))
         } else {
-            Ok(())
+            expr.value(&mut env);
+            println!();
+            if had_error() {
+                Err(io::Error::new(ErrorKind::Other, "Error during execution"))
+            } else {
+                Ok(())
+            }
         }
     } else {
         Err(io::Error::new(ErrorKind::Other, "Error during parsing"))

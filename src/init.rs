@@ -1,13 +1,14 @@
-use crate::environment::Environment;
+use crate::env::Environment;
 use crate::error;
 use crate::expr::Expr;
-use crate::expr::Expr::{Num, Str};
+use crate::expr::Expr::{Float, Nothing, Str};
 use crate::value::{nil, Value};
 use std::io;
 
 pub fn init(env: &mut Environment) {
-    env.make_func("i32::new", Box::new(Num(0.0)), "i32", vec![], false);
-    env.make_func("f64::new", Box::new(Num(0.0)), "f64", vec![], false);
+    env.make_func("i32::new", Box::new(Float(0.0)), "i32", vec![], false);
+    env.make_func("f64::new", Box::new(Float(0.0)), "f64", vec![], false);
+    env.make_func("[]::new", Box::new(Nothing()), "[]", vec![], false);
     env.make_func(
         "str::new",
         Box::new(Str(String::new())),
@@ -64,7 +65,7 @@ fn native_len(_: &mut Environment, args: Vec<Value>) -> Value {
     }
 }
 
-fn native_str_nth(env: &mut Environment, args: Vec<Value>) -> Value {
+fn native_str_nth(_env: &mut Environment, args: Vec<Value>) -> Value {
     if args.len() != 2 {
         error(
             0,
@@ -80,12 +81,26 @@ fn native_str_nth(env: &mut Environment, args: Vec<Value>) -> Value {
 
     let left = args.get(0).unwrap();
     let right = args.get(1).unwrap();
-    if right.value_type != "f64" {
+    if right.value_type != "i32" {
         error(0, 0, "str_nth() expects an 'f64' as right argument");
         return nil();
     }
     if left.value_type != "str" {
         error(0, 0, "str_nth() expects an 'str' as left argument");
+        return nil();
+    }
+
+    if str::parse::<usize>(right.value.as_str()).unwrap() >= left.value.chars().count() {
+        error(
+            0,
+            0,
+            format!(
+                "Out of bounds index '{}' with list of len '{}'",
+                str::parse::<usize>(right.value.as_str()).unwrap(),
+                left.value.chars().count()
+            )
+            .as_str(),
+        );
         return nil();
     }
 
