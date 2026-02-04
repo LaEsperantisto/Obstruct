@@ -52,7 +52,7 @@ pub enum TokenType {
     Float,
     True,
     False,
-    CHAR,
+    Char,
 
     // Keywords
     Cls,
@@ -124,7 +124,7 @@ impl fmt::Display for TokenType {
             TokenType::Float => "FLOAT",
             TokenType::True => "TRUE",
             TokenType::False => "FALSE",
-            TokenType::CHAR => "CHAR",
+            TokenType::Char => "CHAR",
 
             // Keywords
             TokenType::Cls => "CLS",

@@ -36,8 +36,8 @@ pub enum Expr {
     Discard(Box<Expr>),
 
     // Functions
-    Function(String, Box<Expr>, String, bool),
-    CallFunc(String),
+    Function(String, Box<Expr>, String, bool, Vec<(String, String)>),
+    CallFunc(String, Vec<Box<Expr>>),
 
     // Variables
     Variable(String),
@@ -48,6 +48,7 @@ pub enum Expr {
 
     // Control Flow
     If(Box<Expr>, Box<Expr>, Option<Box<Expr>>), // if condition, if block, else block
+    While(Box<Expr>, Box<Expr>),
 }
 
 impl Expr {
@@ -95,9 +96,15 @@ impl Expr {
                         value: lv.value + &rv.value,
                         body: None,
                     },
+                    ("f64", "str") => Value {
+                        value_type: "str".to_string(),
+                        value: lv.value + &rv.value,
+                        body: None,
+                    },
                     _ => {
                         error(
-                            -1,
+                            0,
+                            0,
                             format!("Could not add '{}' with '{}'", lv.value_type, rv.value_type)
                                 .as_str(),
                         );
@@ -127,7 +134,7 @@ impl Expr {
                 let lv = l.value(env).value.parse::<f64>().unwrap_or(0.0);
                 let rv = r.value(env).value.parse::<f64>().unwrap_or(0.0);
                 let result = if rv == 0.0 {
-                    error(-1, "Undefined dividing by 0");
+                    error(0, 0, "Undefined dividing by 0");
                     0.0
                 } else {
                     lv / rv
@@ -278,10 +285,14 @@ impl Expr {
                 val
             }
             Expr::StmtBlock(stmts) => {
+                env.push_scope();
+
                 let mut val = nil();
                 for stmt in stmts {
                     val = stmt.value(env);
                 }
+
+                env.pop_scope();
                 val
             }
             Expr::Variable(var) => env.get(&var).value,
@@ -310,17 +321,60 @@ impl Expr {
                 env.declare(name.to_string(), val, *is_mutable);
                 nil()
             }
-            Expr::Function(name, block, return_type, is_mutable) => {
-                env.make_func(name, block.clone(), return_type, vec![], *is_mutable);
+            Expr::Function(name, block, return_type, is_mutable, parameters) => {
+                env.make_func(
+                    name,
+                    block.clone(),
+                    return_type,
+                    (*parameters).clone(),
+                    *is_mutable,
+                );
                 nil()
             }
-            Expr::CallFunc(name) => {
-                let func = env.get_func(name);
-                let val = func.0.value(env);
-                if val.value_type != func.2 {
-                    error(-1, format!("Return type of function is '{}', but return value was '{}' with type '{}'.", func.2, val.value, val.value_type).as_str());
+            Expr::CallFunc(name, arguments) => {
+                let (body, params, return_type) = env.get_func(name);
+
+                if params.len() != arguments.len() {
+                    error(
+                        0,
+                        0,
+                        format!(
+                            "Got {} arguments for function '{}', which wanted {} arguments.",
+                            arguments.len(),
+                            name,
+                            params.len()
+                        )
+                        .as_str(),
+                    );
                 }
-                val
+
+                env.push_scope();
+
+                for i in 0..params.len() {
+                    let arg_val = arguments[i].value(env);
+                    if arg_val.value_type != params[i].1 {
+                        error(0,0, format!("Expected type '{}', but got '{}' with type '{}' in function call '{}'",arg_val.value_type,params[i].0,params[i].1,name).as_str())
+                    }
+                    env.declare(params[i].0.clone(), arg_val, false);
+                }
+
+                let result = body.value(env);
+
+                env.pop_scope();
+
+                if result.value_type != return_type {
+                    error(
+                        0,
+                        0,
+                        format!(
+                            "Return type of function is '{}', but got '{}' with type '{}'.",
+                            return_type, result.value, result.value_type
+                        )
+                        .as_str(),
+                    );
+                }
+
+                result
             }
 
             Expr::Discard(expr) => {
@@ -330,6 +384,13 @@ impl Expr {
 
             Expr::Delete(expr) => {
                 env.delete(&expr);
+                nil()
+            }
+
+            Expr::While(cond, body) => {
+                while cond.value(env).is_true() {
+                    body.value(env);
+                }
                 nil()
             }
             Expr::Nothing() => nil(),

@@ -1,29 +1,26 @@
+use crate::token_type::TokenType::Pound;
 use crate::{error, expr::Expr, token::Token, token_type::TokenType};
 
 pub struct Parser<'a> {
     tokens: &'a [Token],
     current: usize,
-    variables: Vec<Vec<String>>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: &'a [Token]) -> Self {
-        Self {
-            tokens,
-            current: 0,
-            variables: vec![],
-        }
+        Self { tokens, current: 0 }
     }
 
     // ---------- ENTRY ----------
     pub fn parse(&mut self) -> Expr {
-        self.variables.push(vec![]);
         let mut statements = Vec::new();
 
         while !self.is_at_end() {
             statements.push(Box::new(self.statement()));
             if !self.match_any(&[TokenType::Semicolon]) && !self.is_at_end() {
-                error(self.previous().line, "Expected ';' after statement.");
+                let t = self.peek();
+                error(t.line, t.column, "Expected ';' after statement.");
+                self.advance();
             }
         }
 
@@ -34,6 +31,10 @@ impl<'a> Parser<'a> {
     fn statement(&mut self) -> Expr {
         if self.match_any(&[TokenType::Dollar]) {
             return self.print();
+        }
+
+        if self.match_any(&[Pound]) {
+            return self.while_loop();
         }
 
         if self.match_any(&[TokenType::Fn]) {
@@ -58,26 +59,24 @@ impl<'a> Parser<'a> {
 
     // ---------- BLOCK ----------
     fn statement_block(&mut self) -> Expr {
-        self.variables.push(vec![]);
         let mut statements = Vec::new();
 
         while !self.check(TokenType::RightBrace) && !self.is_at_end() {
-            let stmt = self.statement();
+            let statement = self.statement();
 
-            if self.check(TokenType::RightBrace) {
-                statements.push(Box::new(stmt));
-                break;
+            if !self.check(TokenType::Semicolon) && !self.check(TokenType::RightBrace) {
+                let t = self.peek();
+                error(t.line, t.column, "Expected ';' after statement.");
+                self.advance();
             }
-
-            self.consume(TokenType::Semicolon, "Expected ';' after statement.");
-            statements.push(Box::new(Expr::Discard(Box::new(stmt))));
+            if self.match_any(&[TokenType::Semicolon]) {
+                statements.push(Box::new(Expr::Discard(Box::new(statement))));
+            } else {
+                statements.push(Box::new(statement));
+            }
         }
+
         self.consume(TokenType::RightBrace, "Expected '}' after block.");
-
-        for var in self.variables.last().unwrap().iter() {
-            statements.push(Box::new(Expr::Delete(var.clone())));
-        }
-        self.variables.pop();
         Expr::StmtBlock(statements)
     }
 
@@ -87,9 +86,33 @@ impl<'a> Parser<'a> {
         if self.match_any(&[TokenType::Ident]) {
             Expr::Delete(self.previous().lexeme)
         } else {
-            error(self.previous().line, "Expected variable name after 'del'.");
+            let t = self.peek();
+            error(t.line, t.column, "Expected variable name after 'del'.");
             Expr::Nothing()
         }
+    }
+
+    // ---------- WHILE LOOP -----------
+
+    fn while_loop(&mut self) -> Expr {
+        let cond = self.expression();
+        // self.current += 1;
+        let block = if self.match_any(&[TokenType::LeftBrace]) {
+            self.statement_block()
+        } else {
+            let t = self.peek();
+            error(
+                t.line,
+                t.column,
+                ("Expected '{' after 'while' condition, found '".to_string()
+                    + self.previous().lexeme.as_str()
+                    + "'")
+                    .as_str(),
+            );
+            Expr::Nothing()
+        };
+
+        Expr::While(Box::new(cond), Box::new(block))
     }
 
     // ---------- DECLARATION ----------
@@ -103,24 +126,21 @@ impl<'a> Parser<'a> {
             let var_type = if self.match_any(&[TokenType::Ident]) {
                 self.previous().lexeme.clone()
             } else {
+                let t = self.peek();
                 error(
-                    self.previous().line,
-                    format!(
-                        "Expected variable type after colon, but got '{}'.",
-                        self.previous().token_type
-                    )
-                    .as_str(),
+                    t.line,
+                    t.column,
+                    format!("Expected variable type after colon, found {}", t.token_type).as_str(),
                 );
+
                 String::from("[]")
             };
 
-            self.variables.last_mut().unwrap().push(name.clone());
             Expr::Declare(name, var_type, is_mutable)
         } else {
             self.consume(TokenType::Equal, "Expected '=' after variable name.");
             let value = self.expression();
 
-            self.variables.last_mut().unwrap().push(name.clone());
             Expr::DeclareAndAssign(name, Box::new(value), is_mutable)
         }
     }
@@ -140,8 +160,10 @@ impl<'a> Parser<'a> {
         let if_block = if self.match_any(&[TokenType::LeftBrace]) {
             self.statement_block()
         } else {
+            let t = self.peek();
             error(
-                self.previous().line,
+                t.line,
+                t.column,
                 ("Expected '{' after 'if' condition, found '".to_string()
                     + self.previous().lexeme.as_str()
                     + "'")
@@ -165,10 +187,15 @@ impl<'a> Parser<'a> {
     fn print(&mut self) -> Expr {
         if self.peek().token_type == TokenType::Dollar {
             self.advance();
-            Expr::StmtBlock(vec![Box::new(Expr::Add(
-                Box::new(self.print()),
+            Expr::Print(Box::new(Expr::Add(
+                Box::new({
+                    let Expr::Print(a) = self.print() else {
+                        return Expr::Nothing();
+                    };
+                    *a
+                }),
                 Box::new(Expr::Str("\n".to_string())),
-            ))])
+            )))
         } else if self.peek().token_type == TokenType::Semicolon {
             Expr::Str(String::new())
         } else {
@@ -188,12 +215,27 @@ impl<'a> Parser<'a> {
                 ("[]".to_string(), self.advance().lexeme)
             };
 
-        let _parameters: Vec<String> = if self.match_any(&[TokenType::LeftBrack]) {
+        let parameters: Vec<(String, String)> = if self.match_any(&[TokenType::LeftBrack]) {
+            let mut parameters = vec![];
+            while !self.is_at_end() && self.match_any(&[TokenType::Ident]) {
+                let name = self.previous().lexeme;
+                self.consume(TokenType::Colon, "Expected ':' after parameter name.");
+                let var_type = if self.match_any(&[TokenType::Ident]) {
+                    self.previous().lexeme
+                } else {
+                    String::new()
+                };
+                parameters.push((name, var_type));
+                if !self.match_any(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+
             self.consume(
                 TokenType::RightBrack,
                 "Expected ']' after function parameters.",
             );
-            vec![]
+            parameters
         } else {
             vec![]
         };
@@ -204,17 +246,28 @@ impl<'a> Parser<'a> {
 
         let body = Box::new(self.statement_block());
 
-        Expr::Function(name, body, return_type, is_mutable)
+        Expr::Function(name, body, return_type, is_mutable, parameters)
     }
 
     fn call_function(&mut self) -> Expr {
         let name = self.previous().lexeme;
+        self.consume(TokenType::LeftParen, "Expected '(' after function name.");
 
-        if self.match_any(&[TokenType::LeftParen]) {
-            self.consume(TokenType::RightParen, "Missing ')' after function call.");
+        let mut arguments = vec![];
+
+        if !self.check(TokenType::RightParen) {
+            loop {
+                arguments.push(Box::new(self.expression()));
+
+                if !self.match_any(&[TokenType::Comma]) {
+                    break;
+                }
+            }
         }
 
-        Expr::CallFunc(name)
+        self.consume(TokenType::RightParen, "Missing ')' after function call.");
+
+        Expr::CallFunc(name, arguments)
     }
 
     // ---------- EXPRESSIONS ----------
@@ -351,7 +404,7 @@ impl<'a> Parser<'a> {
             return Expr::Str(self.previous().literal.clone());
         }
 
-        if self.match_any(&[TokenType::CHAR]) {
+        if self.match_any(&[TokenType::Char]) {
             return Expr::Char(self.previous().literal.clone());
         }
 
@@ -364,12 +417,6 @@ impl<'a> Parser<'a> {
         if self.match_any(&[TokenType::QuestionMark]) {
             return self.if_statement();
         }
-
-        error(
-            self.peek().line,
-            format!("Unexpected token '{}'", self.peek().token_type).as_str(),
-        );
-        self.advance();
         Expr::Nothing()
     }
 
@@ -398,9 +445,11 @@ impl<'a> Parser<'a> {
         if self.check(token_type) {
             self.advance()
         } else {
+            let t = self.peek();
             error(
-                self.peek().line,
-                format!("{} Found: {}", message, self.peek().token_type).as_str(),
+                t.line,
+                t.column,
+                format!("{} Found: {}", message, t.token_type).as_str(),
             );
             Token::nil()
         }
@@ -435,11 +484,12 @@ impl<'a> Parser<'a> {
 // Grammar:
 /*
 statement_block -> "{" ( statement )+ "}"
-statement       -> print | declaration | expression | return | function
+statement       -> ( print | declaration | expression | return | function ) ";"
 
-print           -> "$" ( "$" )? expression ";"
-declaration     -> "#" ( "@" )? IDENTIFIER ( "=" expression )? ";"
-return          -> "ret" expression ";"
+print           -> "$" ( "$" )? expression
+declaration     -> "#" ( "@" )? IDENTIFIER ( "=" expression )?
+return          -> "ret" expression
+while           -> "£" expression statement_block
 
 if_statement    -> "?" expression statement_block ( "~?" expression statement_block )* ( "~" statement_block )?
 function_call   -> IDENTIFIER "(" (expression)* ")"

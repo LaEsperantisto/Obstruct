@@ -6,64 +6,80 @@ use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct Environment {
-    values: HashMap<String, Variable>,
+    scopes: Vec<HashMap<String, Variable>>,
 }
 
 impl Environment {
     pub fn new() -> Self {
         Self {
-            values: HashMap::new(),
+            scopes: vec![HashMap::new()],
         }
     }
 
+    // ---------- SCOPES ----------
+
+    pub fn push_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    pub fn pop_scope(&mut self) {
+        self.scopes.pop();
+    }
+
+    // ---------- VARIABLES ----------
+
     pub fn declare(&mut self, name: String, value: Value, is_mutable: bool) {
-        if self.values.contains_key(&name) {
-            error(-1, format!("Variable '{}' already defined", name).as_str());
+        let scope = self.scopes.last_mut().unwrap();
+
+        if scope.contains_key(&name) {
+            error(
+                0,
+                0,
+                format!("Variable '{}' already defined", name).as_str(),
+            );
+            return;
         }
-        self.values.insert(name, Variable::new(value, is_mutable));
+
+        scope.insert(name, Variable::new(value, is_mutable));
     }
 
     pub fn assign(&mut self, name: &str, value: Value) {
-        if !self.get(name).is_mutable {
-            error(-1, format!("Variable '{}' not mutable", name).as_str());
+        for scope in self.scopes.iter_mut().rev() {
+            if let Some(var) = scope.get_mut(name) {
+                if !var.is_mutable {
+                    error(0, 0, format!("Variable '{}' not mutable", name).as_str());
+                    return;
+                }
+                var.value = value;
+                return;
+            }
         }
-        if self.get(name).value.value_type != value.value_type {
-            error(
-                -1,
-                format!(
-                    "Variable '{}' with type '{}' could not be assigned with type '{}'",
-                    name,
-                    self.get(name).value.value_type,
-                    value.value_type
-                )
-                .as_str(),
-            );
-        }
-        self.values.get_mut(name).unwrap().value = value.clone();
+
+        error(0, 0, format!("Undefined variable '{}'", name).as_str());
     }
 
     pub fn get(&self, name: &str) -> Variable {
-        self.values.get(name).cloned().unwrap_or_else(|| {
-            error(-1, format!("Undefined variable '{}'", name).as_str());
-            Variable::new(nil(), false)
-        })
+        for scope in self.scopes.iter().rev() {
+            if let Some(v) = scope.get(name) {
+                return v.clone();
+            }
+        }
+
+        error(0, 0, format!("Undefined variable '{}'", name).as_str());
+        Variable::new(nil(), false)
     }
 
-    pub fn get_func(&self, name: &str) -> (Box<Expr>, Vec<(String, String)>, String) {
-        self.values
-            .get(name)
-            .cloned()
-            .unwrap_or_else(|| {
-                error(-1, format!("Undefined variable '{}'", name).as_str());
-                nil_func()
-            })
-            .value
-            .body
-            .unwrap_or_else(|| {
-                error(-1, format!("Variable '{}' not function", name).as_str());
-                nil_func().value.body.unwrap()
-            })
+    pub fn delete(&mut self, name: &str) {
+        for scope in self.scopes.iter_mut().rev() {
+            if scope.remove(name).is_some() {
+                return;
+            }
+        }
+
+        error(0, 0, format!("Undefined variable '{}'", name).as_str());
     }
+
+    // ---------- FUNCTIONS ----------
 
     pub fn make_func(
         &mut self,
@@ -73,34 +89,53 @@ impl Environment {
         parameters: Vec<(String, String)>,
         is_mutable: bool,
     ) {
-        if self.values.contains_key(name) && !self.values.get(name).unwrap().is_mutable {
-            error(
-                -1,
-                format!("Variable '{}' already defined as immutable", name).as_str(),
-            );
-        } else if self.values.contains_key(name)
-            && self.values.get(name).unwrap().value.value_type != "func"
-        {
-            error(
-                -1,
-                format!(
-                    "Variable '{}' already declared with type '{}'; could not define function.",
-                    name,
-                    self.values.get(name).unwrap().value.value_type
-                )
-                .as_str(),
-            );
+        let scope = self.scopes.last_mut().unwrap();
+
+        if let Some(existing) = scope.get(name) {
+            if !existing.is_mutable {
+                error(
+                    0,
+                    0,
+                    format!("Variable '{}' already defined as immutable", name).as_str(),
+                );
+                return;
+            }
+
+            if existing.value.value_type != "func" {
+                error(
+                    0,
+                    0,
+                    format!(
+                        "Variable '{}' already declared with type '{}'; could not define function.",
+                        name, existing.value.value_type
+                    )
+                    .as_str(),
+                );
+                return;
+            }
         }
-        self.values.insert(
+
+        scope.insert(
             name.to_string(),
             Variable::new_func(block, parameters, return_type, is_mutable),
         );
     }
 
-    pub fn delete(&mut self, name: &str) {
-        self.values.remove(name);
+    pub fn get_func(&self, name: &str) -> (Box<Expr>, Vec<(String, String)>, String) {
+        let var = self.get(name);
+
+        var.value.body.unwrap_or_else(|| {
+            error(
+                0,
+                0,
+                format!("Variable '{}' is not a function", name).as_str(),
+            );
+            nil_func().value.body.unwrap()
+        })
     }
 }
+
+// ---------- INTERNAL ----------
 
 fn nil_func() -> Variable {
     Variable {

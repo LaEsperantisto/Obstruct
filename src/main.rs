@@ -20,6 +20,8 @@ use std::{env, fs, io};
 
 static HAD_ERROR: AtomicBool = AtomicBool::new(false);
 
+// static mut SOURCE: *mut String = std::ptr::null_mut();
+
 pub fn had_error() -> bool {
     HAD_ERROR.load(Ordering::Relaxed)
 }
@@ -38,6 +40,9 @@ fn main() -> std::io::Result<()> {
     init(&mut env);
 
     let source = fs::read_to_string(filepath)? + "\n\nmain();";
+    // unsafe {
+    //     SOURCE = &mut (fs::read_to_string(filepath)? + "\n\nmain();");
+    // }
 
     let mut scanner = Scanner::new(source);
     let tokens = scanner.scan_tokens();
@@ -57,12 +62,20 @@ fn main() -> std::io::Result<()> {
     }
 }
 
-pub fn error(line: isize, message: &str) {
-    report(line, "".into(), message);
+pub fn error(line: usize, column: usize, message: &str) {
+    report(line, column, "".into(), message);
 }
 
-pub fn report(line: isize, place: String, message: &str) {
-    println!("[line {line}] Error{place}: {message}");
-    // println!("\n{} | {}", line.into(), get_line(line));
-    HAD_ERROR.store(true, std::sync::atomic::Ordering::Relaxed);
+fn get_line(line: usize, column: usize) -> String {
+    String::new()
 }
+
+pub fn report(line: usize, column: usize, place: String, message: &str) {
+    println!("\n\n[line {line} column {column}] Error{place}: {message}");
+    // println!("\n{} | {}", line, get_line(line, column));
+    HAD_ERROR.store(true, Ordering::Relaxed);
+}
+
+// fn get_source() -> String {
+//     unsafe { (*SOURCE).clone() }
+// }

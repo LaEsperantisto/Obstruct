@@ -13,7 +13,8 @@ impl Value {
     pub fn is_true(&self) -> bool {
         if self.value_type != "bool" {
             error(
-                -1,
+                0,
+                0,
                 format!("Expected 'bool' but got '{}'", self.value_type).as_str(),
             );
         }

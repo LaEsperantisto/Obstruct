@@ -8,7 +8,8 @@ pub struct Scanner {
     tokens: Vec<Token>,
     start: usize,
     current: usize,
-    line: isize,
+    line: usize,
+    column: usize,
     keywords: HashMap<String, TokenType>,
     prev_c: char,
 }
@@ -35,6 +36,7 @@ impl Scanner {
             start: 0,
             current: 0,
             line: 1,
+            column: 1,
             keywords,
             prev_c: '\0',
         }
@@ -50,7 +52,8 @@ impl Scanner {
             TokenType::EOF,
             "".into(),
             "".into(),
-            self.line - 1,
+            self.line,
+            self.column,
         ));
         &self.tokens
     }
@@ -176,7 +179,7 @@ impl Scanner {
                 } else if self.is_alpha(c) {
                     self.identifier();
                 } else {
-                    error(self.line + 1, "Unexpected character.");
+                    error(self.line, self.column, "Unexpected character.");
                 }
             }
         }
@@ -185,6 +188,14 @@ impl Scanner {
     fn advance(&mut self) -> char {
         let c = self.source[self.current..].chars().next().unwrap();
         self.current += c.len_utf8();
+
+        if c == '\n' {
+            self.line += 1;
+            self.column = 1;
+        } else {
+            self.column += 1;
+        }
+
         c
     }
 
@@ -193,9 +204,17 @@ impl Scanner {
     }
 
     fn add_token_literal(&mut self, token_type: TokenType, literal: String) {
-        let text: String = self.source[self.start..self.current].to_string();
-        self.tokens
-            .push(Token::new(token_type, text, literal, self.line));
+        let text = self.source[self.start..self.current].to_string();
+
+        let token_column = self.column - text.chars().count();
+
+        self.tokens.push(Token::new(
+            token_type,
+            text,
+            literal,
+            self.line,
+            token_column.max(1),
+        ));
     }
 
     fn match_char(&mut self, expected: char) -> bool {
@@ -247,7 +266,11 @@ impl Scanner {
                 }
                 '\\' => {
                     if self.is_at_end() {
-                        error(self.line, "Unterminated escape sequence in string.");
+                        error(
+                            self.line,
+                            self.column,
+                            "Unterminated escape sequence in string.",
+                        );
                         return;
                     }
 
@@ -259,7 +282,11 @@ impl Scanner {
                         '\\' => value.push('\\'),
                         '"' => value.push('"'),
                         _ => {
-                            error(self.line, &format!("Invalid escape sequence: \\{}", esc));
+                            error(
+                                self.line,
+                                self.column,
+                                &format!("Invalid escape sequence: \\{}", esc),
+                            );
                             return;
                         }
                     }
@@ -272,7 +299,7 @@ impl Scanner {
             }
         }
 
-        error(self.line, "Unterminated string literal.");
+        error(self.line, self.column, "Unterminated string literal.");
     }
 
     fn number(&mut self) {
@@ -309,14 +336,14 @@ impl Scanner {
 
     fn character(&mut self) {
         if self.is_at_end() {
-            error(self.line, "Unterminated character literal.");
+            error(self.line, self.column, "Unterminated character literal.");
             return;
         }
 
         let c = self.advance();
         let value = if c == '\\' {
             if self.is_at_end() {
-                error(self.line, "Unterminated escape sequence.");
+                error(self.line, self.column, "Unterminated escape sequence.");
                 return;
             }
             let esc = self.advance();
@@ -327,7 +354,11 @@ impl Scanner {
                 '\'' => "'".to_string(),
                 'r' => "\r".to_string(),
                 _ => {
-                    error(self.line, &format!("Invalid escape sequence: \\{}", esc));
+                    error(
+                        self.line,
+                        self.column,
+                        &format!("Invalid escape sequence: \\{}", esc),
+                    );
                     return;
                 }
             }
@@ -338,18 +369,23 @@ impl Scanner {
         if self.peek() != '\'' {
             error(
                 self.line,
+                self.column,
                 "Character literal too long or missing closing quote.",
             );
             return;
         }
 
         self.advance(); // Consume closing quote
-        self.add_token_literal(TokenType::CHAR, value);
+        self.add_token_literal(TokenType::Char, value);
     }
 
     fn backtick(&mut self) {
         if self.is_at_end() {
-            error(self.line, "Expected character after backtick (`)");
+            error(
+                self.line,
+                self.column,
+                "Expected character after backtick (`)",
+            );
             return;
         }
 
@@ -362,9 +398,14 @@ impl Scanner {
                 String::new(),
                 String::new(),
                 self.line,
+                self.column,
             )),
             _ => {
-                error(self.line, "Invalid character after backtick (`)");
+                error(
+                    self.line,
+                    self.column,
+                    "Invalid character after backtick (`)",
+                );
                 return;
             }
         }
@@ -372,6 +413,7 @@ impl Scanner {
         if self.is_alpha(self.peek()) {
             error(
                 self.line,
+                self.column,
                 "Only a single character should be after a backtick (`)",
             );
         }
@@ -393,6 +435,6 @@ impl Scanner {
             }
         }
 
-        error(self.line, "Unterminated block comment.");
+        error(self.line, self.column, "Unterminated block comment.");
     }
 }
