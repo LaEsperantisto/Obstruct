@@ -326,6 +326,17 @@ impl Scanner {
             self.advance();
         }
 
+        // Handle '::' type sequences like 'str::i32'
+        while self.peek() == ':' && self.peek_next() == ':' {
+            self.advance(); // consume first ':'
+            self.advance(); // consume second ':'
+
+            // continue scanning the next identifier part
+            while self.is_alpha_numeric(self.peek()) {
+                self.advance();
+            }
+        }
+
         let text = self.source[self.start..self.current].to_string();
         if let Some(token_type) = self.keywords.get(&text) {
             self.add_token(*token_type);

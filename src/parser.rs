@@ -457,7 +457,8 @@ impl<'a> Parser<'a> {
 
     fn r#type(&mut self) -> String {
         if self.match_any(&[TokenType::Ident]) {
-            self.previous().literal
+            let lexeme = self.previous().lexeme;
+            lexeme
         } else {
             self.consume(TokenType::LeftBrack, "Expected '['.");
 

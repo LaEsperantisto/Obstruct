@@ -557,8 +557,9 @@ impl Expr {
                 let rt = r.type_of(tenv);
                 match (lt.as_str(), rt.as_str()) {
                     ("f64", "f64") => "f64".into(),
+                    ("i32", "i32") => "i32".into(),
                     ("str", _) | (_, "str") => "str".into(),
-                    _ => panic!("Type error: cannot add {} + {}", lt, rt),
+                    _ => format!("{}_{}", lt, rt), // fallback for mixed/custom types
                 }
             }
 
@@ -569,12 +570,11 @@ impl Expr {
             | Expr::Power(l, r) => {
                 let lt = l.type_of(tenv);
                 let rt = r.type_of(tenv);
-
-                if lt != "f64" || rt != "f64" {
-                    panic!("Type error: arithmetic requires f64");
+                match (lt.as_str(), rt.as_str()) {
+                    ("f64", "f64") => "f64".into(),
+                    ("i32", "i32") => "i32".into(),
+                    _ => format!("{}_{}", lt, rt), // fallback
                 }
-
-                "f64".into()
             }
 
             Expr::EqualEqual(_, _)
@@ -586,14 +586,14 @@ impl Expr {
 
             Expr::And(l, r) | Expr::Or(l, r) => {
                 if l.type_of(tenv) != "bool" || r.type_of(tenv) != "bool" {
-                    panic!("Type error: logical ops need bool");
+                    panic!("Type error: logical ops require bool");
                 }
                 "bool".into()
             }
 
             Expr::Not(e) => {
                 if e.type_of(tenv) != "bool" {
-                    panic!("Type error: ! needs bool");
+                    panic!("Type error: ! requires bool");
                 }
                 "bool".into()
             }
@@ -614,11 +614,9 @@ impl Expr {
             Expr::Assign(name, expr) => {
                 let expected = tenv.get(name);
                 let got = expr.type_of(tenv);
-
                 if expected != got {
                     panic!("Type error: expected {}, got {}", expected, got);
                 }
-
                 expected
             }
 
@@ -636,14 +634,11 @@ impl Expr {
                 if cond.type_of(tenv) != "bool" {
                     panic!("if condition must be bool");
                 }
-
                 let t1 = a.type_of(tenv);
                 let t2 = b.as_ref().map(|x| x.type_of(tenv)).unwrap_or("[]".into());
-
                 if t1 != t2 {
                     panic!("if branches return different types");
                 }
-
                 t1
             }
 
@@ -656,33 +651,31 @@ impl Expr {
 
             Expr::Function(name, body, return_type, _, params) => {
                 tenv.declare(name.clone(), "func".into());
-
                 tenv.push();
                 for (p, t) in params {
                     tenv.declare(p.clone(), t.clone());
                 }
-
                 let actual = body.type_of(tenv);
                 tenv.pop();
-
                 if &actual != return_type {
                     panic!(
                         "Function {} should return {}, got {}",
                         name, return_type, actual
                     );
                 }
-
                 "func".into()
             }
 
-            Expr::CallFunc(_, _) => {
-                // you can later store full function signatures
-                "unknown".into()
-            }
+            Expr::CallFunc(_, _) => "unknown".into(),
 
             Expr::Nothing() => "[]".into(),
 
-            _ => "[]".into(),
+            Expr::Custom(_) | Expr::Custom2(_) => "unknown".into(),
+            Expr::Value(v) => v.value_type.clone(),
+
+            Expr::Nth(_, _) => "unknown".into(),
+            Expr::This() => "unknown".into(),
+            Expr::Print(_) | Expr::Discard(_) | Expr::Delete(_) => "[]".into(),
         }
     }
 }

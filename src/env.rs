@@ -71,7 +71,11 @@ impl Environment {
             }
         }
 
-        error(0, 0, format!("Undefined variable '{}'", name).as_str());
+        error(
+            0,
+            0,
+            format!("Undefined variable '{}'. Could not assign.", name).as_str(),
+        );
     }
 
     pub fn get(&self, name: &str) -> Variable {
@@ -81,7 +85,11 @@ impl Environment {
             }
         }
 
-        error(0, 0, format!("Undefined variable '{}'", name).as_str());
+        error(
+            0,
+            0,
+            format!("Undefined variable '{}'. Could not get value.", name).as_str(),
+        );
         Variable::new(nil(), false)
     }
 
@@ -92,7 +100,11 @@ impl Environment {
             }
         }
 
-        error(0, 0, format!("Undefined variable '{}'", name).as_str());
+        error(
+            0,
+            0,
+            format!("Undefined variable '{}'. Could not delete.", name).as_str(),
+        );
     }
 
     // ---------- FUNCTIONS ----------
