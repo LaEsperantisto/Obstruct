@@ -417,6 +417,10 @@ impl<'a> Parser<'a> {
         if self.match_any(&[TokenType::QuestionMark]) {
             return self.if_statement();
         }
+
+        if self.match_any(&[TokenType::This]) {
+            return Expr::This();
+        }
         Expr::Nothing()
     }
 

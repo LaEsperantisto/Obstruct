@@ -23,7 +23,6 @@ impl Scanner {
         keywords.insert("comp".into(), TokenType::Comp);
         keywords.insert("stc".into(), TokenType::Stc);
         keywords.insert("ovr".into(), TokenType::Ovr);
-        keywords.insert("exit".into(), TokenType::Exit);
         keywords.insert("err".into(), TokenType::Err);
         keywords.insert("del".into(), TokenType::Del);
         keywords.insert("use".into(), TokenType::Use);
@@ -400,6 +399,7 @@ impl Scanner {
                 self.line,
                 self.column,
             )),
+            'v' => self.add_token(TokenType::This),
             _ => {
                 error(
                     self.line,

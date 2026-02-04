@@ -191,6 +191,15 @@ which will be the exit code. If at any point there is an error, the exit code wi
 
 ---
 
+## Builtin Functions
+
+- `quit()`:
+
+This function is a manual exit, and should only be used for emergency crashes. This bypasses
+all destructors.
+
+---
+
 ## Summary
 
 This language aims to:

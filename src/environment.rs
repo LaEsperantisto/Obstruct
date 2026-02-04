@@ -7,16 +7,30 @@ use std::collections::HashMap;
 #[derive(Clone)]
 pub struct Environment {
     scopes: Vec<HashMap<String, Variable>>,
+    this: Vec<String>,
 }
 
 impl Environment {
     pub fn new() -> Self {
         Self {
             scopes: vec![HashMap::new()],
+            this: vec![],
         }
     }
 
     // ---------- SCOPES ----------
+
+    pub fn new_this(&mut self, this: &str) {
+        self.this.push(this.to_string());
+    }
+
+    pub fn end_this(&mut self) {
+        self.this.pop();
+    }
+
+    pub fn this(&self) -> String {
+        self.this.last().unwrap().clone()
+    }
 
     pub fn push_scope(&mut self) {
         self.scopes.push(HashMap::new());

@@ -45,14 +45,20 @@ pub enum Expr {
     Declare(String, String, bool),
     Assign(String, Box<Expr>),
     Delete(String),
+    This(),
 
     // Control Flow
     If(Box<Expr>, Box<Expr>, Option<Box<Expr>>), // if condition, if block, else block
     While(Box<Expr>, Box<Expr>),
+
+    Custom(fn() -> Value),
 }
 
 impl Expr {
     pub fn value(&self, env: &mut Environment) -> Value {
+        if had_error() {
+            return nil();
+        }
         match self {
             // ---- Literals ----
             Expr::Num(n) => Value {
@@ -302,8 +308,10 @@ impl Expr {
                 value
             }
             Expr::Assign(name, expr) => {
+                env.new_this(name);
                 let value = expr.value(env);
                 env.assign(name, value);
+                env.end_this();
                 nil()
             }
             Expr::If(if_cond, if_block, else_block) => {
@@ -393,7 +401,12 @@ impl Expr {
                 }
                 nil()
             }
+
+            Expr::This() => Expr::Variable(env.this()).value(env),
+
             Expr::Nothing() => nil(),
+
+            Expr::Custom(func) => func(),
         }
     }
 }
