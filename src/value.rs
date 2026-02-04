@@ -3,7 +3,7 @@ use crate::error;
 use crate::expr::Expr;
 use std::fmt;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Value {
     pub value_type: String,
     pub value: String,

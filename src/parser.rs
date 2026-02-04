@@ -357,7 +357,7 @@ impl<'a> Parser<'a> {
             let op = self.previous().token_type;
             let right = self.unary();
             expr = match op {
-                TokenType::Star => Expr::Mul(Box::new(expr), Box::new(right)),
+                TokenType::Star => Expr::Mult(Box::new(expr), Box::new(right)),
                 TokenType::Slash => Expr::Divide(Box::new(expr), Box::new(right)),
                 TokenType::Mod => Expr::Mod(Box::new(expr), Box::new(right)),
                 _ => unreachable!(),
