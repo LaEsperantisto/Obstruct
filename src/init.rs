@@ -64,7 +64,8 @@ pub fn init(env: &mut Environment) {
     env.declare_native("len", native_len);
     env.declare_native("str::nth", native_str_nth);
     env.declare_native("vec::nth", native_vec_nth);
-    env.declare_native("push", native_push);
+    env.declare_native("vec::push", native_push);
+    env.declare_native("type", native_type_check);
 }
 
 fn native_len(_: &mut Environment, args: Vec<Value>) -> Value {
@@ -196,4 +197,8 @@ fn native_vec_nth(_env: &mut Environment, args: Vec<Value>) -> Value {
         body: None,
         native: None,
     }
+}
+
+fn native_type_check(env: &mut Environment, args: Vec<Value>) -> Value {
+    Str(args[0].value_type.clone()).value(env)
 }
