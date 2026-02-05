@@ -407,6 +407,17 @@ impl<'a> Parser<'a> {
             return self.call_function();
         }
 
+        // if self.match_any(&[TokenType::LeftBrack]) {
+        //     let mut val = vec![];
+        //     loop {
+        //         val.push(self.expression());
+        //         if !self.match_any(&[TokenType::Comma]) {
+        //             break;
+        //         }
+        //     }
+        //     return;
+        // }
+
         if self.match_any(&[TokenType::Ident]) {
             return Expr::Variable(self.previous().lexeme.clone());
         }
@@ -464,11 +475,13 @@ impl<'a> Parser<'a> {
 
             if !self.check(TokenType::RightBrack) {
                 loop {
+                    output.push(' ');
                     output.push_str(&self.r#type());
                     if !output.is_empty() {
                         type_count += 1;
                     }
                     if !self.match_any(&[TokenType::Comma]) {
+                        output.push(' ');
                         break;
                     }
                 }
@@ -547,7 +560,7 @@ impl<'a> Parser<'a> {
 
 // Grammar:
 /*
-statement_block -> "{" ( statement )+ "}"
+statement_block -> "{" ( statement )* "}"
 statement       -> ( print | declaration | expression | return | function ) ";"
 
 print           -> "$" ( "$" )? expression

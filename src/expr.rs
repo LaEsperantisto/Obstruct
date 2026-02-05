@@ -72,30 +72,35 @@ impl Expr {
             Expr::Float(n) => Value {
                 value_type: "f64".into(),
                 value: n.to_string(),
+                value_vec: None,
                 body: None,
                 native: None,
             },
             Expr::Int(n) => Value {
                 value_type: "i32".into(),
                 value: n.to_string(),
+                value_vec: None,
                 body: None,
                 native: None,
             },
             Expr::Bool(b) => Value {
                 value_type: "bool".into(),
                 value: if *b { "`t".into() } else { "`f".into() },
+                value_vec: None,
                 body: None,
                 native: None,
             },
             Expr::Str(s) => Value {
                 value_type: "str".into(),
                 value: s.clone(),
+                value_vec: None,
                 body: None,
                 native: None,
             },
             Expr::Char(c) => Value {
                 value_type: "str".into(),
                 value: c.clone(),
+                value_vec: None,
                 body: None,
                 native: None,
             },
@@ -111,6 +116,7 @@ impl Expr {
                         value: (lv.value.parse::<f64>().unwrap_or(0.0)
                             + rv.value.parse::<f64>().unwrap_or(0.0))
                         .to_string(),
+                        value_vec: None,
                         body: None,
                         native: None,
                     },
@@ -119,12 +125,14 @@ impl Expr {
                         value: (lv.value.parse::<i32>().unwrap_or(0)
                             + rv.value.parse::<i32>().unwrap_or(0))
                         .to_string(),
+                        value_vec: None,
                         body: None,
                         native: None,
                     },
                     ("str", _) | (_, "str") => Value {
                         value_type: "str".into(),
                         value: lv.value + &rv.value,
+                        value_vec: None,
                         body: None,
                         native: None,
                     },
@@ -149,6 +157,7 @@ impl Expr {
                         value: (lv.value.parse::<f64>().unwrap_or(0.0)
                             - rv.value.parse::<f64>().unwrap_or(0.0))
                         .to_string(),
+                        value_vec: None,
                         body: None,
                         native: None,
                     },
@@ -157,6 +166,7 @@ impl Expr {
                         value: (lv.value.parse::<i32>().unwrap_or(0)
                             - rv.value.parse::<i32>().unwrap_or(0))
                         .to_string(),
+                        value_vec: None,
                         body: None,
                         native: None,
                     },
@@ -181,6 +191,7 @@ impl Expr {
                         value: (lv.value.parse::<f64>().unwrap_or(0.0)
                             * rv.value.parse::<f64>().unwrap_or(0.0))
                         .to_string(),
+                        value_vec: None,
                         body: None,
                         native: None,
                     },
@@ -189,6 +200,7 @@ impl Expr {
                         value: (lv.value.parse::<i32>().unwrap_or(0)
                             * rv.value.parse::<i32>().unwrap_or(0))
                         .to_string(),
+                        value_vec: None,
                         body: None,
                         native: None,
                     },
@@ -219,6 +231,7 @@ impl Expr {
                         Value {
                             value_type: "f64".into(),
                             value: result.to_string(),
+                            value_vec: None,
                             body: None,
                             native: None,
                         }
@@ -234,6 +247,7 @@ impl Expr {
                         Value {
                             value_type: "i32".into(),
                             value: result.to_string(),
+                            value_vec: None,
                             body: None,
                             native: None,
                         }
@@ -259,6 +273,7 @@ impl Expr {
                         value: (lv.value.parse::<f64>().unwrap_or(0.0)
                             % rv.value.parse::<f64>().unwrap_or(1.0))
                         .to_string(),
+                        value_vec: None,
                         body: None,
                         native: None,
                     },
@@ -267,6 +282,7 @@ impl Expr {
                         value: (lv.value.parse::<i32>().unwrap_or(0)
                             % rv.value.parse::<i32>().unwrap_or(1))
                         .to_string(),
+                        value_vec: None,
                         body: None,
                         native: None,
                     },
@@ -294,6 +310,7 @@ impl Expr {
                             .unwrap_or(0.0)
                             .powf(rv.value.parse::<f64>().unwrap_or(0.0))
                             .to_string(),
+                        value_vec: None,
                         body: None,
                         native: None,
                     },
@@ -305,6 +322,7 @@ impl Expr {
                             .unwrap_or(0)
                             .pow(rv.value.parse::<u32>().unwrap_or(0))
                             .to_string(),
+                        value_vec: None,
                         body: None,
                         native: None,
                     },
@@ -330,6 +348,7 @@ impl Expr {
                     } else {
                         "`f".into()
                     },
+                    value_vec: None,
                     body: None,
                     native: None,
                 }
@@ -344,6 +363,7 @@ impl Expr {
                     } else {
                         "`f".into()
                     },
+                    value_vec: None,
                     body: None,
                     native: None,
                 }
@@ -364,6 +384,7 @@ impl Expr {
                 Value {
                     value_type: "bool".into(),
                     value: if result { "`t".into() } else { "`f".into() },
+                    value_vec: None,
                     body: None,
                     native: None,
                 }
@@ -379,6 +400,7 @@ impl Expr {
                     } else {
                         "`f".into()
                     },
+                    value_vec: None,
                     body: None,
                     native: None,
                 }
@@ -393,6 +415,7 @@ impl Expr {
                     } else {
                         "`f".into()
                     },
+                    value_vec: None,
                     body: None,
                     native: None,
                 }
@@ -408,6 +431,7 @@ impl Expr {
                     } else {
                         "`f".into()
                     },
+                    value_vec: None,
                     body: None,
                     native: None,
                 }

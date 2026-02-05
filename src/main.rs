@@ -29,7 +29,7 @@ pub fn had_error() -> bool {
     HAD_ERROR.load(Ordering::Relaxed)
 }
 
-fn main() -> std::io::Result<()> {
+fn main() -> io::Result<()> {
     let mut args = std::env::args().skip(1);
 
     let arg1 = args.next();

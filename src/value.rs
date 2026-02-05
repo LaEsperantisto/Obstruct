@@ -7,6 +7,7 @@ use std::fmt;
 pub struct Value {
     pub value_type: String,
     pub value: String,
+    pub value_vec: Option<Vec<Value>>,
     pub body: Option<(Box<Expr>, Vec<(String, String)>, String)>,
     pub native: Option<fn(&mut Environment, Vec<Value>) -> Value>,
 }
@@ -47,6 +48,7 @@ pub fn nil() -> Value {
     Value {
         value_type: "[]".to_string(),
         value: "".to_string(),
+        value_vec: None,
         body: None,
         native: None,
     }
@@ -56,6 +58,7 @@ pub fn func_val(body: (Box<Expr>, Vec<(String, String)>, String)) -> Value {
     Value {
         value_type: "func".to_string(),
         value: "".to_string(),
+        value_vec: None,
         body: Some(body),
         native: None,
     }
@@ -65,6 +68,7 @@ pub fn native_func(f: fn(&mut Environment, Vec<Value>) -> Value) -> Value {
     Value {
         value_type: "func".to_string(),
         value: "".to_string(),
+        value_vec: None,
         body: None,
         native: Some(f),
     }
