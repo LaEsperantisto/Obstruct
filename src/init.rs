@@ -1,12 +1,12 @@
 use crate::env::Environment;
 use crate::error;
 use crate::expr::Expr;
-use crate::expr::Expr::{Float, Nothing, Str};
+use crate::expr::Expr::{Float, Int, Nothing, Str};
 use crate::value::{nil, Value};
 use std::io;
 
 pub fn init(env: &mut Environment) {
-    env.make_func("i32::new", Box::new(Float(0.0)), "i32", vec![], false);
+    env.make_func("i32::new", Box::new(Int(0)), "i32", vec![], false);
     env.make_func("f64::new", Box::new(Float(0.0)), "f64", vec![], false);
     env.make_func("[]::new", Box::new(Nothing()), "[]", vec![], false);
     env.make_func(

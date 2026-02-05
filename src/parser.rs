@@ -233,14 +233,10 @@ impl<'a> Parser<'a> {
 
         let parameters: Vec<(String, String)> = if self.match_any(&[TokenType::LeftBrack]) {
             let mut parameters = vec![];
-            while !self.is_at_end() && self.match_any(&[TokenType::Ident]) {
-                let name = self.previous().lexeme;
+            while !self.is_at_end() && !self.check(TokenType::RightBrace) {
+                let name = self.advance().lexeme;
                 self.consume(TokenType::Colon, "Expected ':' after parameter name.");
-                let var_type = if self.match_any(&[TokenType::Ident]) {
-                    self.previous().lexeme
-                } else {
-                    String::new()
-                };
+                let var_type = self.r#type();
                 parameters.push((name, var_type));
                 if !self.match_any(&[TokenType::Comma]) {
                     break;
@@ -460,6 +456,8 @@ impl<'a> Parser<'a> {
             let lexeme = self.previous().lexeme;
             lexeme
         } else {
+            let mut type_count = 0;
+
             self.consume(TokenType::LeftBrack, "Expected '['.");
 
             let mut output = String::from("[");
@@ -467,6 +465,9 @@ impl<'a> Parser<'a> {
             if !self.check(TokenType::RightBrack) {
                 loop {
                     output.push_str(&self.r#type());
+                    if !output.is_empty() {
+                        type_count += 1;
+                    }
                     if !self.match_any(&[TokenType::Comma]) {
                         break;
                     }
@@ -475,7 +476,11 @@ impl<'a> Parser<'a> {
 
             self.consume(TokenType::RightBrack, "Expected ']' after type.");
             output.push(']');
-            output
+            if type_count == 1 {
+                output.trim_matches(|c| c == '[' || c == ']').to_string()
+            } else {
+                output
+            }
         }
     }
 
