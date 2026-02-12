@@ -1,4 +1,5 @@
 use crate::token_type::TokenType::Pound;
+use crate::type_env::Type;
 use crate::{error, expr::Expr, token::Token, token_type::TokenType};
 
 pub struct Parser<'a> {
@@ -31,6 +32,10 @@ impl<'a> Parser<'a> {
     fn statement(&mut self) -> Expr {
         if self.match_any(&[TokenType::Dollar]) {
             return self.print();
+        }
+
+        if self.match_any(&[TokenType::Ret]) {
+            return self.return_stmt();
         }
 
         if self.match_any(&[Pound]) {
@@ -123,7 +128,7 @@ impl<'a> Parser<'a> {
         let name = self.previous().lexeme.clone();
 
         if self.match_any(&[TokenType::Colon]) {
-            let var_type = self.r#type();
+            let var_type = self.get_type();
 
             Expr::Declare(name, var_type, is_mutable)
         } else {
@@ -197,46 +202,14 @@ impl<'a> Parser<'a> {
     fn define_function(&mut self) -> Expr {
         let is_mutable = self.match_any(&[TokenType::At]);
 
-        let (return_type, name) =
-            if self.check(TokenType::Ident) && self.peek_next(TokenType::Ident) {
-                // fn int foo
-                let t = self.advance().lexeme;
-                let n = self.advance().lexeme;
-                (t, n)
-            } else if self.check(TokenType::LeftBrack) {
-                // fn [type] foo
-                let t = self.r#type();
-                if self.check(TokenType::Ident) {
-                    let n = self.advance().lexeme;
-                    (t, n)
-                } else {
-                    let tok = self.peek();
-                    error(
-                        tok.line,
-                        tok.column,
-                        "Expected function name after return type.",
-                    );
-                    (t, String::new())
-                }
-            } else if self.check(TokenType::Ident) {
-                let n = self.advance().lexeme;
-                ("[]".to_string(), n)
-            } else {
-                let t = self.peek();
-                error(
-                    t.line,
-                    t.column,
-                    format!("Expected function name. Found: {}", t.token_type).as_str(),
-                );
-                ("[]".to_string(), String::new())
-            };
+        let name = self.advance().lexeme;
 
-        let parameters: Vec<(String, String)> = if self.match_any(&[TokenType::LeftBrack]) {
+        let parameters: Vec<(String, Type)> = if self.match_any(&[TokenType::LeftParen]) {
             let mut parameters = vec![];
-            while !self.is_at_end() && !self.check(TokenType::RightBrace) {
+            while !self.is_at_end() && !self.check(TokenType::RightParen) {
                 let name = self.advance().lexeme;
                 self.consume(TokenType::Colon, "Expected ':' after parameter name.");
-                let var_type = self.r#type();
+                let var_type = self.get_type();
                 parameters.push((name, var_type));
                 if !self.match_any(&[TokenType::Comma]) {
                     break;
@@ -244,13 +217,20 @@ impl<'a> Parser<'a> {
             }
 
             self.consume(
-                TokenType::RightBrack,
-                "Expected ']' after function parameters.",
+                TokenType::RightParen,
+                "Expected ')' after function parameters.",
             );
             parameters
         } else {
             vec![]
         };
+
+        let return_type = if !self.check(TokenType::LeftBrace) {
+            self.get_type()
+        } else {
+            "arr".into()
+        };
+
         self.consume(
             TokenType::LeftBrace,
             "Expected '{' after function declaration.",
@@ -259,6 +239,11 @@ impl<'a> Parser<'a> {
         let body = Box::new(self.statement_block());
 
         Expr::Function(name, body, return_type, is_mutable, parameters)
+    }
+
+    fn return_stmt(&mut self) -> Expr {
+        let value = self.expression();
+        Expr::Return(Box::new(value))
     }
 
     fn call_function(&mut self) -> Expr {
@@ -384,7 +369,6 @@ impl<'a> Parser<'a> {
 
         expr
     }
-
     fn nth(&mut self) -> Expr {
         let val = self.primary();
         if self.match_any(&[TokenType::LeftBrack]) {
@@ -462,38 +446,42 @@ impl<'a> Parser<'a> {
         Expr::Nothing()
     }
 
-    fn r#type(&mut self) -> String {
+    fn get_type(&mut self) -> Type {
         if self.match_any(&[TokenType::Ident]) {
             let lexeme = self.previous().lexeme;
-            lexeme
+            if self.match_any(&[TokenType::Less]) {
+                // generic
+
+                let output = lexeme.into();
+
+                self.consume(TokenType::Greater, "Expected '>' after generic.");
+
+                output
+            } else {
+                lexeme.into()
+            }
         } else {
+            // array
             let mut type_count = 0;
 
-            self.consume(TokenType::LeftBrack, "Expected '['.");
+            self.consume(TokenType::LeftBrack, "Expected '[' for array declaration.");
 
-            let mut output = String::from("[");
+            let mut output = Type::new("arr".into());
 
             if !self.check(TokenType::RightBrack) {
                 loop {
-                    output.push(' ');
-                    output.push_str(&self.r#type());
-                    if !output.is_empty() {
+                    output.add_generic(self.get_type());
+                    if !output.generics().is_empty() {
                         type_count += 1;
                     }
                     if !self.match_any(&[TokenType::Comma]) {
-                        output.push(' ');
                         break;
                     }
                 }
             }
 
             self.consume(TokenType::RightBrack, "Expected ']' after type.");
-            output.push(']');
-            if type_count == 1 {
-                output.trim_matches(|c| c == '[' || c == ']').to_string()
-            } else {
-                output
-            }
+            if type_count == 1 { output } else { output }
         }
     }
 
@@ -528,6 +516,7 @@ impl<'a> Parser<'a> {
                 t.column,
                 format!("{} Found: {}", message, t.token_type).as_str(),
             );
+            self.advance();
             Token::nil()
         }
     }

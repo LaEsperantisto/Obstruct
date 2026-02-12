@@ -3,29 +3,37 @@ use crate::expr::Expr;
 use crate::expr::Expr::{Float, Int, Nothing, Str};
 use crate::value::{nil, Value};
 use crate::{error, value};
+use cobject::ccolor;
 use std::io;
 
 pub fn init(env: &mut Environment) {
-    env.make_func("i32::new", Box::new(Int(0)), "i32", vec![], false);
-    env.make_func("f64::new", Box::new(Float(0.0)), "f64", vec![], false);
-    env.make_func("[]::new", Box::new(Nothing()), "[]", vec![], false);
+    env.make_func("i32::new", Box::new(Int(0)), "i32".into(), vec![], false);
+    env.make_func(
+        "f64::new",
+        Box::new(Float(0.0)),
+        "f64".into(),
+        vec![],
+        false,
+    );
+    env.make_func("arr::new", Box::new(Nothing()), "arr".into(), vec![], false);
     env.make_func(
         "vec::new",
         Box::new(Expr::Value(value::Value {
             value: String::new(),
             value_vec: Some(vec![]),
-            value_type: "vec".to_string(),
+            value_type: "vec".into(),
             body: None,
             native: None,
+            is_return: false,
         })),
-        "vec",
+        "vec".into(),
         vec![],
         false,
     );
     env.make_func(
         "str::new",
         Box::new(Str(String::new())),
-        "str",
+        "str".into(),
         vec![],
         false,
     );
@@ -35,7 +43,7 @@ pub fn init(env: &mut Environment) {
             error(0, 0, "Manual exit");
             nil()
         })),
-        "[]",
+        "[]".into(),
         vec![],
         false,
     );
@@ -49,14 +57,15 @@ pub fn init(env: &mut Environment) {
                 .expect("failed to readline");
 
             Value {
-                value_type: "str".to_string(),
+                value_type: "str".into(),
                 value: input,
                 value_vec: None,
                 body: None,
                 native: None,
+                is_return: false,
             }
         })),
-        "str",
+        "str".into(),
         vec![],
         false,
     );
@@ -66,6 +75,9 @@ pub fn init(env: &mut Environment) {
     env.declare_native("vec::nth", native_vec_nth);
     env.declare_native("vec::push", native_push);
     env.declare_native("type", native_type_check);
+    env.declare_native("init_window", native_init_window);
+    env.declare_native("show_window", native_show_window);
+    env.declare_native("is_window_open", native_is_window_open);
 }
 
 fn native_len(_: &mut Environment, args: Vec<Value>) -> Value {
@@ -75,11 +87,12 @@ fn native_len(_: &mut Environment, args: Vec<Value>) -> Value {
     }
 
     Value {
-        value_type: "f64".to_string(),
+        value_type: "f64".into(),
         value: args[0].value.len().to_string(),
         value_vec: None,
         body: None,
         native: None,
+        is_return: false,
     }
 }
 
@@ -99,11 +112,11 @@ fn native_str_nth(_env: &mut Environment, args: Vec<Value>) -> Value {
 
     let left = args.get(0).unwrap();
     let right = args.get(1).unwrap();
-    if right.value_type != "i32" {
+    if right.value_type.name() != "i32" {
         error(0, 0, "str_nth() expects an 'i32' as right argument");
         return nil();
     }
-    if left.value_type != "str" {
+    if left.value_type.name() != "str" {
         error(0, 0, "str_nth() expects an 'str' as left argument");
         return nil();
     }
@@ -123,7 +136,7 @@ fn native_str_nth(_env: &mut Environment, args: Vec<Value>) -> Value {
     }
 
     Value {
-        value_type: "char".to_string(),
+        value_type: "char".into(),
         value: left
             .value
             .chars()
@@ -133,13 +146,14 @@ fn native_str_nth(_env: &mut Environment, args: Vec<Value>) -> Value {
         value_vec: None,
         body: None,
         native: None,
+        is_return: false,
     }
 }
 
 fn native_push(env: &mut Environment, args: Vec<Value>) -> Value {
     Value {
         value: String::new(),
-        value_type: "vec".to_string(),
+        value_type: "vec".into(),
         value_vec: Some({
             let mut v = args[0].value_vec.clone().unwrap();
             v.push(Str(args[1].clone().value).value(env));
@@ -147,6 +161,7 @@ fn native_push(env: &mut Environment, args: Vec<Value>) -> Value {
         }),
         body: None,
         native: None,
+        is_return: false,
     }
 }
 
@@ -166,11 +181,11 @@ fn native_vec_nth(_env: &mut Environment, args: Vec<Value>) -> Value {
 
     let left = args.get(0).unwrap();
     let right = args.get(1).unwrap();
-    if right.value_type != "i32" {
+    if right.value_type.name() != "i32" {
         error(0, 0, "vec_nth() expects an 'i32' as right argument");
         return nil();
     }
-    if left.value_type != "vec" {
+    if left.value_type.name() != "vec" {
         error(0, 0, "vec_nth() expects an 'vec' as left argument");
         return nil();
     }
@@ -190,15 +205,50 @@ fn native_vec_nth(_env: &mut Environment, args: Vec<Value>) -> Value {
     }
 
     Value {
-        value_type: "unknown".to_string(),
+        value_type: "unknown".into(),
         value: left.clone().value_vec.unwrap()[str::parse::<usize>(right.value.as_str()).unwrap()]
             .to_string(),
         value_vec: None,
         body: None,
         native: None,
+        is_return: false,
     }
 }
 
 fn native_type_check(env: &mut Environment, args: Vec<Value>) -> Value {
-    Str(args[0].value_type.clone()).value(env)
+    Str(args[0].value_type.clone().name().to_string()).value(env)
+}
+
+fn native_init_window(env: &mut Environment, args: Vec<Value>) -> Value {
+    if args.len() != 1 {
+        error(0, 0, "init_window() expects 1 argument");
+    }
+    env.make_window(args[0].value.clone());
+    env.get_window().init();
+    nil()
+}
+
+fn native_show_window(env: &mut Environment, args: Vec<Value>) -> Value {
+    if !args.is_empty() {
+        error(0, 0, "show_window() expects no argument");
+    }
+
+    let window = env.get_window();
+
+    window.poll_input();
+    window.update();
+
+    window.fill(ccolor::BLACK);
+    window.show_window();
+
+    nil()
+}
+
+fn native_is_window_open(env: &mut Environment, args: Vec<Value>) -> Value {
+    if !args.is_empty() {
+        error(0, 0, "is_window_open() expects no argument");
+    }
+
+    let window = env.get_window();
+    Expr::Bool(window.is_open()).value(env)
 }

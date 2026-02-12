@@ -1,4 +1,5 @@
 use crate::expr::Expr;
+use crate::type_env::Type;
 use crate::value::{func_val, Value};
 use std::fmt;
 
@@ -14,12 +15,12 @@ impl Variable {
     }
     pub fn new_func(
         block: Box<Expr>,
-        parameters: Vec<(String, String)>,
-        return_type: &str,
+        parameters: Vec<(String, Type)>,
+        return_type: Type,
         is_mutable: bool,
     ) -> Variable {
         Variable {
-            value: func_val((block, parameters, return_type.to_string())),
+            value: func_val((block, parameters, return_type.into())),
             is_mutable,
         }
     }
@@ -27,7 +28,7 @@ impl Variable {
 
 impl fmt::Display for Variable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.value.value_type == "vec" {
+        if self.value.value_type.name() == "vec" {
             write!(f, "{}", self.value.value_vec.clone().unwrap()[0])
         } else {
             write!(f, "{}", self.value)

@@ -105,7 +105,7 @@ however return the value of the expression.
 - Defining a function:
 
 ```Obstruct
-fn return_type my_func[arg1: type, @arg2: type] {
+fn my_func(arg1: type, @arg2: type) return_type {
     // function body
 }
 ```
@@ -113,7 +113,7 @@ fn return_type my_func[arg1: type, @arg2: type] {
 Note that when there is no return type, the return_type can be removed, e.g.
 
 ```Obstruct
-fn print_num[n: i32] {
+fn print_num(n: i32) {
     $n;
 }
 ```
@@ -157,9 +157,11 @@ but no value is assigned, it defaults to an empty Vec.
 
 - `arr`:
 
-An `arr`, aka `Array` in some languages, is declared like this: `[val1, val2]` and is not resizable. The size also needs
-to be known at compile type. The type of an Array is "declared" similar to Rust, but with
-brackets instead of parentheses, e.g. `[i32, i32]` for the position of a 2D object.
+An `arr`, aka `Array` in some languages, is declared like this: `[val1, val2]` and is not resizable.
+The size also needs to be known at compile type. The type of an Array is "declared" similar to Rust,
+but with brackets instead of parentheses, e.g. `[i32, i32]` for the position of a 2D object. Similar
+to Rust, The `nothing` type is `[]`. However, instead of using `[i32,f64]`, you could use `arr<i32,f64>`.
+Again, this could be instead said as `arr` or `arr<>`.
 
 - `str`:
 
@@ -184,7 +186,7 @@ difference is that `\'` is invalid, only `\"` is supported in `str` literals.
 ## Main
 
 Every Obstruct program needs to have a `main` function, which is the entry point of the
-program. The `main` function take in _one_ argument, which is the arguments the program
+program. The `main` function takes _one_ argument, which is the arguments the program
 was called with, in the form of a `Vec<str>`. The main function can return either nothing,
 which means that if there is no error, the exit code will be `0`, but it can return an i32,
 which will be the exit code. If at any point there is an error, the exit code will be `1`.
@@ -215,7 +217,7 @@ This language aims to:
 ## Example program
 
 ```Obstruct
-fn main[args: Vec<str>] {
+fn main(args: Vec<str>) {
     #x = 10;
     #@y = 5.0;
     
@@ -234,9 +236,11 @@ fn main[args: Vec<str>] {
     
     #result = add(x, y);
     $result;
+    
+    ret;
 };
 
-fn i32 add[a: i32, @b: i32] {
+fn add(a: i32, @b: i32) i32 {
     b = a + b
     b
 };

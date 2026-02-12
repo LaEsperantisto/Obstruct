@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+extern crate core;
 
 mod env;
 mod expr;
@@ -36,7 +37,7 @@ fn main() -> io::Result<()> {
 
     let filepath = match arg1 {
         Some(filename) => filename,
-        _ => "/home/aster/main.obs".to_string(),
+        _ => "/home/aster/dev/obstruct/main.obs".to_string(),
     };
 
     let mut env = Environment::new();
@@ -48,7 +49,7 @@ fn main() -> io::Result<()> {
     let expr = compile(source);
 
     if !had_error() {
-        expr.type_of(&mut tenv);
+        // expr.type_of(&mut tenv);
 
         if had_error() {
             Err(io::Error::new(
@@ -82,10 +83,6 @@ pub fn report(line: usize, column: usize, place: String, message: &str) {
     // println!("\n{} | {}", line, get_line(line, column));
     HAD_ERROR.store(true, Ordering::Relaxed);
 }
-
-// fn get_source() -> String {
-//     unsafe { (*SOURCE).clone() }
-// }
 
 pub fn compile(source: String) -> Expr {
     let mut scanner = Scanner::new(source);

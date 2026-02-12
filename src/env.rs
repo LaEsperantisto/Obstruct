@@ -1,13 +1,15 @@
 use crate::error;
 use crate::expr::Expr;
+use crate::type_env::Type;
 use crate::value::{func_val, native_func, nil, Value};
 use crate::variable::Variable;
+use cobject::CWindow;
 use std::collections::HashMap;
 
-#[derive(Clone)]
 pub struct Environment {
     scopes: Vec<HashMap<String, Variable>>,
     this: Vec<String>,
+    window: Option<CWindow>,
 }
 
 impl Environment {
@@ -15,6 +17,7 @@ impl Environment {
         Self {
             scopes: vec![HashMap::new()],
             this: vec![],
+            window: None,
         }
     }
 
@@ -113,8 +116,8 @@ impl Environment {
         &mut self,
         name: &str,
         block: Box<Expr>,
-        return_type: &str,
-        parameters: Vec<(String, String)>,
+        return_type: Type,
+        parameters: Vec<(String, Type)>,
         is_mutable: bool,
     ) {
         let scope = self.scopes.last_mut().unwrap();
@@ -129,7 +132,7 @@ impl Environment {
                 return;
             }
 
-            if existing.value.value_type != "func" {
+            if existing.value.value_type.name() != "func" {
                 error(
                     0,
                     0,
@@ -153,7 +156,7 @@ impl Environment {
         scope.insert(name.to_string(), Variable::new(native_func(func), false));
     }
 
-    pub fn get_func(&self, name: &str) -> (Box<Expr>, Vec<(String, String)>, String) {
+    pub fn get_func(&self, name: &str) -> (Box<Expr>, Vec<(String, Type)>, Type) {
         let var = self.get(name);
 
         var.value.body.unwrap_or_else(|| {
@@ -165,13 +168,23 @@ impl Environment {
             nil_func().value.body.unwrap()
         })
     }
+
+    pub fn make_window(&mut self, name: String) {
+        self.window = Some(CWindow::new(800, 800, name));
+    }
+
+    pub fn get_window(&mut self) -> &mut CWindow {
+        self.window
+            .as_mut()
+            .expect("Window doesn't exist, could not fetch window")
+    }
 }
 
 // ---------- INTERNAL ----------
 
 fn nil_func() -> Variable {
     Variable {
-        value: func_val((Box::new(Expr::StmtBlock(vec![])), vec![], "[]".to_string())),
+        value: func_val((Box::new(Expr::StmtBlock(vec![])), vec![], "[]".into())),
         is_mutable: false,
     }
 }

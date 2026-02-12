@@ -1,5 +1,5 @@
 use crate::env::Environment;
-use crate::type_env::TypeEnvironment;
+use crate::type_env::{Type, TypeEnvironment};
 use crate::value::{nil, Value};
 use crate::{error, had_error};
 
@@ -12,6 +12,7 @@ pub enum Expr {
     Bool(bool),
     Str(String),
     Char(String),
+    Type(Type),
 
     // Binary Operators
     Add(Box<Expr>, Box<Expr>),
@@ -40,13 +41,14 @@ pub enum Expr {
     Discard(Box<Expr>),
 
     // Functions
-    Function(String, Box<Expr>, String, bool, Vec<(String, String)>),
+    Function(String, Box<Expr>, Type, bool, Vec<(String, Type)>),
     CallFunc(String, Vec<Box<Expr>>),
+    Return(Box<Expr>),
 
     // Variables
     Variable(String),
     DeclareAndAssign(String, Box<Expr>, bool),
-    Declare(String, String, bool),
+    Declare(String, Type, bool),
     Assign(String, Box<Expr>),
     Delete(String),
     This(),
@@ -75,6 +77,7 @@ impl Expr {
                 value_vec: None,
                 body: None,
                 native: None,
+                is_return: false,
             },
             Expr::Int(n) => Value {
                 value_type: "i32".into(),
@@ -82,6 +85,7 @@ impl Expr {
                 value_vec: None,
                 body: None,
                 native: None,
+                is_return: false,
             },
             Expr::Bool(b) => Value {
                 value_type: "bool".into(),
@@ -89,6 +93,7 @@ impl Expr {
                 value_vec: None,
                 body: None,
                 native: None,
+                is_return: false,
             },
             Expr::Str(s) => Value {
                 value_type: "str".into(),
@@ -96,6 +101,7 @@ impl Expr {
                 value_vec: None,
                 body: None,
                 native: None,
+                is_return: false,
             },
             Expr::Char(c) => Value {
                 value_type: "str".into(),
@@ -103,6 +109,7 @@ impl Expr {
                 value_vec: None,
                 body: None,
                 native: None,
+                is_return: false,
             },
 
             // ---- Binary Operators ----
@@ -110,7 +117,7 @@ impl Expr {
                 let lv = l.value(env);
                 let rv = r.value(env);
 
-                match (lv.value_type.as_str(), rv.value_type.as_str()) {
+                match (lv.value_type.name(), rv.value_type.name()) {
                     ("f64", "f64") => Value {
                         value_type: "f64".into(),
                         value: (lv.value.parse::<f64>().unwrap_or(0.0)
@@ -119,6 +126,7 @@ impl Expr {
                         value_vec: None,
                         body: None,
                         native: None,
+                        is_return: false,
                     },
                     ("i32", "i32") => Value {
                         value_type: "i32".into(),
@@ -128,6 +136,7 @@ impl Expr {
                         value_vec: None,
                         body: None,
                         native: None,
+                        is_return: false,
                     },
                     ("str", _) | (_, "str") => Value {
                         value_type: "str".into(),
@@ -135,6 +144,7 @@ impl Expr {
                         value_vec: None,
                         body: None,
                         native: None,
+                        is_return: false,
                     },
                     _ => {
                         let func_name = format!("_add<{},{}>", lv.value_type, rv.value_type);
@@ -151,7 +161,7 @@ impl Expr {
                 let lv = l.value(env);
                 let rv = r.value(env);
 
-                match (lv.value_type.as_str(), rv.value_type.as_str()) {
+                match (lv.value_type.name(), rv.value_type.name()) {
                     ("f64", "f64") => Value {
                         value_type: "f64".into(),
                         value: (lv.value.parse::<f64>().unwrap_or(0.0)
@@ -160,6 +170,7 @@ impl Expr {
                         value_vec: None,
                         body: None,
                         native: None,
+                        is_return: false,
                     },
                     ("i32", "i32") => Value {
                         value_type: "i32".into(),
@@ -169,6 +180,7 @@ impl Expr {
                         value_vec: None,
                         body: None,
                         native: None,
+                        is_return: false,
                     },
                     _ => {
                         let func_name = format!("_sub<{},{}>", lv.value_type, rv.value_type);
@@ -185,7 +197,7 @@ impl Expr {
                 let lv = l.value(env);
                 let rv = r.value(env);
 
-                match (lv.value_type.as_str(), rv.value_type.as_str()) {
+                match (lv.value_type.name(), rv.value_type.name()) {
                     ("f64", "f64") => Value {
                         value_type: "f64".into(),
                         value: (lv.value.parse::<f64>().unwrap_or(0.0)
@@ -194,6 +206,7 @@ impl Expr {
                         value_vec: None,
                         body: None,
                         native: None,
+                        is_return: false,
                     },
                     ("i32", "i32") => Value {
                         value_type: "i32".into(),
@@ -203,6 +216,7 @@ impl Expr {
                         value_vec: None,
                         body: None,
                         native: None,
+                        is_return: false,
                     },
                     _ => {
                         let func_name = format!("_mul<{},{}>", lv.value_type, rv.value_type);
@@ -219,7 +233,7 @@ impl Expr {
                 let lv = l.value(env);
                 let rv = r.value(env);
 
-                match (lv.value_type.as_str(), rv.value_type.as_str()) {
+                match (lv.value_type.name(), rv.value_type.name()) {
                     ("f64", "f64") => {
                         let rv_num = rv.value.parse::<f64>().unwrap_or(0.0);
                         let result = if rv_num == 0.0 {
@@ -234,6 +248,7 @@ impl Expr {
                             value_vec: None,
                             body: None,
                             native: None,
+                            is_return: false,
                         }
                     }
                     ("i32", "i32") => {
@@ -250,6 +265,7 @@ impl Expr {
                             value_vec: None,
                             body: None,
                             native: None,
+                            is_return: false,
                         }
                     }
                     _ => {
@@ -267,7 +283,7 @@ impl Expr {
                 let lv = l.value(env);
                 let rv = r.value(env);
 
-                match (lv.value_type.as_str(), rv.value_type.as_str()) {
+                match (lv.value_type.name(), rv.value_type.name()) {
                     ("f64", "f64") => Value {
                         value_type: "f64".into(),
                         value: (lv.value.parse::<f64>().unwrap_or(0.0)
@@ -276,6 +292,7 @@ impl Expr {
                         value_vec: None,
                         body: None,
                         native: None,
+                        is_return: false,
                     },
                     ("i32", "i32") => Value {
                         value_type: "i32".into(),
@@ -285,6 +302,7 @@ impl Expr {
                         value_vec: None,
                         body: None,
                         native: None,
+                        is_return: false,
                     },
                     _ => {
                         let func_name = format!("_mod<{},{}>", lv.value_type, rv.value_type);
@@ -301,7 +319,7 @@ impl Expr {
                 let lv = l.value(env);
                 let rv = r.value(env);
 
-                match (lv.value_type.as_str(), rv.value_type.as_str()) {
+                match (lv.value_type.name(), rv.value_type.name()) {
                     ("f64", "f64") => Value {
                         value_type: "f64".into(),
                         value: lv
@@ -313,6 +331,7 @@ impl Expr {
                         value_vec: None,
                         body: None,
                         native: None,
+                        is_return: false,
                     },
                     ("i32", "i32") => Value {
                         value_type: "i32".into(),
@@ -325,6 +344,7 @@ impl Expr {
                         value_vec: None,
                         body: None,
                         native: None,
+                        is_return: false,
                     },
                     _ => {
                         let func_name = format!("_pow<{},{}>", lv.value_type, rv.value_type);
@@ -351,6 +371,7 @@ impl Expr {
                     value_vec: None,
                     body: None,
                     native: None,
+                    is_return: false,
                 }
             }
             Expr::BangEqual(l, r) => {
@@ -366,6 +387,7 @@ impl Expr {
                     value_vec: None,
                     body: None,
                     native: None,
+                    is_return: false,
                 }
             }
             Expr::GreaterEqual(l, r)
@@ -387,6 +409,7 @@ impl Expr {
                     value_vec: None,
                     body: None,
                     native: None,
+                    is_return: false,
                 }
             }
 
@@ -403,6 +426,7 @@ impl Expr {
                     value_vec: None,
                     body: None,
                     native: None,
+                    is_return: false,
                 }
             }
             Expr::Or(l, r) => {
@@ -418,6 +442,7 @@ impl Expr {
                     value_vec: None,
                     body: None,
                     native: None,
+                    is_return: false,
                 }
             }
 
@@ -434,6 +459,7 @@ impl Expr {
                     value_vec: None,
                     body: None,
                     native: None,
+                    is_return: false,
                 }
             }
 
@@ -450,6 +476,9 @@ impl Expr {
                 let mut val = nil();
                 for stmt in stmts {
                     val = stmt.value(env);
+                    if val.is_return {
+                        break;
+                    }
                 }
                 env.pop_scope();
                 val
@@ -486,7 +515,7 @@ impl Expr {
                 env.make_func(
                     name,
                     block.clone(),
-                    return_type,
+                    return_type.clone(),
                     (*parameters).clone(),
                     *is_mutable,
                 );
@@ -524,8 +553,13 @@ impl Expr {
                     }
                     env.declare(params[i].0.clone(), arg_val, false);
                 }
-                let result = body.value(env);
+                let mut result = body.value(env);
                 env.pop_scope();
+
+                if result.is_return {
+                    result.is_return = false; // consume return signal
+                }
+
                 if result.value_type != return_type {
                     error(
                         0,
@@ -566,10 +600,18 @@ impl Expr {
             Expr::Custom(func) => func(env),
             Expr::Custom2(func) => func(env, vec![]),
             Expr::Value(v) => v.clone(),
+
+            Expr::Return(expr) => {
+                let mut v = expr.value(env);
+                v.is_return = true;
+                v
+            }
+
+            Expr::Type(t) => Expr::Str(t.name().to_string()).value(env),
         }
     }
 
-    pub fn type_of(&self, tenv: &mut TypeEnvironment) -> String {
+    pub fn type_of(&self, tenv: &mut TypeEnvironment) -> Type {
         match self {
             Expr::Float(_) => "f64".into(),
             Expr::Int(_) => "i32".into(),
@@ -579,11 +621,11 @@ impl Expr {
             Expr::Add(l, r) => {
                 let lt = l.type_of(tenv);
                 let rt = r.type_of(tenv);
-                match (lt.as_str(), rt.as_str()) {
+                match (lt.to_string().as_str(), rt.to_string().as_str()) {
                     ("f64", "f64") => "f64".into(),
                     ("i32", "i32") => "i32".into(),
                     ("str", _) | (_, "str") => "str".into(),
-                    _ => format!("{}_{}", lt, rt), // fallback for mixed/custom types
+                    _ => format!("{}_{}", lt, rt).into(), // fallback for mixed/custom types
                 }
             }
 
@@ -594,10 +636,10 @@ impl Expr {
             | Expr::Power(l, r) => {
                 let lt = l.type_of(tenv);
                 let rt = r.type_of(tenv);
-                match (lt.as_str(), rt.as_str()) {
+                match (lt.to_string().as_str(), rt.to_string().as_str()) {
                     ("f64", "f64") => "f64".into(),
                     ("i32", "i32") => "i32".into(),
-                    _ => format!("{}_{}", lt, rt), // fallback
+                    _ => format!("{}_{}", lt, rt).into(), // fallback
                 }
             }
 
@@ -609,14 +651,14 @@ impl Expr {
             | Expr::LessEqual(_, _) => "bool".into(),
 
             Expr::And(l, r) | Expr::Or(l, r) => {
-                if l.type_of(tenv) != "bool" || r.type_of(tenv) != "bool" {
+                if l.type_of(tenv) != "bool".into() || r.type_of(tenv) != "bool".into() {
                     panic!("Type error: logical ops require bool");
                 }
                 "bool".into()
             }
 
             Expr::Not(e) => {
-                if e.type_of(tenv) != "bool" {
+                if e.type_of(tenv) != "bool".into() {
                     panic!("Type error: ! requires bool");
                 }
                 "bool".into()
@@ -632,7 +674,7 @@ impl Expr {
 
             Expr::Declare(name, ty, _) => {
                 tenv.declare(name.clone(), ty.clone());
-                "[]".into()
+                "arr".into()
             }
 
             Expr::Assign(name, expr) => {
@@ -646,7 +688,7 @@ impl Expr {
 
             Expr::StmtBlock(stmts) => {
                 tenv.push();
-                let mut last = "[]".to_string();
+                let mut last = "arr".into();
                 for s in stmts {
                     last = s.type_of(tenv);
                 }
@@ -655,11 +697,11 @@ impl Expr {
             }
 
             Expr::If(cond, a, b) => {
-                if cond.type_of(tenv) != "bool" {
+                if cond.type_of(tenv) != "bool".into() {
                     panic!("if condition must be bool");
                 }
                 let t1 = a.type_of(tenv);
-                let t2 = b.as_ref().map(|x| x.type_of(tenv)).unwrap_or("[]".into());
+                let t2 = b.as_ref().map(|x| x.type_of(tenv)).unwrap_or("arr".into());
                 if t1 != t2 {
                     panic!("if branches return different types");
                 }
@@ -667,14 +709,19 @@ impl Expr {
             }
 
             Expr::While(cond, _) => {
-                if cond.type_of(tenv) != "bool" {
-                    panic!("while condition must be bool");
+                let t = cond.type_of(tenv);
+                if t != "bool".into() {
+                    error(
+                        0,
+                        0,
+                        format!("While condition must be bool, type was '{}'", t).as_str(),
+                    );
                 }
-                "[]".into()
+                "arr".into()
             }
 
             Expr::Function(name, body, return_type, _, params) => {
-                tenv.declare(name.clone(), "func".into());
+                tenv.declare(name.clone(), Type::new("func".into()));
                 tenv.push();
                 for (p, t) in params {
                     tenv.declare(p.clone(), t.clone());
@@ -682,9 +729,14 @@ impl Expr {
                 let actual = body.type_of(tenv);
                 tenv.pop();
                 if &actual != return_type {
-                    panic!(
-                        "Function {} should return {}, got {}",
-                        name, return_type, actual
+                    error(
+                        0,
+                        0,
+                        format!(
+                            "Function {} should return {}, got {}",
+                            name, return_type, actual
+                        )
+                        .as_str(),
                     );
                 }
                 "func".into()
@@ -692,14 +744,16 @@ impl Expr {
 
             Expr::CallFunc(_, _) => "unknown".into(),
 
-            Expr::Nothing() => "[]".into(),
+            Expr::Nothing() => "arr".into(),
 
             Expr::Custom(_) | Expr::Custom2(_) => "unknown".into(),
             Expr::Value(v) => v.value_type.clone(),
 
             Expr::Nth(_, _) => "unknown".into(),
             Expr::This() => "unknown".into(),
-            Expr::Print(_) | Expr::Discard(_) | Expr::Delete(_) => "[]".into(),
+            Expr::Print(_) | Expr::Discard(_) | Expr::Delete(_) => "arr".into(),
+
+            _ => "unknown".into(),
         }
     }
 }
