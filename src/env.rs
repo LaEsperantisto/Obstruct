@@ -1,6 +1,6 @@
 use crate::error;
 use crate::expr::Expr;
-use crate::type_env::Type;
+use crate::type_env::{Type, TypeEnvironment};
 use crate::value::{func_val, native_func, nil, Value};
 use crate::variable::Variable;
 use cobject::CWindow;
@@ -151,7 +151,11 @@ impl Environment {
             Variable::new_func(block, parameters, return_type, is_mutable),
         );
     }
-    pub fn declare_native(&mut self, name: &str, func: fn(&mut Environment, Vec<Value>) -> Value) {
+    pub fn declare_native(
+        &mut self,
+        name: &str,
+        func: fn(&mut Environment, &mut TypeEnvironment, Vec<Value>) -> Value,
+    ) {
         let scope = self.scopes.last_mut().unwrap();
         scope.insert(name.to_string(), Variable::new(native_func(func), false));
     }

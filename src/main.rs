@@ -57,7 +57,7 @@ fn main() -> io::Result<()> {
                 "Error during type verification",
             ))
         } else {
-            expr.value(&mut env);
+            expr.value(&mut env, &mut tenv);
             println!();
             if had_error() {
                 Err(io::Error::new(ErrorKind::Other, "Error during execution"))

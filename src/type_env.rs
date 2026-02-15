@@ -37,72 +37,118 @@ impl TypeEnvironment {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Type {
-    name: String,
-    generics: Vec<Type>,
+pub enum Type {
+    Concrete { name: String, generics: Vec<Type> },
+    Generic(String), // T, U, etc
 }
 
 impl Type {
-    pub fn new(name: String) -> Self {
-        if name == "[]" {
-            Self {
-                name: "arr".into(),
-                generics: Vec::new(),
-            }
-        } else {
-            Self {
-                name,
-                generics: Vec::new(),
-            }
+    pub fn simple(name: &str) -> Self {
+        Type::Concrete {
+            name: name.into(),
+            generics: vec![],
         }
     }
 
-    pub fn add_generic(&mut self, t: Type) {
-        self.generics.push(t);
+    pub fn generic(name: &str) -> Self {
+        Type::Generic(name.into())
     }
+
+    pub fn with_generics(name: &str, gens: Vec<Type>) -> Self {
+        Type::Concrete {
+            name: name.into(),
+            generics: gens,
+        }
+    }
+
     pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn generics(&self) -> &[Type] {
-        &self.generics
-    }
-
-    pub fn is_nil(&self) -> bool {
-        self.generics.is_empty() && self.name == "arr"
-    }
-
-    pub fn is_generic(&self) -> bool {
-        !self.generics.is_empty()
+        match self {
+            Type::Concrete { name, .. } => name,
+            Type::Generic(n) => n,
+        }
     }
 }
 
 impl From<&str> for Type {
     fn from(name: &str) -> Self {
-        Self::new(name.into())
+        Type::simple(name)
     }
 }
 
 impl From<String> for Type {
     fn from(name: String) -> Self {
-        Self::new(name)
+        Type::simple(&name)
     }
 }
 
 impl fmt::Display for Type {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.is_generic() {
-            write!(f, "{}<{}>", self.name, join(&self.generics))
-        } else {
-            write!(f, "{}", self.name)
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Type::Generic(n) => write!(f, "{}", n),
+            Type::Concrete { name, generics } => {
+                if generics.is_empty() {
+                    write!(f, "{}", name)
+                } else {
+                    let g = generics
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    write!(f, "{}<{}>", name, g)
+                }
+            }
         }
     }
 }
 
-fn join(vec: &Vec<Type>) -> String {
-    let mut output = String::new();
-    for t in vec {
-        output.push_str(format!("{}, ", t).as_str());
+pub fn nil_type() -> Type {
+    Type::simple("arr")
+}
+
+pub fn unify(pattern: &Type, actual: &Type, bindings: &mut HashMap<String, Type>) -> bool {
+    match (pattern, actual) {
+        (Type::Generic(name), t) => {
+            if let Some(bound) = bindings.get(name) {
+                bound == t
+            } else {
+                bindings.insert(name.clone(), t.clone());
+                true
+            }
+        }
+
+        (
+            Type::Concrete {
+                name: a,
+                generics: ag,
+            },
+            Type::Concrete {
+                name: b,
+                generics: bg,
+            },
+        ) => {
+            if a != b || ag.len() != bg.len() {
+                return false;
+            }
+
+            for (x, y) in ag.iter().zip(bg.iter()) {
+                if !unify(x, y, bindings) {
+                    return false;
+                }
+            }
+            true
+        }
+
+        _ => false,
     }
-    output
+}
+
+pub fn substitute(t: &Type, map: &HashMap<String, Type>) -> Type {
+    match t {
+        Type::Generic(n) => map.get(n).cloned().unwrap_or(t.clone()),
+
+        Type::Concrete { name, generics } => Type::Concrete {
+            name: name.clone(),
+            generics: generics.iter().map(|g| substitute(g, map)).collect(),
+        },
+    }
 }

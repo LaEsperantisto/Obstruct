@@ -1,5 +1,5 @@
 use crate::token_type::TokenType::Pound;
-use crate::type_env::Type;
+use crate::type_env::{nil_type, Type};
 use crate::{error, expr::Expr, token::Token, token_type::TokenType};
 
 pub struct Parser<'a> {
@@ -202,6 +202,20 @@ impl<'a> Parser<'a> {
     fn define_function(&mut self) -> Expr {
         let is_mutable = self.match_any(&[TokenType::At]);
 
+        let mut generic_params = vec![];
+
+        if self.match_any(&[TokenType::Less]) {
+            loop {
+                self.consume(TokenType::Ident, "Expected generic name");
+                generic_params.push(Type::generic(&self.previous().lexeme));
+
+                if !self.match_any(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+            self.consume(TokenType::Greater, "Expected '>'");
+        }
+
         let name = self.advance().lexeme;
 
         let parameters: Vec<(String, Type)> = if self.match_any(&[TokenType::LeftParen]) {
@@ -228,7 +242,7 @@ impl<'a> Parser<'a> {
         let return_type = if !self.check(TokenType::LeftBrace) {
             self.get_type()
         } else {
-            "arr".into()
+            nil_type()
         };
 
         self.consume(
@@ -448,41 +462,31 @@ impl<'a> Parser<'a> {
 
     fn get_type(&mut self) -> Type {
         if self.match_any(&[TokenType::Ident]) {
-            let lexeme = self.previous().lexeme;
-            if self.match_any(&[TokenType::Less]) {
-                // generic
+            let name = self.previous().lexeme.clone();
 
-                let output = lexeme.into();
-
-                self.consume(TokenType::Greater, "Expected '>' after generic.");
-
-                output
-            } else {
-                lexeme.into()
+            // Generic placeholder (capital letter convention)
+            if name.chars().next().unwrap().is_uppercase() && !self.check(TokenType::Less) {
+                return Type::generic(&name);
             }
-        } else {
-            // array
-            let mut type_count = 0;
 
-            self.consume(TokenType::LeftBrack, "Expected '[' for array declaration.");
+            if self.match_any(&[TokenType::Less]) {
+                let mut gens = vec![];
 
-            let mut output = Type::new("arr".into());
-
-            if !self.check(TokenType::RightBrack) {
                 loop {
-                    output.add_generic(self.get_type());
-                    if !output.generics().is_empty() {
-                        type_count += 1;
-                    }
+                    gens.push(self.get_type());
                     if !self.match_any(&[TokenType::Comma]) {
                         break;
                     }
                 }
+
+                self.consume(TokenType::Greater, "Expected '>' after generics");
+                return Type::with_generics(&name, gens);
             }
 
-            self.consume(TokenType::RightBrack, "Expected ']' after type.");
-            if type_count == 1 { output } else { output }
+            return Type::simple(&name);
         }
+
+        panic!("Expected type");
     }
 
     // ---------- UTIL ----------

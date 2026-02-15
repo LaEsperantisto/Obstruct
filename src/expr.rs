@@ -1,7 +1,8 @@
 use crate::env::Environment;
-use crate::type_env::{Type, TypeEnvironment};
+use crate::type_env::{substitute, unify, Type, TypeEnvironment};
 use crate::value::{nil, Value};
 use crate::{error, had_error};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub enum Expr {
@@ -64,7 +65,7 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn value(&self, env: &mut Environment) -> Value {
+    pub fn value(&self, env: &mut Environment, tenv: &mut TypeEnvironment) -> Value {
         if had_error() {
             return nil();
         }
@@ -114,8 +115,8 @@ impl Expr {
 
             // ---- Binary Operators ----
             Expr::Add(l, r) => {
-                let lv = l.value(env);
-                let rv = r.value(env);
+                let lv = l.value(env, tenv);
+                let rv = r.value(env, tenv);
 
                 match (lv.value_type.name(), rv.value_type.name()) {
                     ("f64", "f64") => Value {
@@ -152,14 +153,14 @@ impl Expr {
                             func_name,
                             vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
                         )
-                        .value(env)
+                        .value(env, tenv)
                     }
                 }
             }
 
             Expr::Sub(l, r) => {
-                let lv = l.value(env);
-                let rv = r.value(env);
+                let lv = l.value(env, tenv);
+                let rv = r.value(env, tenv);
 
                 match (lv.value_type.name(), rv.value_type.name()) {
                     ("f64", "f64") => Value {
@@ -188,14 +189,14 @@ impl Expr {
                             func_name,
                             vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
                         )
-                        .value(env)
+                        .value(env, tenv)
                     }
                 }
             }
 
             Expr::Mult(l, r) => {
-                let lv = l.value(env);
-                let rv = r.value(env);
+                let lv = l.value(env, tenv);
+                let rv = r.value(env, tenv);
 
                 match (lv.value_type.name(), rv.value_type.name()) {
                     ("f64", "f64") => Value {
@@ -224,14 +225,14 @@ impl Expr {
                             func_name,
                             vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
                         )
-                        .value(env)
+                        .value(env, tenv)
                     }
                 }
             }
 
             Expr::Divide(l, r) => {
-                let lv = l.value(env);
-                let rv = r.value(env);
+                let lv = l.value(env, tenv);
+                let rv = r.value(env, tenv);
 
                 match (lv.value_type.name(), rv.value_type.name()) {
                     ("f64", "f64") => {
@@ -274,14 +275,14 @@ impl Expr {
                             func_name,
                             vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
                         )
-                        .value(env)
+                        .value(env, tenv)
                     }
                 }
             }
 
             Expr::Mod(l, r) => {
-                let lv = l.value(env);
-                let rv = r.value(env);
+                let lv = l.value(env, tenv);
+                let rv = r.value(env, tenv);
 
                 match (lv.value_type.name(), rv.value_type.name()) {
                     ("f64", "f64") => Value {
@@ -310,14 +311,14 @@ impl Expr {
                             func_name,
                             vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
                         )
-                        .value(env)
+                        .value(env, tenv)
                     }
                 }
             }
 
             Expr::Power(l, r) => {
-                let lv = l.value(env);
-                let rv = r.value(env);
+                let lv = l.value(env, tenv);
+                let rv = r.value(env, tenv);
 
                 match (lv.value_type.name(), rv.value_type.name()) {
                     ("f64", "f64") => Value {
@@ -352,15 +353,15 @@ impl Expr {
                             func_name,
                             vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
                         )
-                        .value(env)
+                        .value(env, tenv)
                     }
                 }
             }
 
             // ---- Comparison and logical operators ----
             Expr::EqualEqual(l, r) => {
-                let lv = l.value(env);
-                let rv = r.value(env);
+                let lv = l.value(env, tenv);
+                let rv = r.value(env, tenv);
                 Value {
                     value_type: "bool".into(),
                     value: if lv.value == rv.value && lv.value_type == rv.value_type {
@@ -375,8 +376,8 @@ impl Expr {
                 }
             }
             Expr::BangEqual(l, r) => {
-                let lv = l.value(env);
-                let rv = r.value(env);
+                let lv = l.value(env, tenv);
+                let rv = r.value(env, tenv);
                 Value {
                     value_type: "bool".into(),
                     value: if lv.value != rv.value {
@@ -394,8 +395,8 @@ impl Expr {
             | Expr::Greater(l, r)
             | Expr::LessEqual(l, r)
             | Expr::Less(l, r) => {
-                let lv = l.value(env).value.parse::<f64>().unwrap_or(0.0);
-                let rv = r.value(env).value.parse::<f64>().unwrap_or(0.0);
+                let lv = l.value(env, tenv).value.parse::<f64>().unwrap_or(0.0);
+                let rv = r.value(env, tenv).value.parse::<f64>().unwrap_or(0.0);
                 let result = match self {
                     Expr::Greater(_, _) => lv > rv,
                     Expr::GreaterEqual(_, _) => lv >= rv,
@@ -414,8 +415,8 @@ impl Expr {
             }
 
             Expr::And(l, r) => {
-                let lv = l.value(env);
-                let rv = r.value(env);
+                let lv = l.value(env, tenv);
+                let rv = r.value(env, tenv);
                 Value {
                     value_type: "bool".into(),
                     value: if lv.value != "`f" && rv.value != "`f" {
@@ -430,8 +431,8 @@ impl Expr {
                 }
             }
             Expr::Or(l, r) => {
-                let lv = l.value(env);
-                let rv = r.value(env);
+                let lv = l.value(env, tenv);
+                let rv = r.value(env, tenv);
                 Value {
                     value_type: "bool".into(),
                     value: if lv.value != "`f" || rv.value != "`f" {
@@ -448,7 +449,7 @@ impl Expr {
 
             // ---- Unary ----
             Expr::Not(r) => {
-                let rv = r.value(env);
+                let rv = r.value(env, tenv);
                 Value {
                     value_type: "bool".into(),
                     value: if rv.value == "`f" {
@@ -465,7 +466,7 @@ impl Expr {
 
             // ---- Statements, Variables, Functions, Control Flow ----
             Expr::Print(r) => {
-                let val = r.value(env);
+                let val = r.value(env, tenv);
                 if !had_error() {
                     print!("{}", val.to_string());
                 }
@@ -475,7 +476,7 @@ impl Expr {
                 env.push_scope();
                 let mut val = nil();
                 for stmt in stmts {
-                    val = stmt.value(env);
+                    val = stmt.value(env, tenv);
                     if val.is_return {
                         break;
                     }
@@ -485,29 +486,29 @@ impl Expr {
             }
             Expr::Variable(var) => env.get(var).value,
             Expr::DeclareAndAssign(name, expr, is_mutable) => {
-                let value = expr.value(env);
+                let value = expr.value(env, tenv);
                 env.declare(name.clone(), value.clone(), *is_mutable);
                 value
             }
             Expr::Assign(name, expr) => {
                 env.new_this(name);
-                let value = expr.value(env);
+                let value = expr.value(env, tenv);
                 env.assign(name, value);
                 env.end_this();
                 nil()
             }
             Expr::If(cond, if_block, else_block) => {
-                if cond.value(env).is_true() {
-                    if_block.value(env)
+                if cond.value(env, tenv).is_true() {
+                    if_block.value(env, tenv)
                 } else if let Some(else_block) = else_block {
-                    else_block.value(env)
+                    else_block.value(env, tenv)
                 } else {
                     nil()
                 }
             }
             Expr::Declare(name, var_type, is_mutable) => {
                 let func = env.get_func(format!("{}::new", var_type).as_str());
-                let val = func.0.value(env);
+                let val = func.0.value(env, tenv);
                 env.declare(name.to_string(), val, *is_mutable);
                 nil()
             }
@@ -523,17 +524,20 @@ impl Expr {
             }
             Expr::CallFunc(name, arguments) => {
                 let var = env.get(name);
+
                 if let Some(native) = var.value.native {
-                    let args = arguments.iter().map(|arg| arg.value(env)).collect();
-                    return native(env, args);
+                    let args = arguments.iter().map(|a| a.value(env, tenv)).collect();
+                    return native(env, tenv, args);
                 }
+
                 let (body, params, return_type) = env.get_func(name);
+
                 if params.len() != arguments.len() {
                     error(
                         0,
                         0,
                         format!(
-                            "Got {} arguments for function '{}', which wanted {} arguments.",
+                            "Got {} arguments for function '{}', expected {}",
                             arguments.len(),
                             name,
                             params.len()
@@ -541,40 +545,55 @@ impl Expr {
                         .as_str(),
                     );
                 }
+
                 env.push_scope();
+
+                let mut bindings = HashMap::new();
+
                 for i in 0..params.len() {
-                    let arg_val = arguments[i].value(env);
-                    if arg_val.value_type != params[i].1 {
-                        error(
-                            0,
-                            0,
-                            format!("Expected type '{}', but got '{}' with type '{}' in function call '{}'", arg_val.value_type, params[i].0, params[i].1, name).as_str(),
-                        );
+                    let arg_value = arguments[i].value(env, tenv);
+                    let arg_type = arg_value.value_type.clone();
+
+                    // 🔧 unify generic types
+                    if !unify(&params[i].1, &arg_type, &mut bindings) {
+                        panic!("Type mismatch: expected {}, got {}", params[i].1, arg_type);
                     }
-                    env.declare(params[i].0.clone(), arg_val, false);
+
+                    // ✅ THIS IS THE IMPORTANT PART
+                    env.declare(
+                        params[i].0.clone(), // parameter name
+                        arg_value,           // actual value
+                        false,
+                    );
                 }
-                let mut result = body.value(env);
+
+                let real_return = substitute(&return_type, &bindings);
+
+                let mut result = body.value(env, tenv);
+
                 env.pop_scope();
 
                 if result.is_return {
-                    result.is_return = false; // consume return signal
+                    result.is_return = false;
                 }
 
-                if result.value_type != return_type {
+                if result.value_type != real_return {
                     error(
                         0,
                         0,
                         format!(
-                            "Return type of function is '{}', but got type '{}'.",
-                            return_type, result.value_type
+                            "Return type expected {}, got {}",
+                            real_return, result.value_type
                         )
                         .as_str(),
                     );
                 }
+
                 result
             }
+
             Expr::Discard(expr) => {
-                expr.value(env);
+                expr.value(env, tenv);
                 nil()
             }
             Expr::Delete(expr) => {
@@ -582,32 +601,32 @@ impl Expr {
                 nil()
             }
             Expr::While(cond, body) => {
-                while cond.value(env).is_true() {
-                    body.value(env);
+                while cond.value(env, tenv).is_true() {
+                    body.value(env, tenv);
                 }
                 nil()
             }
             Expr::Nth(l, r) => {
-                let val = l.value(env);
+                let val = l.value(env, tenv);
                 Expr::CallFunc(
                     format!("{}::nth", val.value_type),
                     vec![l.clone(), r.clone()],
                 )
-                .value(env)
+                .value(env, tenv)
             }
-            Expr::This() => Expr::Variable(env.this()).value(env),
+            Expr::This() => Expr::Variable(env.this()).value(env, tenv),
             Expr::Nothing() => nil(),
             Expr::Custom(func) => func(env),
             Expr::Custom2(func) => func(env, vec![]),
             Expr::Value(v) => v.clone(),
 
             Expr::Return(expr) => {
-                let mut v = expr.value(env);
+                let mut v = expr.value(env, tenv);
                 v.is_return = true;
                 v
             }
 
-            Expr::Type(t) => Expr::Str(t.name().to_string()).value(env),
+            Expr::Type(t) => Expr::Str(t.name().to_string()).value(env, tenv),
         }
     }
 
@@ -721,7 +740,7 @@ impl Expr {
             }
 
             Expr::Function(name, body, return_type, _, params) => {
-                tenv.declare(name.clone(), Type::new("func".into()));
+                tenv.declare(name.clone(), "func".into());
                 tenv.push();
                 for (p, t) in params {
                     tenv.declare(p.clone(), t.clone());

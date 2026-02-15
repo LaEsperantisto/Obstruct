@@ -1,7 +1,7 @@
 use crate::env::Environment;
 use crate::error;
 use crate::expr::Expr;
-use crate::type_env::Type;
+use crate::type_env::{nil_type, Type, TypeEnvironment};
 use std::fmt;
 
 #[derive(Clone, Debug)]
@@ -10,7 +10,7 @@ pub struct Value {
     pub value: String,
     pub value_vec: Option<Vec<Value>>,
     pub body: Option<(Box<Expr>, Vec<(String, Type)>, Type)>,
-    pub native: Option<fn(&mut Environment, Vec<Value>) -> Value>,
+    pub native: Option<fn(&mut Environment, &mut TypeEnvironment, Vec<Value>) -> Value>,
     pub is_return: bool,
 }
 
@@ -48,7 +48,7 @@ impl fmt::Display for Value {
 
 pub fn nil() -> Value {
     Value {
-        value_type: "arr".into(),
+        value_type: nil_type(),
         value: "".to_string(),
         value_vec: None,
         body: None,
@@ -68,7 +68,7 @@ pub fn func_val(body: (Box<Expr>, Vec<(String, Type)>, Type)) -> Value {
     }
 }
 
-pub fn native_func(f: fn(&mut Environment, Vec<Value>) -> Value) -> Value {
+pub fn native_func(f: fn(&mut Environment, &mut TypeEnvironment, Vec<Value>) -> Value) -> Value {
     Value {
         value_type: "func".into(),
         value: "".to_string(),

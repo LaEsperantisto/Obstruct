@@ -1,6 +1,7 @@
 use crate::env::Environment;
 use crate::expr::Expr;
 use crate::expr::Expr::{Float, Int, Nothing, Str};
+use crate::type_env::TypeEnvironment;
 use crate::value::{nil, Value};
 use crate::{error, value};
 use cobject::ccolor;
@@ -80,7 +81,7 @@ pub fn init(env: &mut Environment) {
     env.declare_native("is_window_open", native_is_window_open);
 }
 
-fn native_len(_: &mut Environment, args: Vec<Value>) -> Value {
+fn native_len(_: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {
     if args.len() != 1 {
         error(0, 0, "len() expects 1 argument");
         return nil();
@@ -96,7 +97,7 @@ fn native_len(_: &mut Environment, args: Vec<Value>) -> Value {
     }
 }
 
-fn native_str_nth(_env: &mut Environment, args: Vec<Value>) -> Value {
+fn native_str_nth(_env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {
     if args.len() != 2 {
         error(
             0,
@@ -150,13 +151,13 @@ fn native_str_nth(_env: &mut Environment, args: Vec<Value>) -> Value {
     }
 }
 
-fn native_push(env: &mut Environment, args: Vec<Value>) -> Value {
+fn native_push(env: &mut Environment, tenv: &mut TypeEnvironment, args: Vec<Value>) -> Value {
     Value {
         value: String::new(),
         value_type: "vec".into(),
         value_vec: Some({
             let mut v = args[0].value_vec.clone().unwrap();
-            v.push(Str(args[1].clone().value).value(env));
+            v.push(Str(args[1].clone().value).value(env, tenv));
             v
         }),
         body: None,
@@ -165,7 +166,7 @@ fn native_push(env: &mut Environment, args: Vec<Value>) -> Value {
     }
 }
 
-fn native_vec_nth(_env: &mut Environment, args: Vec<Value>) -> Value {
+fn native_vec_nth(_: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {
     if args.len() != 2 {
         error(
             0,
@@ -215,11 +216,11 @@ fn native_vec_nth(_env: &mut Environment, args: Vec<Value>) -> Value {
     }
 }
 
-fn native_type_check(env: &mut Environment, args: Vec<Value>) -> Value {
-    Str(args[0].value_type.clone().name().to_string()).value(env)
+fn native_type_check(env: &mut Environment, tenv: &mut TypeEnvironment, args: Vec<Value>) -> Value {
+    Str(args[0].value_type.clone().name().to_string()).value(env, tenv)
 }
 
-fn native_init_window(env: &mut Environment, args: Vec<Value>) -> Value {
+fn native_init_window(env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {
     if args.len() != 1 {
         error(0, 0, "init_window() expects 1 argument");
     }
@@ -228,7 +229,7 @@ fn native_init_window(env: &mut Environment, args: Vec<Value>) -> Value {
     nil()
 }
 
-fn native_show_window(env: &mut Environment, args: Vec<Value>) -> Value {
+fn native_show_window(env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {
     if !args.is_empty() {
         error(0, 0, "show_window() expects no argument");
     }
@@ -244,11 +245,15 @@ fn native_show_window(env: &mut Environment, args: Vec<Value>) -> Value {
     nil()
 }
 
-fn native_is_window_open(env: &mut Environment, args: Vec<Value>) -> Value {
+fn native_is_window_open(
+    env: &mut Environment,
+    tenv: &mut TypeEnvironment,
+    args: Vec<Value>,
+) -> Value {
     if !args.is_empty() {
         error(0, 0, "is_window_open() expects no argument");
     }
 
     let window = env.get_window();
-    Expr::Bool(window.is_open()).value(env)
+    Expr::Bool(window.is_open()).value(env, tenv)
 }
