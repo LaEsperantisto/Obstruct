@@ -29,8 +29,10 @@ pub enum TokenType {
     Equal,
     EqualEqual,
     Greater,
+    GreaterGreater,
     GreaterEqual,
     Less,
+    LessLess,
     LessEqual,
     At,
     Hash,
@@ -66,6 +68,8 @@ pub enum TokenType {
     Use,
     For,
     Fn,
+    Mac,
+    Lam,
 
     Nil, // this gives an error - not supposed to be fetched - interpreter badly programmed
     EOF, // End Of File
@@ -101,8 +105,10 @@ impl fmt::Display for TokenType {
             TokenType::Equal => "Equal",
             TokenType::EqualEqual => "EqualEqual",
             TokenType::Greater => "Greater",
+            TokenType::GreaterGreater => "GreaterGreater",
             TokenType::GreaterEqual => "GreaterEqual",
             TokenType::Less => "Less",
+            TokenType::LessLess => "LessLess",
             TokenType::LessEqual => "LessEqual",
             TokenType::At => "At",
             TokenType::Hash => "Hash",
@@ -138,6 +144,8 @@ impl fmt::Display for TokenType {
             TokenType::Use => "Use",
             TokenType::For => "For",
             TokenType::Fn => "Fn",
+            TokenType::Mac => "Mac",
+            TokenType::Lam => "Lam",
 
             TokenType::Nil => "Nil",
             TokenType::EOF => "EOF",

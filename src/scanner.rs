@@ -28,6 +28,8 @@ impl Scanner {
         keywords.insert("use".into(), TokenType::Use);
         keywords.insert("for".into(), TokenType::For);
         keywords.insert("fn".into(), TokenType::Fn);
+        keywords.insert("mac".into(), TokenType::Mac);
+        keywords.insert("lam".into(), TokenType::Lam);
 
         Scanner {
             source,
@@ -137,6 +139,8 @@ impl Scanner {
             '<' => {
                 if self.match_char('=') {
                     self.add_token(TokenType::LessEqual);
+                } else if self.match_char('<') {
+                    self.add_token(TokenType::LessLess);
                 } else {
                     self.add_token(TokenType::Less);
                 }
@@ -144,6 +148,8 @@ impl Scanner {
             '>' => {
                 if self.match_char('=') {
                     self.add_token(TokenType::GreaterEqual);
+                } else if self.match_char('>') {
+                    self.add_token(TokenType::GreaterGreater);
                 } else {
                     self.add_token(TokenType::Greater);
                 }

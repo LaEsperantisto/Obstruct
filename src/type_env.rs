@@ -4,12 +4,14 @@ use std::collections::HashMap;
 #[derive(Clone)]
 pub struct TypeEnvironment {
     scopes: Vec<HashMap<String, Type>>,
+    gens: Vec<HashMap<String, Type>>,
 }
 
 impl TypeEnvironment {
     pub fn new() -> Self {
         Self {
             scopes: vec![HashMap::new()],
+            gens: vec![HashMap::new()],
         }
     }
 
@@ -19,6 +21,22 @@ impl TypeEnvironment {
 
     pub fn pop(&mut self) {
         self.scopes.pop();
+    }
+
+    pub fn push_func(&mut self) {
+        self.gens.push(HashMap::new());
+    }
+
+    pub fn pop_func(&mut self) {
+        self.gens.pop();
+    }
+
+    pub fn get_gen(&mut self, name: String) -> Type {
+        self.gens.last().unwrap().get(&name).unwrap().clone()
+    }
+
+    pub fn add_gen(&mut self, name: String, ty: Type) {
+        self.gens.last_mut().unwrap().insert(name, ty);
     }
 
     pub fn declare(&mut self, name: String, ty: Type) {
@@ -50,8 +68,20 @@ impl Type {
         }
     }
 
+    pub fn is_generic(&self) -> bool {
+        matches!(self, Type::Generic(_))
+    }
+
     pub fn generic(name: &str) -> Self {
         Type::Generic(name.into())
+    }
+
+    pub fn generics(&self) -> Vec<Type> {
+        if let Type::Concrete { name, generics } = &self {
+            generics.clone()
+        } else {
+            vec![]
+        }
     }
 
     pub fn with_generics(name: &str, gens: Vec<Type>) -> Self {

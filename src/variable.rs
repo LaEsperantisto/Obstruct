@@ -1,6 +1,6 @@
 use crate::expr::Expr;
 use crate::type_env::Type;
-use crate::value::{func_val, Value};
+use crate::value::{func_val, Func, Value};
 use std::fmt;
 
 #[derive(Clone)]
@@ -17,10 +17,11 @@ impl Variable {
         block: Box<Expr>,
         parameters: Vec<(String, Type)>,
         return_type: Type,
+        gens: Vec<String>,
         is_mutable: bool,
     ) -> Variable {
         Variable {
-            value: func_val((block, parameters, return_type.into())),
+            value: func_val(Func::new(block, parameters, return_type.into(), gens)),
             is_mutable,
         }
     }

@@ -204,16 +204,16 @@ impl<'a> Parser<'a> {
 
         let mut generic_params = vec![];
 
-        if self.match_any(&[TokenType::Less]) {
+        if self.match_any(&[TokenType::LessLess]) {
             loop {
                 self.consume(TokenType::Ident, "Expected generic name");
-                generic_params.push(Type::generic(&self.previous().lexeme));
+                generic_params.push(self.previous().lexeme);
 
                 if !self.match_any(&[TokenType::Comma]) {
                     break;
                 }
             }
-            self.consume(TokenType::Greater, "Expected '>'");
+            self.consume(TokenType::GreaterGreater, "Expected '>'");
         }
 
         let name = self.advance().lexeme;
@@ -252,7 +252,66 @@ impl<'a> Parser<'a> {
 
         let body = Box::new(self.statement_block());
 
-        Expr::Function(name, body, return_type, is_mutable, parameters)
+        Expr::DeclareFunction(
+            name,
+            body,
+            return_type,
+            is_mutable,
+            parameters,
+            generic_params,
+        )
+    }
+
+    fn define_lambda(&mut self) -> Expr {
+        let mut generic_params = vec![];
+
+        if self.match_any(&[TokenType::LessLess]) {
+            loop {
+                self.consume(TokenType::Ident, "Expected generic name");
+                generic_params.push(self.previous().lexeme);
+
+                if !self.match_any(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+            self.consume(TokenType::GreaterGreater, "Expected '>'");
+        }
+
+        let parameters: Vec<(String, Type)> = if self.match_any(&[TokenType::LeftParen]) {
+            let mut parameters = vec![];
+            while !self.is_at_end() && !self.check(TokenType::RightParen) {
+                let name = self.advance().lexeme;
+                self.consume(TokenType::Colon, "Expected ':' after parameter name.");
+                let var_type = self.get_type();
+                parameters.push((name, var_type));
+                if !self.match_any(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+
+            self.consume(
+                TokenType::RightParen,
+                "Expected ')' after function parameters.",
+            );
+            parameters
+        } else {
+            vec![]
+        };
+
+        let return_type = if !self.check(TokenType::LeftBrace) {
+            self.get_type()
+        } else {
+            nil_type()
+        };
+
+        self.consume(
+            TokenType::LeftBrace,
+            "Expected '{' after function declaration.",
+        );
+
+        let body = Box::new(self.statement_block());
+
+        Expr::Function(body, return_type, parameters, generic_params)
     }
 
     fn return_stmt(&mut self) -> Expr {
@@ -262,6 +321,20 @@ impl<'a> Parser<'a> {
 
     fn call_function(&mut self) -> Expr {
         let name = self.previous().lexeme;
+
+        let mut generics = vec![];
+
+        if self.match_any(&[TokenType::LessLess]) {
+            loop {
+                generics.push(self.get_type());
+
+                if !self.match_any(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+            self.consume(TokenType::GreaterGreater, "Expected '>' after generics");
+        }
+
         self.consume(TokenType::LeftParen, "Expected '(' after function name.");
 
         let mut arguments = vec![];
@@ -269,7 +342,6 @@ impl<'a> Parser<'a> {
         if !self.check(TokenType::RightParen) {
             loop {
                 arguments.push(Box::new(self.expression()));
-
                 if !self.match_any(&[TokenType::Comma]) {
                     break;
                 }
@@ -278,7 +350,7 @@ impl<'a> Parser<'a> {
 
         self.consume(TokenType::RightParen, "Missing ')' after function call.");
 
-        Expr::CallFunc(name, arguments)
+        Expr::CallFunc(name, generics, arguments)
     }
 
     // ---------- EXPRESSIONS ----------
@@ -400,7 +472,9 @@ impl<'a> Parser<'a> {
             return self.statement_block();
         }
 
-        if self.check(TokenType::Ident) && self.peek_next(TokenType::LeftParen) {
+        if self.check(TokenType::Ident)
+            && (self.peek_next(TokenType::LeftParen) || self.peek_next(TokenType::LessLess))
+        {
             self.consume(TokenType::Ident, "THIS SHOULD BE UNREACHABLE.");
             return self.call_function();
         }
@@ -457,6 +531,11 @@ impl<'a> Parser<'a> {
         if self.match_any(&[TokenType::This]) {
             return Expr::This();
         }
+
+        if self.match_any(&[TokenType::Lam]) {
+            return self.define_lambda();
+        }
+
         Expr::Nothing()
     }
 
@@ -465,11 +544,11 @@ impl<'a> Parser<'a> {
             let name = self.previous().lexeme.clone();
 
             // Generic placeholder (capital letter convention)
-            if name.chars().next().unwrap().is_uppercase() && !self.check(TokenType::Less) {
+            if name.chars().next().unwrap().is_uppercase() && !self.check(TokenType::LessLess) {
                 return Type::generic(&name);
             }
 
-            if self.match_any(&[TokenType::Less]) {
+            if self.match_any(&[TokenType::LessLess]) {
                 let mut gens = vec![];
 
                 loop {
@@ -479,14 +558,14 @@ impl<'a> Parser<'a> {
                     }
                 }
 
-                self.consume(TokenType::Greater, "Expected '>' after generics");
+                self.consume(TokenType::GreaterGreater, "Expected '>' after generics");
                 return Type::with_generics(&name, gens);
             }
 
             return Type::simple(&name);
         }
 
-        panic!("Expected type");
+        "arr".into()
     }
 
     // ---------- UTIL ----------
@@ -506,6 +585,13 @@ impl<'a> Parser<'a> {
     fn peek_next(&self, token_type: TokenType) -> bool {
         self.tokens
             .get(self.current + 1)
+            .map(|t| t.token_type == token_type)
+            .unwrap_or(false)
+    }
+
+    fn peek_next_next(&self, token_type: TokenType) -> bool {
+        self.tokens
+            .get(self.current + 2)
             .map(|t| t.token_type == token_type)
             .unwrap_or(false)
     }
@@ -563,9 +649,9 @@ while           -> "£" expression statement_block
 
 if_statement    -> "?" expression statement_block ( "~?" expression statement_block )* ( "~" statement_block )?
 function_call   -> IDENTIFIER "(" (expression)* ")"
-function        -> "fn" (type)? IDENTIFIER ( "[" (IDENTIFIER ":" IDENTIFIER)* "]" )? statement_block
+function        -> "fn" ( "<<" IDENTIFIER* ">>" )? IDENTIFIER ( "(" (IDENTIFIER ":" IDENTIFIER)* ")" )? type? statement_block
 
-type            -> IDENTIFIER | "[" type* "]"
+type            -> IDENTIFIER | "[" type* "]" | "<<" type* ">>"
 
 expression      -> bool
 bool            -> compare ( ( "&" | "|" ) compare )*

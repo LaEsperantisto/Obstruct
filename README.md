@@ -27,6 +27,8 @@ variable declarations, control flow, and functions.
 #my_var2: i32; // equivalent to Rust: let my_var = 0;
 ```
 
+_**You must give the type, a value or both!**_
+
 ---
 
 ## Control Flow
@@ -128,10 +130,26 @@ The keyword `ret` is used to return from a function
 my_func(arg1);
 ```
 
-- Notes:
-    - @ before an argument marks it as mutable.
+- Lambda:
 
-    - Functions can have typed parameters and a return type.
+The keyword `lam` is used for declaring lambdas (I checked the plural), like this:
+
+```obstruct
+#main = lam {+
+  $"Hello from a lambda!";
+};+
+
+#push = lam <<T>> (v: vec<<T>>, item: T) vec<<T>> {
+    vec::push(v, item)
+};
+```
+
+Lambdas are called just like functions: `main()`.
+
+- Notes:
+    - @ before the function name marks it as mutable.
+
+    - Functions and lambdas can have typed parameters and a return type.
 
 ---
 
@@ -141,10 +159,27 @@ my_func(arg1);
 
 Block statements, or scopes, work just like in Rust: you can have as many statements as
 you want, each one ending with a semicolon, but only the _very last_ statement in a block
-statement (as long as it is also an expression) may not end with a semicolon. This value
+statement (as long as it is also an expression) might not end with a semicolon. This value
 is the value that is returned by the block statement, making them expressions, not
 statements.
 
+---
+
+## Generics
+
+Generics in Obstruct work similar to Rust and Java. You can declare generic functions and
+types just like in Rust:
+
+```obstruct
+fn <<T>> push (v: vec<<T>>, item: T) vec<<T>> {
+    vec::push(v, item)
+};
+```
+
+*Note that generics use **2** arrows (`<<` and `>>`) not just one.*
+
+To call generic functions, you call them just like normal functions, but with the double
+arrows: `push<<i32>>(v, 5)`. The generic is not always necessary.
 
 ---
 
@@ -193,6 +228,19 @@ which will be the exit code. If at any point there is an error, the exit code wi
 
 ---
 
+## Delete
+
+You can `del` variables, similar to how rust can `drop` variables, like this:
+
+```obstruct
+#foo = 2;
+$foo;       // works, foo exists
+del foo;
+$foo;       // error, foo doesn't exist anymore
+```
+
+---
+
 ## Builtin Functions
 
 - `quit()`:
@@ -229,7 +277,7 @@ fn main(args: Vec<str>) {
         y = 0.0;
     };
     
-    #temp: Vec<i32>;
+    #temp: vec<i32>;
     for i in 0..x {
       temp.push(i);
     };
@@ -240,8 +288,7 @@ fn main(args: Vec<str>) {
     ret;
 };
 
-fn add(a: i32, @b: i32) i32 {
-    b = a + b
-    b
+fn add(a: i32, b: i32) i32 {
+    a + b
 };
 ```

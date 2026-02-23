@@ -1,7 +1,7 @@
 use crate::error;
 use crate::expr::Expr;
-use crate::type_env::{Type, TypeEnvironment};
-use crate::value::{func_val, native_func, nil, Value};
+use crate::type_env::{nil_type, Type, TypeEnvironment};
+use crate::value::{func_val, native_func, nil, Func, Value};
 use crate::variable::Variable;
 use cobject::CWindow;
 use std::collections::HashMap;
@@ -118,6 +118,7 @@ impl Environment {
         block: Box<Expr>,
         return_type: Type,
         parameters: Vec<(String, Type)>,
+        gens: Vec<String>,
         is_mutable: bool,
     ) {
         let scope = self.scopes.last_mut().unwrap();
@@ -148,7 +149,7 @@ impl Environment {
 
         scope.insert(
             name.to_string(),
-            Variable::new_func(block, parameters, return_type, is_mutable),
+            Variable::new_func(block, parameters, return_type, gens, is_mutable),
         );
     }
     pub fn declare_native(
@@ -160,7 +161,7 @@ impl Environment {
         scope.insert(name.to_string(), Variable::new(native_func(func), false));
     }
 
-    pub fn get_func(&self, name: &str) -> (Box<Expr>, Vec<(String, Type)>, Type) {
+    pub fn get_func(&self, name: &str) -> Func {
         let var = self.get(name);
 
         var.value.body.unwrap_or_else(|| {
@@ -188,7 +189,12 @@ impl Environment {
 
 fn nil_func() -> Variable {
     Variable {
-        value: func_val((Box::new(Expr::StmtBlock(vec![])), vec![], "[]".into())),
+        value: func_val(Func::new(
+            Box::new(Expr::StmtBlock(vec![])),
+            vec![],
+            nil_type(),
+            vec![],
+        )),
         is_mutable: false,
     }
 }
