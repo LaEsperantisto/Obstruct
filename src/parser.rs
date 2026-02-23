@@ -207,7 +207,7 @@ impl<'a> Parser<'a> {
         if self.match_any(&[TokenType::Less]) {
             loop {
                 self.consume(TokenType::Ident, "Expected generic name");
-                generic_params.push(Type::generic(&self.previous().lexeme));
+                generic_params.push(self.previous().lexeme);
 
                 if !self.match_any(&[TokenType::Comma]) {
                     break;
@@ -252,7 +252,14 @@ impl<'a> Parser<'a> {
 
         let body = Box::new(self.statement_block());
 
-        Expr::Function(name, body, return_type, is_mutable, parameters)
+        Expr::Function(
+            name,
+            body,
+            return_type,
+            is_mutable,
+            parameters,
+            generic_params,
+        )
     }
 
     fn return_stmt(&mut self) -> Expr {
@@ -262,6 +269,20 @@ impl<'a> Parser<'a> {
 
     fn call_function(&mut self) -> Expr {
         let name = self.previous().lexeme;
+
+        let mut generics = vec![];
+
+        if self.match_any(&[TokenType::Less]) {
+            loop {
+                generics.push(self.get_type());
+
+                if !self.match_any(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+            self.consume(TokenType::Greater, "Expected '>' after generics");
+        }
+
         self.consume(TokenType::LeftParen, "Expected '(' after function name.");
 
         let mut arguments = vec![];
@@ -269,7 +290,6 @@ impl<'a> Parser<'a> {
         if !self.check(TokenType::RightParen) {
             loop {
                 arguments.push(Box::new(self.expression()));
-
                 if !self.match_any(&[TokenType::Comma]) {
                     break;
                 }
@@ -278,7 +298,7 @@ impl<'a> Parser<'a> {
 
         self.consume(TokenType::RightParen, "Missing ')' after function call.");
 
-        Expr::CallFunc(name, arguments)
+        Expr::CallFunc(name, generics, arguments)
     }
 
     // ---------- EXPRESSIONS ----------
@@ -400,7 +420,10 @@ impl<'a> Parser<'a> {
             return self.statement_block();
         }
 
-        if self.check(TokenType::Ident) && self.peek_next(TokenType::LeftParen) {
+        if self.check(TokenType::Ident)
+            && (self.peek_next(TokenType::LeftParen)
+                || (self.peek_next(TokenType::Less) && self.peek_next_next(TokenType::LeftParen)))
+        {
             self.consume(TokenType::Ident, "THIS SHOULD BE UNREACHABLE.");
             return self.call_function();
         }
@@ -506,6 +529,13 @@ impl<'a> Parser<'a> {
     fn peek_next(&self, token_type: TokenType) -> bool {
         self.tokens
             .get(self.current + 1)
+            .map(|t| t.token_type == token_type)
+            .unwrap_or(false)
+    }
+
+    fn peek_next_next(&self, token_type: TokenType) -> bool {
+        self.tokens
+            .get(self.current + 2)
             .map(|t| t.token_type == token_type)
             .unwrap_or(false)
     }

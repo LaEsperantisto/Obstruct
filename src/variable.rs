@@ -17,10 +17,11 @@ impl Variable {
         block: Box<Expr>,
         parameters: Vec<(String, Type)>,
         return_type: Type,
+        gens: Vec<String>,
         is_mutable: bool,
     ) -> Variable {
         Variable {
-            value: func_val((block, parameters, return_type.into())),
+            value: func_val((block, parameters, return_type.into(), gens)),
             is_mutable,
         }
     }

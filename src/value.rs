@@ -9,7 +9,7 @@ pub struct Value {
     pub value_type: Type,
     pub value: String,
     pub value_vec: Option<Vec<Value>>,
-    pub body: Option<(Box<Expr>, Vec<(String, Type)>, Type)>,
+    pub body: Option<(Box<Expr>, Vec<(String, Type)>, Type, Vec<String>)>,
     pub native: Option<fn(&mut Environment, &mut TypeEnvironment, Vec<Value>) -> Value>,
     pub is_return: bool,
 }
@@ -57,7 +57,7 @@ pub fn nil() -> Value {
     }
 }
 
-pub fn func_val(body: (Box<Expr>, Vec<(String, Type)>, Type)) -> Value {
+pub fn func_val(body: (Box<Expr>, Vec<(String, Type)>, Type, Vec<String>)) -> Value {
     Value {
         value_type: "func".into(),
         value: "".to_string(),

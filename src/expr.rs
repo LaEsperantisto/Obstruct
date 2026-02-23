@@ -1,6 +1,6 @@
 use crate::env::Environment;
-use crate::type_env::{substitute, unify, Type, TypeEnvironment};
-use crate::value::{nil, Value};
+use crate::type_env::{nil_type, substitute, unify, Type, TypeEnvironment};
+use crate::value::{func_val, nil, Value};
 use crate::{error, had_error};
 use std::collections::HashMap;
 
@@ -42,8 +42,15 @@ pub enum Expr {
     Discard(Box<Expr>),
 
     // Functions
-    Function(String, Box<Expr>, Type, bool, Vec<(String, Type)>),
-    CallFunc(String, Vec<Box<Expr>>),
+    Function(
+        String,
+        Box<Expr>,
+        Type,
+        bool,
+        Vec<(String, Type)>,
+        Vec<String>,
+    ),
+    CallFunc(String, Vec<Type>, Vec<Box<Expr>>),
     Return(Box<Expr>),
 
     // Variables
@@ -151,6 +158,7 @@ impl Expr {
                         let func_name = format!("_add<{},{}>", lv.value_type, rv.value_type);
                         Expr::CallFunc(
                             func_name,
+                            vec![],
                             vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
                         )
                         .value(env, tenv)
@@ -187,6 +195,7 @@ impl Expr {
                         let func_name = format!("_sub<{},{}>", lv.value_type, rv.value_type);
                         Expr::CallFunc(
                             func_name,
+                            vec![],
                             vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
                         )
                         .value(env, tenv)
@@ -223,6 +232,7 @@ impl Expr {
                         let func_name = format!("_mul<{},{}>", lv.value_type, rv.value_type);
                         Expr::CallFunc(
                             func_name,
+                            vec![],
                             vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
                         )
                         .value(env, tenv)
@@ -273,6 +283,7 @@ impl Expr {
                         let func_name = format!("_div<{},{}>", lv.value_type, rv.value_type);
                         Expr::CallFunc(
                             func_name,
+                            vec![],
                             vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
                         )
                         .value(env, tenv)
@@ -309,6 +320,7 @@ impl Expr {
                         let func_name = format!("_mod<{},{}>", lv.value_type, rv.value_type);
                         Expr::CallFunc(
                             func_name,
+                            vec![],
                             vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
                         )
                         .value(env, tenv)
@@ -351,6 +363,7 @@ impl Expr {
                         let func_name = format!("_pow<{},{}>", lv.value_type, rv.value_type);
                         Expr::CallFunc(
                             func_name,
+                            vec![],
                             vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
                         )
                         .value(env, tenv)
@@ -507,22 +520,35 @@ impl Expr {
                 }
             }
             Expr::Declare(name, var_type, is_mutable) => {
+                let var_type = if var_type.is_generic() {
+                    tenv.get(var_type.name())
+                } else {
+                    var_type.clone()
+                };
+
                 let func = env.get_func(format!("{}::new", var_type).as_str());
                 let val = func.0.value(env, tenv);
+
                 env.declare(name.to_string(), val, *is_mutable);
                 nil()
             }
-            Expr::Function(name, block, return_type, is_mutable, parameters) => {
+            Expr::Function(name, block, return_type, is_mutable, parameters, gens) => {
                 env.make_func(
                     name,
                     block.clone(),
                     return_type.clone(),
                     (*parameters).clone(),
+                    vec![],
                     *is_mutable,
                 );
-                nil()
+                func_val((
+                    block.clone(),
+                    parameters.clone(),
+                    return_type.clone(),
+                    gens.clone(),
+                ))
             }
-            Expr::CallFunc(name, arguments) => {
+            Expr::CallFunc(name, explicit_gens, arguments) => {
                 let var = env.get(name);
 
                 if let Some(native) = var.value.native {
@@ -530,7 +556,7 @@ impl Expr {
                     return native(env, tenv, args);
                 }
 
-                let (body, params, return_type) = env.get_func(name);
+                let (body, params, return_type, gens) = env.get_func(name);
 
                 if params.len() != arguments.len() {
                     error(
@@ -545,7 +571,6 @@ impl Expr {
                         .as_str(),
                     );
                 }
-
                 env.push_scope();
 
                 let mut bindings = HashMap::new();
@@ -554,12 +579,10 @@ impl Expr {
                     let arg_value = arguments[i].value(env, tenv);
                     let arg_type = arg_value.value_type.clone();
 
-                    // 🔧 unify generic types
                     if !unify(&params[i].1, &arg_type, &mut bindings) {
                         panic!("Type mismatch: expected {}, got {}", params[i].1, arg_type);
                     }
 
-                    // ✅ THIS IS THE IMPORTANT PART
                     env.declare(
                         params[i].0.clone(), // parameter name
                         arg_value,           // actual value
@@ -610,6 +633,7 @@ impl Expr {
                 let val = l.value(env, tenv);
                 Expr::CallFunc(
                     format!("{}::nth", val.value_type),
+                    vec![],
                     vec![l.clone(), r.clone()],
                 )
                 .value(env, tenv)
@@ -693,7 +717,7 @@ impl Expr {
 
             Expr::Declare(name, ty, _) => {
                 tenv.declare(name.clone(), ty.clone());
-                "arr".into()
+                nil_type()
             }
 
             Expr::Assign(name, expr) => {
@@ -707,7 +731,7 @@ impl Expr {
 
             Expr::StmtBlock(stmts) => {
                 tenv.push();
-                let mut last = "arr".into();
+                let mut last = nil_type();
                 for s in stmts {
                     last = s.type_of(tenv);
                 }
@@ -720,7 +744,7 @@ impl Expr {
                     panic!("if condition must be bool");
                 }
                 let t1 = a.type_of(tenv);
-                let t2 = b.as_ref().map(|x| x.type_of(tenv)).unwrap_or("arr".into());
+                let t2 = b.as_ref().map(|x| x.type_of(tenv)).unwrap_or(nil_type());
                 if t1 != t2 {
                     panic!("if branches return different types");
                 }
@@ -736,10 +760,10 @@ impl Expr {
                         format!("While condition must be bool, type was '{}'", t).as_str(),
                     );
                 }
-                "arr".into()
+                nil_type()
             }
 
-            Expr::Function(name, body, return_type, _, params) => {
+            Expr::Function(name, body, return_type, _, params, _gens) => {
                 tenv.declare(name.clone(), "func".into());
                 tenv.push();
                 for (p, t) in params {
@@ -761,16 +785,16 @@ impl Expr {
                 "func".into()
             }
 
-            Expr::CallFunc(_, _) => "unknown".into(),
+            Expr::CallFunc(_, _, _) => "unknown".into(),
 
-            Expr::Nothing() => "arr".into(),
+            Expr::Nothing() => nil_type(),
 
             Expr::Custom(_) | Expr::Custom2(_) => "unknown".into(),
             Expr::Value(v) => v.value_type.clone(),
 
             Expr::Nth(_, _) => "unknown".into(),
             Expr::This() => "unknown".into(),
-            Expr::Print(_) | Expr::Discard(_) | Expr::Delete(_) => "arr".into(),
+            Expr::Print(_) | Expr::Discard(_) | Expr::Delete(_) => nil_type(),
 
             _ => "unknown".into(),
         }

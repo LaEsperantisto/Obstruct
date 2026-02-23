@@ -1,40 +1,58 @@
 use crate::env::Environment;
+use crate::error;
 use crate::expr::Expr;
 use crate::expr::Expr::{Float, Int, Nothing, Str};
-use crate::type_env::TypeEnvironment;
+use crate::type_env::{Type, TypeEnvironment};
 use crate::value::{nil, Value};
-use crate::{error, value};
 use cobject::ccolor;
 use std::io;
 
 pub fn init(env: &mut Environment) {
-    env.make_func("i32::new", Box::new(Int(0)), "i32".into(), vec![], false);
+    env.make_func(
+        "i32::new",
+        Box::new(Int(0)),
+        "i32".into(),
+        vec![],
+        vec![],
+        false,
+    );
     env.make_func(
         "f64::new",
         Box::new(Float(0.0)),
         "f64".into(),
         vec![],
-        false,
-    );
-    env.make_func("arr::new", Box::new(Nothing()), "arr".into(), vec![], false);
-    env.make_func(
-        "vec::new",
-        Box::new(Expr::Value(value::Value {
-            value: String::new(),
-            value_vec: Some(vec![]),
-            value_type: "vec".into(),
-            body: None,
-            native: None,
-            is_return: false,
-        })),
-        "vec".into(),
         vec![],
         false,
     );
     env.make_func(
+        "arr::new",
+        Box::new(Nothing()),
+        "arr".into(),
+        vec![],
+        vec![],
+        false,
+    );
+    env.make_func(
+        "vec::new",
+        Box::new(Expr::Custom2(|_, _| Value {
+            value: String::new(),
+            value_vec: Some(vec![]),
+            value_type: Type::with_generics("vec", vec![Type::generic("T")]),
+            body: None,
+            native: None,
+            is_return: false,
+        })),
+        Type::with_generics("vec", vec![Type::generic("T")]),
+        vec![],
+        vec!["T".into()],
+        false,
+    );
+
+    env.make_func(
         "str::new",
         Box::new(Str(String::new())),
         "str".into(),
+        vec![],
         vec![],
         false,
     );
@@ -45,6 +63,7 @@ pub fn init(env: &mut Environment) {
             nil()
         })),
         "[]".into(),
+        vec![],
         vec![],
         false,
     );
@@ -67,6 +86,7 @@ pub fn init(env: &mut Environment) {
             }
         })),
         "str".into(),
+        vec![],
         vec![],
         false,
     );
@@ -151,15 +171,29 @@ fn native_str_nth(_env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Val
     }
 }
 
-fn native_push(env: &mut Environment, tenv: &mut TypeEnvironment, args: Vec<Value>) -> Value {
+fn native_push(_: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {
+    let mut v = args[0].value_vec.clone().unwrap();
+    let elem = args[1].clone();
+
+    let vec_type = args[0].value_type.clone();
+
+    let inner = &vec_type.generics()[0];
+
+    if &elem.value_type != inner {
+        error(
+            0,
+            0,
+            format!("vec::push expected {}, got {}", inner, elem.value_type).as_str(),
+        );
+        return nil();
+    }
+
+    v.push(elem);
+
     Value {
         value: String::new(),
-        value_type: "vec".into(),
-        value_vec: Some({
-            let mut v = args[0].value_vec.clone().unwrap();
-            v.push(Str(args[1].clone().value).value(env, tenv));
-            v
-        }),
+        value_type: vec_type,
+        value_vec: Some(v),
         body: None,
         native: None,
         is_return: false,
@@ -191,7 +225,9 @@ fn native_vec_nth(_: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>
         return nil();
     }
 
-    if str::parse::<usize>(right.value.as_str()).unwrap() >= left.value_vec.clone().unwrap().len() {
+    let idx = str::parse::<usize>(right.value.as_str()).unwrap();
+
+    if idx >= left.value_vec.clone().unwrap().len() {
         error(
             0,
             0,
@@ -205,10 +241,11 @@ fn native_vec_nth(_: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>
         return nil();
     }
 
+    let inner = &left.value_type.generics()[0];
+
     Value {
-        value_type: "unknown".into(),
-        value: left.clone().value_vec.unwrap()[str::parse::<usize>(right.value.as_str()).unwrap()]
-            .to_string(),
+        value_type: inner.clone(),
+        value: left.value_vec.clone().unwrap()[idx].to_string(),
         value_vec: None,
         body: None,
         native: None,
