@@ -135,9 +135,9 @@ my_func(arg1);
 The keyword `lam` is used for declaring lambdas (I checked the plural), like this:
 
 ```obstruct
-#main = lam {+
+#main = lam {
   $"Hello from a lambda!";
-};+
+};
 
 #push = lam <<T>> (v: vec<<T>>, item: T) vec<<T>> {
     vec::push(v, item)
@@ -243,10 +243,47 @@ $foo;       // error, foo doesn't exist anymore
 
 ## Builtin Functions
 
-- `quit()`:
+- `fn quit`:
 
 This function is a manual exit, and should only be used for emergency crashes. This bypasses
 all destructors.
+
+- `fn in str`:
+
+This is the standard input, that returns a `str` from the input.
+
+- `fn <T> vec::push(v: vec<T>, item: T) vec<T>`:
+
+Adds the item to the back of the `vec` by returning the new `vec`.
+
+- `fn <T> len(i: T) i32`:
+
+This function returns the length of `i`, as an `i32`.
+
+- `type`:
+
+This is a function that returns the type of the argument (requires _one_ argument). I didn't
+include the `fn`, etc. since this is functionally impossible without it being native.
+
+- `fn init_window`:
+
+This is a function that initializes a window, using the standard game engine, `cobject`.
+
+- `fn draw_window`:
+
+This function updates the window, and draws all the objects.
+
+- `fn is_window_open bool`:
+
+This returns true if the window is open, and false if it is closed.
+
+- Constructors:
+
+All the default types have constructors (`type::new`).
+
+- Operators:
+
+All the default types overload the operators, like `i32` + `i32`, but not `str` * `str`.
 
 ---
 
