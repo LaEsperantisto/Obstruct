@@ -156,7 +156,7 @@ impl Expr {
                         is_return: false,
                     },
                     _ => {
-                        let func_name = format!("_add<{},{}>", lv.value_type, rv.value_type);
+                        let func_name = format!("_add<<{},{}>>", lv.value_type, rv.value_type);
                         Expr::CallFunc(
                             func_name,
                             vec![],
@@ -193,7 +193,7 @@ impl Expr {
                         is_return: false,
                     },
                     _ => {
-                        let func_name = format!("_sub<{},{}>", lv.value_type, rv.value_type);
+                        let func_name = format!("_sub<<{},{}>>", lv.value_type, rv.value_type);
                         Expr::CallFunc(
                             func_name,
                             vec![],
@@ -230,7 +230,7 @@ impl Expr {
                         is_return: false,
                     },
                     _ => {
-                        let func_name = format!("_mul<{},{}>", lv.value_type, rv.value_type);
+                        let func_name = format!("_mul<<{},{}>>", lv.value_type, rv.value_type);
                         Expr::CallFunc(
                             func_name,
                             vec![],
@@ -281,10 +281,10 @@ impl Expr {
                         }
                     }
                     _ => {
-                        let func_name = format!("_div<{},{}>", lv.value_type, rv.value_type);
+                        let func_name = "_div".into();
                         Expr::CallFunc(
                             func_name,
-                            vec![],
+                            vec![lv.value_type.clone(), rv.value_type.clone()],
                             vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
                         )
                         .value(env, tenv)
@@ -318,7 +318,7 @@ impl Expr {
                         is_return: false,
                     },
                     _ => {
-                        let func_name = format!("_mod<{},{}>", lv.value_type, rv.value_type);
+                        let func_name = format!("_mod<<{},{}>>", lv.value_type, rv.value_type);
                         Expr::CallFunc(
                             func_name,
                             vec![],
@@ -361,7 +361,7 @@ impl Expr {
                         is_return: false,
                     },
                     _ => {
-                        let func_name = format!("_pow<{},{}>", lv.value_type, rv.value_type);
+                        let func_name = format!("_pow<<{},{}>>", lv.value_type, rv.value_type);
                         Expr::CallFunc(
                             func_name,
                             vec![],

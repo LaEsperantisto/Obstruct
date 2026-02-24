@@ -97,7 +97,7 @@ pub fn init(env: &mut Environment) {
     env.declare_native("vec::push", native_push);
     env.declare_native("type", native_type_check);
     env.declare_native("init_window", native_init_window);
-    env.declare_native("show_window", native_show_window);
+    env.declare_native("draw_window", native_draw_window);
     env.declare_native("is_window_open", native_is_window_open);
 }
 
@@ -107,9 +107,22 @@ fn native_len(_: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) ->
         return nil();
     }
 
+    let v = args.get(0).unwrap();
+
     Value {
-        value_type: "f64".into(),
-        value: args[0].value.len().to_string(),
+        value_type: "i32".into(),
+        value: if v.value_type.name() == "str" {
+            v.value.len().to_string()
+        } else if v.value_type.name() == "vec" {
+            v.value_vec.iter().len().to_string()
+        } else {
+            error(
+                0,
+                0,
+                format!("len() could not find length of type {}", v.value_type).as_str(),
+            );
+            String::new()
+        },
         value_vec: None,
         body: None,
         native: None,
@@ -266,7 +279,7 @@ fn native_init_window(env: &mut Environment, _: &mut TypeEnvironment, args: Vec<
     nil()
 }
 
-fn native_show_window(env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {
+fn native_draw_window(env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {
     if !args.is_empty() {
         error(0, 0, "show_window() expects no argument");
     }

@@ -77,7 +77,7 @@ impl Type {
     }
 
     pub fn generics(&self) -> Vec<Type> {
-        if let Type::Concrete { name, generics } = &self {
+        if let Type::Concrete { name: _, generics } = &self {
             generics.clone()
         } else {
             vec![]
