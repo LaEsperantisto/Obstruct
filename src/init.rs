@@ -2,8 +2,9 @@ use crate::env::Environment;
 use crate::error;
 use crate::expr::Expr;
 use crate::expr::Expr::{Float, Int, Nothing, Str};
-use crate::type_env::{Type, TypeEnvironment};
+use crate::type_env::{nil_type, Type, TypeEnvironment};
 use crate::value::{nil, Value};
+use crate::variable::Variable;
 use cobject::ccolor;
 use std::io;
 
@@ -34,7 +35,7 @@ pub fn init(env: &mut Environment) {
     );
     env.make_func(
         "vec::new",
-        Box::new(Expr::Custom2(|_, _| Value {
+        Box::new(Expr::Custom(|_| Value {
             value: String::new(),
             value_vec: Some(vec![]),
             value_type: Type::with_generics("vec", vec![Type::generic("T")]),
@@ -56,13 +57,107 @@ pub fn init(env: &mut Environment) {
         vec![],
         false,
     );
+
+    env.make_func(
+        "ptr::new",
+        Box::new(Expr::Custom2(|env, values| {
+            if values.len() != 1 {
+                error(
+                    0,
+                    0,
+                    format!("ptr::new expects exactly 1 argument, got {}.", values.len()).as_str(),
+                );
+                return nil();
+            }
+
+            let val = values[0].clone();
+
+            let var = Variable::new(val.clone(), true);
+
+            let id = env.new_ptr(var);
+
+            Value {
+                value: id.to_string(),
+                value_vec: None,
+                value_type: Type::with_generics("ptr", vec![val.value_type.clone()]),
+                body: None,
+                native: None,
+                is_return: false,
+            }
+        })),
+        Type::with_generics("ptr", vec![Type::generic("T")]),
+        vec![("value".into(), Type::generic("T"))],
+        vec!["T".into()],
+        false,
+    );
+
+    env.make_func(
+        "ptr::deref",
+        Box::new(Expr::Custom2(|env, values| {
+            if values.len() != 1 {
+                error(
+                    0,
+                    0,
+                    format!(
+                        "ptr::deref expects exactly 1 argument, got {}.",
+                        values.len()
+                    )
+                    .as_str(),
+                );
+                return nil();
+            }
+
+            let id = values[0].clone();
+
+            env.get_ptr(str::parse::<usize>(&id.value).unwrap()).value
+        })),
+        Type::generic("T"),
+        vec![(
+            "value".into(),
+            Type::with_generics("ptr", vec![Type::generic("T")]),
+        )],
+        vec!["T".into()],
+        false,
+    );
+
+    env.make_func(
+        "ptr::free",
+        Box::new(Expr::Custom2(|env, values| {
+            if values.len() != 1 {
+                error(
+                    0,
+                    0,
+                    format!(
+                        "ptr::free expects exactly 1 argument, got {}.",
+                        values.len()
+                    )
+                    .as_str(),
+                );
+                return nil();
+            }
+
+            let id = values[0].clone();
+
+            env.del_ptr(str::parse::<usize>(&id.value).unwrap());
+
+            nil()
+        })),
+        nil_type(),
+        vec![(
+            "value".into(),
+            Type::with_generics("ptr", vec![Type::generic("T")]),
+        )],
+        vec!["T".into()],
+        false,
+    );
+
     env.make_func(
         "quit",
         Box::new(Expr::Custom(|_| {
             error(0, 0, "Manual exit");
             nil()
         })),
-        "[]".into(),
+        nil_type(),
         vec![],
         vec![],
         false,
@@ -94,7 +189,7 @@ pub fn init(env: &mut Environment) {
     env.declare_native("len", native_len);
     env.declare_native("str::nth", native_str_nth);
     env.declare_native("vec::nth", native_vec_nth);
-    env.declare_native("vec::push", native_push);
+    env.declare_native("vec::push", native_vec_push);
     env.declare_native("type", native_type_check);
     env.declare_native("init_window", native_init_window);
     env.declare_native("draw_window", native_draw_window);
@@ -184,13 +279,20 @@ fn native_str_nth(_env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Val
     }
 }
 
-fn native_push(_: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {
-    let mut v = args[0].value_vec.clone().unwrap();
+fn native_vec_push(env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {
+    if args.len() != 2 {
+        error(0, 0, "vec_push() expects 2 arguments");
+    }
+
+    let id = str::parse::<usize>(&args[0].value).unwrap();
+
+    let mut v = env.get_ptr(id).value.value_vec.unwrap();
+
     let elem = args[1].clone();
 
     let vec_type = args[0].value_type.clone();
 
-    let inner = &vec_type.generics()[0];
+    let inner = &vec_type.generics()[0].generics()[0];
 
     if &elem.value_type != inner {
         error(
@@ -203,14 +305,19 @@ fn native_push(_: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -
 
     v.push(elem);
 
-    Value {
-        value: String::new(),
-        value_type: vec_type,
-        value_vec: Some(v),
-        body: None,
-        native: None,
-        is_return: false,
-    }
+    env.set_ptr(
+        id,
+        Value {
+            value_type: args[0].value_type.clone(),
+            value: String::new(),
+            value_vec: Some(v),
+            body: None,
+            native: None,
+            is_return: false,
+        },
+    );
+
+    nil()
 }
 
 fn native_vec_nth(_: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {

@@ -10,6 +10,7 @@ pub struct Environment {
     scopes: Vec<HashMap<String, Variable>>,
     this: Vec<String>,
     window: Option<CWindow>,
+    heap: Vec<Option<Variable>>,
 }
 
 impl Environment {
@@ -18,6 +19,7 @@ impl Environment {
             scopes: vec![HashMap::new()],
             this: vec![],
             window: None,
+            heap: vec![],
         }
     }
 
@@ -43,6 +45,40 @@ impl Environment {
 
     pub fn pop_scope(&mut self) {
         self.scopes.pop();
+    }
+
+    // ----------- POINTERS ------------
+
+    pub fn new_ptr(&mut self, item: Variable) -> usize {
+        let id = self.heap.len();
+        self.heap.push(Some(item));
+        id
+    }
+
+    pub fn del_ptr(&mut self, id: usize) {
+        if let Some(slot) = self.heap.get_mut(id) {
+            *slot = None;
+        } else {
+            error(0, 0, "Invalid pointer ID, could not delete.");
+        }
+    }
+
+    pub fn set_ptr(&mut self, id: usize, val: Value) {
+        if let Some(slot) = self.heap.get_mut(id) {
+            slot.as_mut().unwrap().value = val;
+        } else {
+            error(0, 0, "Invalid pointer ID, could not set value.");
+        }
+    }
+
+    pub fn get_ptr(&self, id: usize) -> Variable {
+        match self.heap.get(id) {
+            Some(Some(var)) => var.clone(),
+            _ => {
+                error(0, 0, "Invalid or freed pointer dereference.");
+                Variable::new(nil(), false)
+            }
+        }
     }
 
     // ---------- VARIABLES ----------

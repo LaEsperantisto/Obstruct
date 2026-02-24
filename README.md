@@ -187,7 +187,7 @@ arrows: `push<<i32>>(v, 5)`. The generic is not always necessary.
 
 - `Vec`:
 
-A Vec is a resizable list, similar to Rust's Vec. When a variable is declared as a Vec,
+A `Vec` is a resizable list, similar to Rust's Vec. When a variable is declared as a Vec,
 but no value is assigned, it defaults to an empty Vec.
 
 - `arr`:
@@ -197,6 +197,11 @@ The size also needs to be known at compile type. The type of an Array is "declar
 but with brackets instead of parentheses, e.g. `[i32, i32]` for the position of a 2D object. Similar
 to Rust, The `nothing` type is `[]`. However, instead of using `[i32,f64]`, you could use `arr<i32,f64>`.
 Again, this could be instead said as `arr` or `arr<>`.
+
+- `ptr`:
+
+A `ptr` is a `pointer` to memory. It can currently only point to the heap. To dereference a pointer, call
+the `deref` function.
 
 - `str`:
 
@@ -239,6 +244,15 @@ del foo;
 $foo;       // error, foo doesn't exist anymore
 ```
 
+However, to delete raw pointers, call the `ptr::free` function (see below).
+
+---
+
+## Pointers
+
+To allocate memory, call the `ptr::new` function (see in Builtin Functions section below). To access
+a pointer's value, call the `ptr::deref` function, and to free a value, call the `ptr::free` function.
+
 ---
 
 ## Builtin Functions
@@ -276,6 +290,18 @@ This function updates the window, and draws all the objects.
 - `fn is_window_open bool`:
 
 This returns true if the window is open, and false if it is closed.
+
+- `fn <T> ptr::deref(pointer: ptr<T>) T`:
+
+This function dereferences pointers pointing to something on the heap.
+
+- `fn <T> ptr::new(value: T) ptr<T>`:
+
+This function allocates memory on the heap, and returns a pointer with the return address.
+
+- `fn <T> ptr::free(pointer: ptr<T>)`:
+
+This function frees allocated memory from the heap. The pointer is then no longer usable.
 
 - Constructors:
 

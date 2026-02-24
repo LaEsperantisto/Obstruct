@@ -173,8 +173,7 @@ impl Scanner {
                     self.add_token(TokenType::Slash);
                 }
             }
-            ' ' | '\r' | '\t' => {}
-            '\n' => self.line += 1,
+            ' ' | '\r' | '\t' | '\n' => {}
             '`' => self.backtick(),
             '"' => self.string(),
             '\'' => self.character(),
@@ -226,10 +225,12 @@ impl Scanner {
         if self.is_at_end() {
             return false;
         }
-        if self.source[self.current..].chars().next().unwrap() != expected {
+
+        if self.peek() != expected {
             return false;
         }
-        self.current += expected.len_utf8();
+
+        self.advance();
         true
     }
 
@@ -296,10 +297,6 @@ impl Scanner {
                             return;
                         }
                     }
-                }
-                '\n' => {
-                    self.line += 1;
-                    value.push('\n');
                 }
                 _ => value.push(c),
             }
@@ -439,10 +436,7 @@ impl Scanner {
 
     fn block_comment(&mut self) {
         while !self.is_at_end() {
-            if self.peek() == '\n' {
-                self.line += 1;
-                self.advance();
-            } else if self.peek() == '*' {
+            if self.peek() == '*' {
                 self.advance();
                 if self.peek() == '/' {
                     self.advance();

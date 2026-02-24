@@ -124,7 +124,7 @@ impl fmt::Display for Type {
                         .map(|x| x.to_string())
                         .collect::<Vec<_>>()
                         .join(", ");
-                    write!(f, "{}<{}>", name, g)
+                    write!(f, "{}<<{}>>", name, g)
                 }
             }
         }

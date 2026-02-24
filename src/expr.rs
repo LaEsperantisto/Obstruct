@@ -614,9 +614,17 @@ impl Expr {
 
                 let real_return = substitute(&return_type, &bindings);
 
-                let mut result = body.value(env, tenv); // Actually call the function
+                let mut result = match *body {
+                    Expr::Custom2(func) => {
+                        let args: Vec<Value> =
+                            arguments.iter().map(|a| a.value(env, tenv)).collect();
+                        func(env, args)
+                    }
+                    Expr::Custom(func) => func(env),
+                    _ => body.value(env, tenv),
+                };
 
-                result.value_type = substitute(&result.value_type, &bindings);
+                result.value_type = real_return.clone();
 
                 tenv.pop_func();
                 env.pop_scope();
@@ -625,13 +633,17 @@ impl Expr {
                     result.is_return = false;
                 }
 
+                if had_error() {
+                    return result;
+                }
+
                 if result.value_type != real_return {
                     error(
                         0,
                         0,
                         format!(
-                            "Return type expected {}, got {}",
-                            real_return, result.value_type
+                            "Return type expected {}, got {} when calling function {}",
+                            real_return, result.value_type, name
                         )
                         .as_str(),
                     );
