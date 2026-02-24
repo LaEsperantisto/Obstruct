@@ -173,15 +173,14 @@ impl Scanner {
                     self.add_token(TokenType::Slash);
                 }
             }
-            ' ' | '\r' | '\t' => {}
-            '\n' => self.line += 1,
+            ' ' | '\r' | '\t' | '\n' => {}
             '`' => self.backtick(),
             '"' => self.string(),
             '\'' => self.character(),
             _ => {
                 if c.is_ascii_digit() {
                     self.number();
-                } else if self.is_alpha(c) {
+                } else if self.alpha(c) {
                     self.identifier();
                 } else {
                     error(self.line, self.column, "Unexpected character.");
@@ -226,10 +225,12 @@ impl Scanner {
         if self.is_at_end() {
             return false;
         }
-        if self.source[self.current..].chars().next().unwrap() != expected {
+
+        if self.peek() != expected {
             return false;
         }
-        self.current += expected.len_utf8();
+
+        self.advance();
         true
     }
 
@@ -247,15 +248,15 @@ impl Scanner {
         chars.next().unwrap_or('\0')
     }
 
-    fn is_alpha(&mut self, c: char) -> bool {
+    fn alpha(&mut self, c: char) -> bool {
         let output =
             (c.is_ascii_alphabetic() || c == '_' || c == '¬') && !(c == '_' && self.prev_c == '_');
         self.prev_c = c;
         output
     }
 
-    fn is_alpha_numeric(&mut self, c: char) -> bool {
-        self.is_alpha(c) || c.is_ascii_digit()
+    fn alpha_numeric(&mut self, c: char) -> bool {
+        self.alpha(c) || c.is_ascii_digit()
     }
 
     fn string(&mut self) {
@@ -297,10 +298,6 @@ impl Scanner {
                         }
                     }
                 }
-                '\n' => {
-                    self.line += 1;
-                    value.push('\n');
-                }
                 _ => value.push(c),
             }
         }
@@ -328,7 +325,7 @@ impl Scanner {
     }
 
     fn identifier(&mut self) {
-        while self.is_alpha_numeric(self.peek()) {
+        while self.alpha_numeric(self.peek()) {
             self.advance();
         }
 
@@ -338,7 +335,7 @@ impl Scanner {
             self.advance(); // consume second ':'
 
             // continue scanning the next identifier part
-            while self.is_alpha_numeric(self.peek()) {
+            while self.alpha_numeric(self.peek()) {
                 self.advance();
             }
         }
@@ -428,7 +425,7 @@ impl Scanner {
             }
         }
 
-        if self.is_alpha(self.peek()) {
+        if self.alpha(self.peek()) {
             error(
                 self.line,
                 self.column,
@@ -439,10 +436,7 @@ impl Scanner {
 
     fn block_comment(&mut self) {
         while !self.is_at_end() {
-            if self.peek() == '\n' {
-                self.line += 1;
-                self.advance();
-            } else if self.peek() == '*' {
+            if self.peek() == '*' {
                 self.advance();
                 if self.peek() == '/' {
                     self.advance();
