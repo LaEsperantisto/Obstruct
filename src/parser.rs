@@ -97,6 +97,8 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // ---------- NEW CLASS -----------
+
     // ---------- WHILE LOOP -----------
 
     fn while_loop(&mut self) -> Expr {

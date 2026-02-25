@@ -179,7 +179,7 @@ fn <<T>> push (v: vec<<T>>, item: T) vec<<T>> {
 *Note that generics use **2** arrows (`<<` and `>>`) not just one.*
 
 To call generic functions, you call them just like normal functions, but with the double
-arrows: `push<<i32>>(v, 5)`. The generic is not always necessary.
+arrows: `push<<i32>>(v, 5)`. The generic can be inferred.
 
 ---
 
@@ -257,59 +257,154 @@ a pointer's value, call the `ptr::deref` function, and to free a value, call the
 
 ## Builtin Functions
 
+### Contructors
+
+- `fn i32::new i32`
+  Returns 0.
+
+- `fn f64::new f64`
+  Returns 0.0.
+
+- `fn str::new str`
+  Returns an empty string.
+
+- `fn arr::new arr`
+  Returns an empty arr.
+
+- `fn <<T>> vec::new vec<<T>>`
+
+Returns an empty vector of type vec<T>. The generic T must either be explicitly provided or inferable
+from usage.
+
+### Input / Output / Control
+
 - `fn quit`:
 
-This function is a manual exit, and should only be used for emergency crashes. This bypasses
-all destructors.
+Immediately terminates execution.
+This bypasses all destructors and should only be used for emergency exits.
 
 - `fn in str`:
 
-This is the standard input, that returns a `str` from the input.
+Reads a full line from standard input and returns it as a str.
 
-- `fn <T> vec::push(v: vec<T>, item: T) vec<T>`:
+- `fn <<T>> type(x: T) str`:
 
-Adds the item to the back of the `vec` by returning the new `vec`.
+Returns the type of x as a str.
+This is a native function and cannot be reimplemented in user code.
 
-- `fn <T> len(i: T) i32`:
+### Length
 
-This function returns the length of `i`, as an `i32`.
+- `fn len(x: str) i32`
 
-- `type`:
+- `fn <<T>> len(x: vec<<T>>) i32`
 
-This is a function that returns the type of the argument (requires _one_ argument). I didn't
-include the `fn`, etc. since this is functionally impossible without it being native.
+Returns the length of a string or vector as an i32.
 
-- `fn init_window`:
+Calling len on unsupported types produces a runtime error.
 
-This is a function that initializes a window, using the standard game engine, `cobject`.
+### String Functions
 
-- `fn draw_window`:
+- `fn str::nth(s: str, index: i32) char`
+  Returns the character at the given index.
 
-This function updates the window, and draws all the objects.
+Errors if:
 
-- `fn is_window_open bool`:
+- The index is not an i32
+- The value is not a str
+- The index is out of bounds
 
-This returns true if the window is open, and false if it is closed.
+### Vector Functions
 
-- `fn <T> ptr::deref(pointer: ptr<T>) T`:
+- `fn <<T>> vec::push(v: ptr<<vec<<T>>>>, item: T)`
 
-This function dereferences pointers pointing to something on the heap.
+Appends item to the vector stored on the heap behind the pointer.
 
-- `fn <T> ptr::new(value: T) ptr<T>`:
+Notes:
 
-This function allocates memory on the heap, and returns a pointer with the return address.
+- The first argument must be a ptr<<vec<<T>>>>
+- The item must match the vector’s inner type
+- The vector is mutated in place
+- Returns nil
 
-- `fn <T> ptr::free(pointer: ptr<T>)`:
+---
 
-This function frees allocated memory from the heap. The pointer is then no longer usable.
+- `fn <<T>> vec::nth(v: vec<<T>>, index: i32) T`
 
-- Constructors:
+Returns the element at the given index.
 
-All the default types have constructors (`type::new`).
+Errors if:
 
-- Operators:
+- First argument is not a vec
+- Index is not i32
+- Index is out of bounds
 
-All the default types overload the operators, like `i32` + `i32`, but not `str` * `str`.
+---
+
+- `fn <<T>> direct_nth(v: vec<<T>>, index: i32) T`
+
+Indexes directly into a value that contains a value_vec.
+This is a low-level/native indexing function and performs minimal type checking.
+
+Errors if:
+
+- The first argument does not contain a vector
+- Index is out of bounds
+
+### Pointer Functions
+
+Pointers allocate values on the heap.
+
+- `fn <<T>> ptr::new(value: T) ptr<<T>>`
+
+Allocates `value` on the heap and returns a pointer.
+
+- `fn <<T>> ptr::deref(pointer: ptr<<T>>) T`
+
+Returns the value stored at the pointer.
+
+- `fn <<T>> ptr::free(pointer: ptr<T>)`
+
+Frees heap memory associated with the pointer.
+
+After calling this, the pointer is no longer valid.
+
+### Window / Engine Functions
+
+These use the internal `cobject` game/window engine.
+
+- fn init_window(title: str)
+
+Creates and initializes a window.
+
+- fn draw_window()
+
+Polls input, updates the window, clears it to black, and presents the frame.
+
+Must be called every frame.
+
+- fn is_window_open() bool
+
+Returns true if the window is open, otherwise false.
+
+### Operators
+
+All primitive numeric types overload standard arithmetic operators:
+
+- `+`
+
+- `-`
+
+- `*`
+
+- `/`
+
+- `%`
+
+- `^`
+
+Operator overloading is implemented through internal `_add`, `_sub`, `_mul`, etc. functions.
+
+Not all type combinations are valid (e.g., `str * str` is invalid).
 
 ---
 

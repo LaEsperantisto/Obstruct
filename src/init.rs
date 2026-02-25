@@ -58,98 +58,71 @@ pub fn init(env: &mut Environment) {
         false,
     );
 
-    env.make_func(
-        "ptr::new",
-        Box::new(Expr::Custom2(|env, values| {
-            if values.len() != 1 {
-                error(
-                    0,
-                    0,
-                    format!("ptr::new expects exactly 1 argument, got {}.", values.len()).as_str(),
-                );
-                return nil();
-            }
+    env.declare_native("ptr::new", |env, _tenv, values| {
+        if values.len() != 1 {
+            error(
+                0,
+                0,
+                format!("ptr::new expects exactly 1 argument, got {}.", values.len()).as_str(),
+            );
+            return nil();
+        }
 
-            let val = values[0].clone();
+        let val = values[0].clone();
 
-            let var = Variable::new(val.clone(), true);
+        let var = Variable::new(val.clone(), true);
 
-            let id = env.new_ptr(var);
+        let id = env.new_ptr(var);
 
-            Value {
-                value: id.to_string(),
-                value_vec: None,
-                value_type: Type::with_generics("ptr", vec![val.value_type.clone()]),
-                body: None,
-                native: None,
-                is_return: false,
-            }
-        })),
-        Type::with_generics("ptr", vec![Type::generic("T")]),
-        vec![("value".into(), Type::generic("T"))],
-        vec!["T".into()],
-        false,
-    );
+        Value {
+            value: id.to_string(),
+            value_vec: None,
+            value_type: Type::with_generics("ptr", vec![val.value_type.clone()]),
+            body: None,
+            native: None,
+            is_return: false,
+        }
+    });
 
-    env.make_func(
-        "ptr::deref",
-        Box::new(Expr::Custom2(|env, values| {
-            if values.len() != 1 {
-                error(
-                    0,
-                    0,
-                    format!(
-                        "ptr::deref expects exactly 1 argument, got {}.",
-                        values.len()
-                    )
-                    .as_str(),
-                );
-                return nil();
-            }
+    env.declare_native("ptr::deref", |env, _tenv, values| {
+        if values.len() != 1 {
+            error(
+                0,
+                0,
+                format!(
+                    "ptr::deref expects exactly 1 argument, got {}.",
+                    values.len()
+                )
+                .as_str(),
+            );
+            return nil();
+        }
 
-            let id = values[0].clone();
+        let id = values[0].clone();
 
-            env.get_ptr(str::parse::<usize>(&id.value).unwrap()).value
-        })),
-        Type::generic("T"),
-        vec![(
-            "value".into(),
-            Type::with_generics("ptr", vec![Type::generic("T")]),
-        )],
-        vec!["T".into()],
-        false,
-    );
+        env.get_ptr(str::parse::<usize>(&id.value).unwrap()).value
+    });
 
-    env.make_func(
-        "ptr::free",
-        Box::new(Expr::Custom2(|env, values| {
-            if values.len() != 1 {
-                error(
-                    0,
-                    0,
-                    format!(
-                        "ptr::free expects exactly 1 argument, got {}.",
-                        values.len()
-                    )
-                    .as_str(),
-                );
-                return nil();
-            }
+    env.declare_native("ptr::free", |env, _tenv, values| {
+        if values.len() != 1 {
+            error(
+                0,
+                0,
+                format!(
+                    "ptr::free expects exactly 1 argument, got {}.",
+                    values.len()
+                )
+                .as_str(),
+            );
+            return nil();
+        }
 
-            let id = values[0].clone();
+        let id = values[0].clone();
 
-            env.del_ptr(str::parse::<usize>(&id.value).unwrap());
+        env.del_ptr(str::parse::<usize>(&id.value).unwrap());
 
-            nil()
-        })),
-        nil_type(),
-        vec![(
-            "value".into(),
-            Type::with_generics("ptr", vec![Type::generic("T")]),
-        )],
-        vec!["T".into()],
-        false,
-    );
+        nil()
+    });
 
     env.make_func(
         "quit",
@@ -185,6 +158,33 @@ pub fn init(env: &mut Environment) {
         vec![],
         false,
     );
+
+    env.declare_native("direct_nth", |_env, _tenv, values| {
+        if values.len() != 2 {
+            error(0, 0, "Expected exactly two arguments for direct_nth");
+            return nil();
+        }
+
+        let value = values[0].clone();
+        let index = str::parse::<usize>(&values[1].clone().value).unwrap_or(0);
+
+        if value.value_vec.is_none() {
+            error(
+                0,
+                0,
+                "First argument of function direct_nth did not have a value_vec; could not index",
+            );
+            return nil();
+        }
+
+        if index >= value.value_vec.as_ref().unwrap().len() {
+            error(0, 0, "Index out of bounds");
+
+            return nil();
+        }
+
+        value.value_vec.unwrap()[index].clone()
+    });
 
     env.declare_native("len", native_len);
     env.declare_native("str::nth", native_str_nth);
@@ -281,7 +281,7 @@ fn native_str_nth(_env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Val
 
 fn native_vec_push(env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {
     if args.len() != 2 {
-        error(0, 0, "vec_push() expects 2 arguments");
+        error(0, 0, "vec::push() expects 2 arguments");
     }
 
     let id = str::parse::<usize>(&args[0].value).unwrap();
@@ -308,7 +308,7 @@ fn native_vec_push(env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Val
     env.set_ptr(
         id,
         Value {
-            value_type: args[0].value_type.clone(),
+            value_type: vec_type.generics()[0].clone(),
             value: String::new(),
             value_vec: Some(v),
             body: None,
@@ -322,59 +322,36 @@ fn native_vec_push(env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Val
 
 fn native_vec_nth(_: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {
     if args.len() != 2 {
-        error(
-            0,
-            0,
-            format!(
-                "str::nth() expects 2 arguments but got {} argument/s",
-                args.len()
-            )
-            .as_str(),
-        );
+        error(0, 0, "vec::nth() expects 2 arguments");
         return nil();
     }
 
-    let left = args.get(0).unwrap();
-    let right = args.get(1).unwrap();
-    if right.value_type.name() != "i32" {
-        error(0, 0, "vec_nth() expects an 'i32' as right argument");
-        return nil();
-    }
-    if left.value_type.name() != "vec" {
-        error(0, 0, "vec_nth() expects an 'vec' as left argument");
+    let vec_val = &args[0];
+    let index_val = &args[1];
+
+    if vec_val.value_type.name() != "vec" {
+        error(0, 0, "vec::nth() expects vec<T> as first argument");
         return nil();
     }
 
-    let idx = str::parse::<usize>(right.value.as_str()).unwrap();
-
-    if idx >= left.value_vec.clone().unwrap().len() {
-        error(
-            0,
-            0,
-            format!(
-                "Out of bounds index '{}' with vec of len '{}'",
-                str::parse::<usize>(right.value.as_str()).unwrap(),
-                left.value.chars().count()
-            )
-            .as_str(),
-        );
+    if index_val.value_type.name() != "i32" {
+        error(0, 0, "vec::nth() expects i32 as index");
         return nil();
     }
 
-    let inner = &left.value_type.generics()[0];
+    let vec = vec_val.value_vec.as_ref().unwrap();
+    let index = index_val.value.parse::<usize>().unwrap();
 
-    Value {
-        value_type: inner.clone(),
-        value: left.value_vec.clone().unwrap()[idx].to_string(),
-        value_vec: None,
-        body: None,
-        native: None,
-        is_return: false,
+    if index >= vec.len() {
+        error(0, 0, "vec::nth() index out of bounds");
+        return nil();
     }
+
+    vec[index].clone()
 }
 
 fn native_type_check(env: &mut Environment, tenv: &mut TypeEnvironment, args: Vec<Value>) -> Value {
-    Str(args[0].value_type.clone().name().to_string()).value(env, tenv)
+    Str(args[0].value_type.clone().to_string()).value(env, tenv)
 }
 
 fn native_init_window(env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {

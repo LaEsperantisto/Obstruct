@@ -149,21 +149,18 @@ impl Expr {
                     },
                     ("str", _) | (_, "str") => Value {
                         value_type: "str".into(),
-                        value: lv.value + &rv.value,
+                        value: lv.to_string() + &rv.to_string(),
                         value_vec: None,
                         body: None,
                         native: None,
                         is_return: false,
                     },
-                    _ => {
-                        let func_name = format!("_add<<{},{}>>", lv.value_type, rv.value_type);
-                        Expr::CallFunc(
-                            func_name,
-                            vec![],
-                            vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
-                        )
-                        .value(env, tenv)
-                    }
+                    _ => Expr::CallFunc(
+                        "_add".into(),
+                        vec![lv.value_type.clone(), rv.value_type.clone()],
+                        vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
+                    )
+                    .value(env, tenv),
                 }
             }
 
@@ -192,15 +189,12 @@ impl Expr {
                         native: None,
                         is_return: false,
                     },
-                    _ => {
-                        let func_name = format!("_sub<<{},{}>>", lv.value_type, rv.value_type);
-                        Expr::CallFunc(
-                            func_name,
-                            vec![],
-                            vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
-                        )
-                        .value(env, tenv)
-                    }
+                    _ => Expr::CallFunc(
+                        "_sub".into(),
+                        vec![lv.value_type.clone(), rv.value_type.clone()],
+                        vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
+                    )
+                    .value(env, tenv),
                 }
             }
 
@@ -229,15 +223,12 @@ impl Expr {
                         native: None,
                         is_return: false,
                     },
-                    _ => {
-                        let func_name = format!("_mul<<{},{}>>", lv.value_type, rv.value_type);
-                        Expr::CallFunc(
-                            func_name,
-                            vec![],
-                            vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
-                        )
-                        .value(env, tenv)
-                    }
+                    _ => Expr::CallFunc(
+                        "_mul".into(),
+                        vec![lv.value_type.clone(), rv.value_type.clone()],
+                        vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
+                    )
+                    .value(env, tenv),
                 }
             }
 
@@ -280,15 +271,12 @@ impl Expr {
                             is_return: false,
                         }
                     }
-                    _ => {
-                        let func_name = "_div".into();
-                        Expr::CallFunc(
-                            func_name,
-                            vec![lv.value_type.clone(), rv.value_type.clone()],
-                            vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
-                        )
-                        .value(env, tenv)
-                    }
+                    _ => Expr::CallFunc(
+                        "_div".into(),
+                        vec![lv.value_type.clone(), rv.value_type.clone()],
+                        vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
+                    )
+                    .value(env, tenv),
                 }
             }
 
@@ -317,15 +305,12 @@ impl Expr {
                         native: None,
                         is_return: false,
                     },
-                    _ => {
-                        let func_name = format!("_mod<<{},{}>>", lv.value_type, rv.value_type);
-                        Expr::CallFunc(
-                            func_name,
-                            vec![],
-                            vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
-                        )
-                        .value(env, tenv)
-                    }
+                    _ => Expr::CallFunc(
+                        "_mod".into(),
+                        vec![lv.value_type.clone(), rv.value_type.clone()],
+                        vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
+                    )
+                    .value(env, tenv),
                 }
             }
 
@@ -360,15 +345,12 @@ impl Expr {
                         native: None,
                         is_return: false,
                     },
-                    _ => {
-                        let func_name = format!("_pow<<{},{}>>", lv.value_type, rv.value_type);
-                        Expr::CallFunc(
-                            func_name,
-                            vec![],
-                            vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
-                        )
-                        .value(env, tenv)
-                    }
+                    _ => Expr::CallFunc(
+                        "_pow".into(),
+                        vec![lv.value_type.clone(), rv.value_type.clone()],
+                        vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
+                    )
+                    .value(env, tenv),
                 }
             }
 
@@ -562,13 +544,18 @@ impl Expr {
 
                 let mut bindings = HashMap::new();
 
-                if !gens.is_empty() {
+                if !explicit_gens.is_empty() {
                     if explicit_gens.len() != gens.len() {
-                        panic!(
-                            "Function '{}' expects {} generic parameters but got {}",
-                            name,
-                            gens.len(),
-                            explicit_gens.len()
+                        error(
+                            0,
+                            0,
+                            format!(
+                                "Function '{}' expects {} generic parameters but got {}",
+                                name,
+                                gens.len(),
+                                explicit_gens.len()
+                            )
+                            .as_str(),
                         );
                     }
 
@@ -596,22 +583,40 @@ impl Expr {
                     tenv.add_gen(k.clone(), v.clone());
                 }
 
-                for i in 0..params.len() {
-                    let arg_value = arguments[i].value(env, tenv);
-                    let arg_type = arg_value.value_type.clone();
+                if explicit_gens.is_empty() {
+                    for i in 0..params.len() {
+                        let arg_value = arguments[i].value(env, tenv);
+                        let arg_type = arg_value.value_type.clone();
 
-                    let expected_type = substitute(&params[i].1, &bindings);
+                        let expected_type = substitute(&arg_type, &bindings);
+                        unify(&expected_type, &arg_type, &mut bindings);
 
-                    if !unify(&expected_type, &arg_type, &mut bindings) {
-                        panic!(
-                            "Type mismatch: expected {}, got {}",
-                            expected_type, arg_type
-                        );
+                        env.declare(params[i].0.clone(), arg_value, false);
                     }
+                    if gens.is_empty() {
+                        for generic in gens {
+                            if bindings.contains_key(&generic) {
+                                error(0, 0, "Cannot infer generic type");
+                            }
+                        }
+                    }
+                } else {
+                    for i in 0..params.len() {
+                        let arg_value = arguments[i].value(env, tenv);
+                        let arg_type = arg_value.value_type.clone();
 
-                    env.declare(params[i].0.clone(), arg_value, false);
+                        let expected_type = substitute(&params[i].1, &bindings);
+
+                        if !unify(&expected_type, &arg_type, &mut bindings) {
+                            panic!(
+                                "Type mismatch: expected {}, got {}",
+                                expected_type, arg_type
+                            );
+                        }
+
+                        env.declare(params[i].0.clone(), arg_value, false);
+                    }
                 }
-
                 let real_return = substitute(&return_type, &bindings);
 
                 let mut result = match *body {
@@ -669,7 +674,7 @@ impl Expr {
             Expr::Nth(l, r) => {
                 let val = l.value(env, tenv);
                 Expr::CallFunc(
-                    format!("{}::nth", val.value_type),
+                    format!("{}::nth", val.value_type.name()),
                     vec![],
                     vec![l.clone(), r.clone()],
                 )
