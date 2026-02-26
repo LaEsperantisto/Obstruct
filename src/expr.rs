@@ -488,8 +488,16 @@ impl Expr {
             }
             Expr::Assign(name, expr) => {
                 env.new_this(name);
-                let value = expr.value(env, tenv);
-                env.assign(name, value);
+
+                let new_value = expr.value(env, tenv);
+
+                let variable = env.get(name);
+
+                if variable.value.value_type.name() == "ref" {
+                    env.assign(&variable.value.value, new_value);
+                } else {
+                    env.assign(name, new_value);
+                }
                 env.end_this();
                 nil()
             }
