@@ -23,7 +23,7 @@ variable declarations, control flow, and functions.
 - Declaring without assigning:
 
 ```Obstruct
-#my_var: Vec; // equivalent to Rust: let my_var = Vec::new();
+#my_var: vec; // equivalent to Rust: let my_var = vec::new();
 #my_var2: i32; // equivalent to Rust: let my_var = 0;
 ```
 
@@ -185,10 +185,10 @@ arrows: `push<<i32>>(v, 5)`. The generic can be inferred.
 
 ## Data Structures
 
-- `Vec`:
+- `vec`:
 
-A `Vec` is a resizable list, similar to Rust's Vec. When a variable is declared as a Vec,
-but no value is assigned, it defaults to an empty Vec.
+A `vec` is a resizable vector, similar to Rust's Vec. When a variable is declared as a vec,
+but no value is assigned, it defaults to an empty vec.
 
 - `arr`:
 
@@ -200,8 +200,12 @@ Again, this could be instead said as `arr` or `arr<>`.
 
 - `ptr`:
 
-A `ptr` is a `pointer` to memory. It can currently only point to the heap. To dereference a pointer, call
+A `ptr` is a `pointer` to memory. It can only point to the heap. To dereference a pointer, call
 the `deref` function.
+
+- `ref`:
+
+A `ref` is a `reference` to a variable. You cannot change what a reference points to.
 
 - `str`:
 
@@ -227,7 +231,7 @@ difference is that `\'` is invalid, only `\"` is supported in `str` literals.
 
 Every Obstruct program needs to have a `main` function, which is the entry point of the
 program. The `main` function takes _one_ argument, which is the arguments the program
-was called with, in the form of a `Vec<str>`. The main function can return either nothing,
+was called with, in the form of a `vec<<str>>`. The main function can return either nothing,
 which means that if there is no error, the exit code will be `0`, but it can return an i32,
 which will be the exit code. If at any point there is an error, the exit code will be `1`.
 
@@ -273,7 +277,7 @@ a pointer's value, call the `ptr::deref` function, and to free a value, call the
 
 - `fn <<T>> vec::new vec<<T>>`
 
-Returns an empty vector of type vec<T>. The generic T must either be explicitly provided or inferable
+Returns an empty vec of type vec<<T>>. The generic T must either be explicitly provided or inferable
 from usage.
 
 ### Input / Output / Control
@@ -298,7 +302,7 @@ This is a native function and cannot be reimplemented in user code.
 
 - `fn <<T>> len(x: vec<<T>>) i32`
 
-Returns the length of a string or vector as an i32.
+Returns the length of a string or vec as an i32.
 
 Calling len on unsupported types produces a runtime error.
 
@@ -313,17 +317,17 @@ Errors if:
 - The value is not a str
 - The index is out of bounds
 
-### Vector Functions
+### Vec Functions
 
 - `fn <<T>> vec::push(v: ptr<<vec<<T>>>>, item: T)`
 
-Appends item to the vector stored on the heap behind the pointer.
+Appends item to the vec stored on the heap behind the pointer.
 
 Notes:
 
 - The first argument must be a ptr<<vec<<T>>>>
-- The item must match the vector’s inner type
-- The vector is mutated in place
+- The item must match the vec’s inner type
+- The vec is mutated in place
 - Returns nil
 
 ---

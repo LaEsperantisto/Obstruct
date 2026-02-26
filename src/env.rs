@@ -7,10 +7,10 @@ use cobject::CWindow;
 use std::collections::HashMap;
 
 pub struct Environment {
-    scopes: Vec<HashMap<String, Variable>>,
+    scopes: Vec<HashMap<String, usize>>,
     this: Vec<String>,
     window: Option<CWindow>,
-    heap: Vec<Option<Variable>>,
+    storage: Vec<Option<Variable>>,
 }
 
 impl Environment {
@@ -19,7 +19,7 @@ impl Environment {
             scopes: vec![HashMap::new()],
             this: vec![],
             window: None,
-            heap: vec![],
+            storage: vec![],
         }
     }
 
@@ -50,13 +50,13 @@ impl Environment {
     // ----------- POINTERS ------------
 
     pub fn new_ptr(&mut self, item: Variable) -> usize {
-        let id = self.heap.len();
-        self.heap.push(Some(item));
+        let id = self.storage.len();
+        self.storage.push(Some(item));
         id
     }
 
     pub fn del_ptr(&mut self, id: usize) {
-        if let Some(slot) = self.heap.get_mut(id) {
+        if let Some(slot) = self.storage.get_mut(id) {
             *slot = None;
         } else {
             error(0, 0, "Invalid pointer ID, could not delete.");
@@ -64,19 +64,19 @@ impl Environment {
     }
 
     pub fn set_ptr(&mut self, id: usize, val: Value) {
-        if let Some(slot) = self.heap.get_mut(id) {
+        if let Some(slot) = self.storage.get_mut(id) {
             slot.as_mut().unwrap().value = val;
         } else {
             error(0, 0, "Invalid pointer ID, could not set value.");
         }
     }
 
-    pub fn get_ptr(&self, id: usize) -> Variable {
-        match self.heap.get(id) {
-            Some(Some(var)) => var.clone(),
+    pub fn get_ptr(&mut self, id: usize) -> &mut Variable {
+        match self.storage.get_mut(id) {
+            Some(Some(var)) => var,
             _ => {
                 error(0, 0, "Invalid or freed pointer dereference.");
-                Variable::new(nil(), false)
+                panic!("Invalid pointer dereference");
             }
         }
     }
@@ -84,6 +84,8 @@ impl Environment {
     // ---------- VARIABLES ----------
 
     pub fn declare(&mut self, name: String, value: Value, is_mutable: bool) {
+        let id = self.alloc_var(Variable::new(value, is_mutable));
+
         let scope = self.scopes.last_mut().unwrap();
 
         if scope.contains_key(&name) {
@@ -95,55 +97,51 @@ impl Environment {
             return;
         }
 
-        scope.insert(name, Variable::new(value, is_mutable));
+        scope.insert(name, id);
     }
 
     pub fn assign(&mut self, name: &str, value: Value) {
-        for scope in self.scopes.iter_mut().rev() {
-            if let Some(var) = scope.get_mut(name) {
-                if !var.is_mutable {
-                    error(0, 0, format!("Variable '{}' not mutable", name).as_str());
+        for scope in self.scopes.iter().rev() {
+            if let Some(&id) = scope.get(name) {
+                if let Some(Some(var)) = self.storage.get_mut(id) {
+                    if !var.is_mutable {
+                        error(0, 0, format!("Variable '{}' not mutable", name).as_str());
+                        return;
+                    }
+
+                    var.value = value;
                     return;
                 }
-                var.value = value;
-                return;
             }
         }
 
-        error(
-            0,
-            0,
-            format!("Undefined variable '{}'. Could not assign.", name).as_str(),
-        );
+        error(0, 0, format!("Undefined variable '{}'.", name).as_str());
     }
 
     pub fn get(&self, name: &str) -> Variable {
         for scope in self.scopes.iter().rev() {
-            if let Some(v) = scope.get(name) {
-                return v.clone();
+            if let Some(&id) = scope.get(name) {
+                if let Some(Some(var)) = self.storage.get(id) {
+                    return var.clone();
+                }
             }
         }
 
-        error(
-            0,
-            0,
-            format!("Undefined variable '{}'. Could not get value.", name).as_str(),
-        );
+        error(0, 0, format!("Undefined variable '{}'.", name).as_str());
         Variable::new(nil(), false)
     }
 
     pub fn delete(&mut self, name: &str) {
         for scope in self.scopes.iter_mut().rev() {
-            if scope.remove(name).is_some() {
+            if let Some(id) = scope.remove(name) {
+                if let Some(slot) = self.storage.get_mut(id) {
+                    *slot = None;
+                }
                 return;
             }
         }
 
-        error(
-            0,
-            0,
-            format!("Undefined variable '{}'. Could not delete.", name).as_str(),
-        );
+        error(0, 0, format!("Undefined variable '{}'.", name).as_str());
     }
 
     // ---------- FUNCTIONS ----------
@@ -159,42 +157,30 @@ impl Environment {
     ) {
         let scope = self.scopes.last_mut().unwrap();
 
-        if let Some(existing) = scope.get(name) {
-            if !existing.is_mutable {
-                error(
-                    0,
-                    0,
-                    format!("Variable '{}' already defined as immutable", name).as_str(),
-                );
-                return;
-            }
-
-            if existing.value.value_type.name() != "func" {
-                error(
-                    0,
-                    0,
-                    format!(
-                        "Variable '{}' already declared with type '{}'; could not define function.",
-                        name, existing.value.value_type
-                    )
-                    .as_str(),
-                );
-                return;
-            }
+        if scope.contains_key(name) {
+            error(0, 0, format!("'{}' already defined", name).as_str());
+            return;
         }
 
-        scope.insert(
-            name.to_string(),
-            Variable::new_func(block, parameters, return_type, gens, is_mutable),
-        );
+        let func_var = Variable::new_func(block, parameters, return_type, gens, is_mutable);
+
+        let id = self.storage.len();
+        self.storage.push(Some(func_var));
+        scope.insert(name.to_string(), id);
     }
+
     pub fn declare_native(
         &mut self,
         name: &str,
         func: fn(&mut Environment, &mut TypeEnvironment, Vec<Value>) -> Value,
     ) {
         let scope = self.scopes.last_mut().unwrap();
-        scope.insert(name.to_string(), Variable::new(native_func(func), false));
+
+        let id = self.storage.len();
+        self.storage
+            .push(Some(Variable::new(native_func(func), false)));
+
+        scope.insert(name.to_string(), id);
     }
 
     pub fn get_func(&self, name: &str) -> Func {
@@ -218,6 +204,19 @@ impl Environment {
         self.window
             .as_mut()
             .expect("Window doesn't exist, could not fetch window")
+    }
+
+    fn alloc_var(&mut self, var: Variable) -> usize {
+        for (i, slot) in self.storage.iter_mut().enumerate() {
+            if slot.is_none() {
+                *slot = Some(var);
+                return i;
+            }
+        }
+
+        let id = self.storage.len();
+        self.storage.push(Some(var));
+        id
     }
 }
 

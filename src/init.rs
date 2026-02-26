@@ -100,7 +100,9 @@ pub fn init(env: &mut Environment) {
 
         let id = values[0].clone();
 
-        env.get_ptr(str::parse::<usize>(&id.value).unwrap()).value
+        env.get_ptr(str::parse::<usize>(&id.value).unwrap())
+            .value
+            .clone()
     });
 
     env.declare_native("ptr::free", |env, _tenv, values| {
@@ -124,37 +126,43 @@ pub fn init(env: &mut Environment) {
         nil()
     });
 
-    env.declare_native("ref::new", |_env, _tenv, args| {
+    env.declare_native("ref::new", |env, _tenv, args| {
         if args.len() != 1 {
             error(0, 0, "ref::new expected exactly one argument");
             return nil();
         }
 
-        let inner = args[0].value_type.clone();
+        let val = args[0].clone();
+
+        // allocate real memory slot
+        let var = Variable::new(val.clone(), true);
+        let id = env.new_ptr(var);
 
         Value {
-            value: args[0].value.clone(),
+            value: id.to_string(), // store memory index
             value_vec: None,
-            value_type: Type::with_generics("ref", vec![inner]),
+            value_type: Type::with_generics("ref", vec![val.value_type.clone()]),
             body: None,
             native: None,
             is_return: false,
         }
     });
 
-    env.declare_native("ref::deref", |env, tenv, args| {
+    env.declare_native("ref::deref", |env, _tenv, args| {
         if args.len() != 1 {
-            error(
-                0,
-                0,
-                format!("ref::deref expects exactly 1 argument, got {}.", args.len()).as_str(),
-            );
+            error(0, 0, "ref::deref expects exactly 1 argument");
             return nil();
         }
 
-        let referer = args[0].clone();
+        let referer = &args[0];
 
-        Expr::Variable(referer.value.clone()).value(env, tenv)
+        if referer.value_type.name() != "ref" {
+            error(0, 0, "Cannot dereference non-ref type");
+            return nil();
+        }
+
+        let id = referer.value.parse::<usize>().unwrap();
+        env.get_ptr(id).value.clone()
     });
 
     env.make_func(
@@ -312,43 +320,73 @@ fn native_str_nth(_env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Val
     }
 }
 
-fn native_vec_push(env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {
+fn native_vec_push(env: &mut Environment, _tenv: &mut TypeEnvironment, args: Vec<Value>) -> Value {
     if args.len() != 2 {
         error(0, 0, "vec::push() expects 2 arguments");
+        return nil();
     }
 
-    let id = str::parse::<usize>(&args[0].value).unwrap();
-
-    let mut v = env.get_ptr(id).value.value_vec.unwrap();
-
+    let ref_value = &args[0];
     let elem = args[1].clone();
 
-    let vec_type = args[0].value_type.clone();
+    // Ensure first argument is ref<vec<T>>
+    if ref_value.value_type.name() != "ref" {
+        error(0, 0, "vec::push() expects ref<vec<T>> as first argument");
+        return nil();
+    }
 
-    let inner = &vec_type.generics()[0].generics()[0];
+    let ref_generics = ref_value.value_type.generics();
+    if ref_generics.len() != 1 {
+        error(0, 0, "Malformed ref type");
+        return nil();
+    }
 
-    if &elem.value_type != inner {
+    let vec_type = &ref_generics[0];
+
+    if vec_type.name() != "vec" {
+        error(0, 0, "vec::push() expects ref<vec<T>> as first argument");
+        return nil();
+    }
+
+    let vec_generics = vec_type.generics();
+    if vec_generics.len() != 1 {
+        error(0, 0, "Malformed vec type");
+        return nil();
+    }
+
+    let inner_type = &vec_generics[0];
+
+    if &elem.value_type != inner_type {
         error(
             0,
             0,
-            format!("vec::push expected {}, got {}", inner, elem.value_type).as_str(),
+            format!("vec::push expected {}, got {}", inner_type, elem.value_type).as_str(),
         );
         return nil();
     }
 
-    v.push(elem);
+    // 🔥 REAL FIX STARTS HERE
 
-    env.set_ptr(
-        id,
-        Value {
-            value_type: vec_type.generics()[0].clone(),
-            value: String::new(),
-            value_vec: Some(v),
-            body: None,
-            native: None,
-            is_return: false,
-        },
-    );
+    // Extract heap pointer index
+    let ptr_id = match ref_value.value.parse::<usize>() {
+        Ok(id) => id,
+        Err(_) => {
+            error(0, 0, "Invalid ref pointer index");
+            return nil();
+        }
+    };
+
+    // Get mutable heap variable
+    let heap_var = env.get_ptr(ptr_id);
+
+    // Ensure stored value is actually a vector
+    if heap_var.value.value_vec.is_none() {
+        error(0, 0, "Referenced value is not a vector");
+        return nil();
+    }
+
+    // Mutate vector IN PLACE
+    heap_var.value.value_vec.as_mut().unwrap().push(elem);
 
     nil()
 }
