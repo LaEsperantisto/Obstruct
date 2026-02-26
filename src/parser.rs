@@ -438,23 +438,38 @@ impl<'a> Parser<'a> {
 
     fn unary(&mut self) -> Expr {
         if self.match_any(&[TokenType::Minus]) {
-            Expr::Sub(Box::new(Expr::Nothing()), Box::new(self.unary()))
-        } else if self.match_any(&[TokenType::Minus, TokenType::Plus]) {
-            Expr::Add(Box::new(Expr::Nothing()), Box::new(self.unary()))
-        } else if self.match_any(&[TokenType::Bang]) {
-            Expr::Not(Box::new(self.unary()))
-        } else if self.match_any(&[TokenType::And]) {
-            self.consume(TokenType::Ident, "Expected identifier after '&'.");
-            Expr::CallFunc(
-                "ref::new".into(),
-                vec![],
-                vec![Box::new(Expr::Str(self.previous().lexeme))],
-            )
-        } else if self.match_any(&[TokenType::Star]) {
-            Expr::CallFunc("ref::deref".into(), vec![], vec![Box::new(self.primary())])
-        } else {
-            self.power()
+            return Expr::Sub(Box::new(Expr::Nothing()), Box::new(self.unary()));
         }
+
+        if self.match_any(&[TokenType::Plus]) {
+            return Expr::Add(Box::new(Expr::Nothing()), Box::new(self.unary()));
+        }
+
+        if self.match_any(&[TokenType::Bang]) {
+            return Expr::Not(Box::new(self.unary()));
+        }
+
+        if self.match_any(&[TokenType::And]) {
+            return if self.match_any(&[TokenType::Ident]) {
+                let name = self.previous().lexeme.clone();
+                Expr::CallFunc(
+                    "ref::new".into(),
+                    vec![],
+                    vec![Box::new(Expr::Variable(name))],
+                )
+            } else {
+                let t = self.peek();
+                error(t.line, t.column, "Expected identifier after '&'");
+                Expr::Nothing()
+            };
+        }
+
+        if self.match_any(&[TokenType::Star]) {
+            let expr = self.unary();
+            return Expr::CallFunc("ref::deref".into(), vec![], vec![Box::new(expr)]);
+        }
+
+        self.power()
     }
 
     fn power(&mut self) -> Expr {

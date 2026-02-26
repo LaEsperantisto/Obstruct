@@ -1,10 +1,10 @@
 use crate::env::Environment;
-use crate::error;
 use crate::expr::Expr;
 use crate::expr::Expr::{Float, Int, Nothing, Str};
 use crate::type_env::{nil_type, Type, TypeEnvironment};
 use crate::value::{nil, Value};
 use crate::variable::Variable;
+use crate::{error, had_error};
 use cobject::ccolor;
 use std::io;
 
@@ -124,37 +124,43 @@ pub fn init(env: &mut Environment) {
         nil()
     });
 
-    env.declare_native("ref::new", |_env, _tenv, args| {
+    env.declare_native("ref::new", |env, _tenv, args| {
         if args.len() != 1 {
             error(0, 0, "ref::new expected exactly one argument");
             return nil();
         }
 
-        let inner = args[0].value_type.clone();
+        let val = args[0].clone();
+
+        // allocate real memory slot
+        let var = Variable::new(val.clone(), true);
+        let id = env.new_ptr(var);
 
         Value {
-            value: args[0].value.clone(),
+            value: id.to_string(), // store memory index
             value_vec: None,
-            value_type: Type::with_generics("ref", vec![inner]),
+            value_type: Type::with_generics("ref", vec![val.value_type.clone()]),
             body: None,
             native: None,
             is_return: false,
         }
     });
 
-    env.declare_native("ref::deref", |env, tenv, args| {
+    env.declare_native("ref::deref", |env, _tenv, args| {
         if args.len() != 1 {
-            error(
-                0,
-                0,
-                format!("ref::deref expects exactly 1 argument, got {}.", args.len()).as_str(),
-            );
+            error(0, 0, "ref::deref expects exactly 1 argument");
             return nil();
         }
 
-        let referer = args[0].clone();
+        let referer = &args[0];
 
-        Expr::Variable(referer.value.clone()).value(env, tenv)
+        if referer.value_type.name() != "ref" {
+            error(0, 0, "Cannot dereference non-ref type");
+            return nil();
+        }
+
+        let id = referer.value.parse::<usize>().unwrap();
+        env.get_ptr(id).value.clone()
     });
 
     env.make_func(
@@ -312,38 +318,67 @@ fn native_str_nth(_env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Val
     }
 }
 
-fn native_vec_push(env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) -> Value {
+fn native_vec_push(env: &mut Environment, _tenv: &mut TypeEnvironment, args: Vec<Value>) -> Value {
     if args.len() != 2 {
         error(0, 0, "vec::push() expects 2 arguments");
+        return nil();
     }
 
-    let id = str::parse::<usize>(&args[0].value).unwrap();
+    let ref_val = args.get(0).unwrap();
 
-    let mut v = env.get_ptr(id).value.value_vec.unwrap();
+    let ref_type = ref_val.value_type.clone();
 
-    let elem = args[1].clone();
+    if ref_type.name() != "ref" {
+        error(0, 0, "vec_push() expects 'ref' as left argument");
+        return nil();
+    }
 
-    let vec_type = args[0].value_type.clone();
+    let vec_type = ref_type.generics()[0].clone();
 
-    let inner = &vec_type.generics()[0].generics()[0];
+    if vec_type.name() != "vec" {
+        error(0, 0, "vec_push() expects 'ref<<vec>>' as left argument");
+        return nil();
+    }
 
-    if &elem.value_type != inner {
+    let inner_type = vec_type.generics()[0].clone();
+
+    let right_val = args[1].clone();
+
+    if inner_type != right_val.value_type {
         error(
             0,
             0,
-            format!("vec::push expected {}, got {}", inner, elem.value_type).as_str(),
+            "vec_push() could not bind 'ref<<vec<<T>>>>' to right argument; type mismatch",
         );
         return nil();
     }
 
-    v.push(elem);
+    let pointer = str::parse::<usize>(&ref_val.value).unwrap_or_else(|err| {
+        error(0, 0, "Could not parse pointer");
+        0
+    });
+
+    if had_error() {
+        return nil();
+    }
+
+    let pointee = env.get_ptr(pointer);
+
+    if !pointee.is_mutable {
+        error(0, 0, "vec was not mutable");
+        return nil();
+    }
+
+    let mut vec = pointee.value.value_vec.unwrap();
+
+    vec.push(right_val);
 
     env.set_ptr(
-        id,
+        pointer,
         Value {
-            value_type: vec_type.generics()[0].clone(),
+            value_vec: Some(vec),
             value: String::new(),
-            value_vec: Some(v),
+            value_type: ref_type,
             body: None,
             native: None,
             is_return: false,
