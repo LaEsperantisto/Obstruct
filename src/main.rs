@@ -13,6 +13,7 @@ mod value;
 mod variable;
 
 // TODO Add classes
+// TODO Implement references
 
 use crate::env::Environment;
 use crate::expr::Expr;
