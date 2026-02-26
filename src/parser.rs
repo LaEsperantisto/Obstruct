@@ -443,6 +443,15 @@ impl<'a> Parser<'a> {
             Expr::Add(Box::new(Expr::Nothing()), Box::new(self.unary()))
         } else if self.match_any(&[TokenType::Bang]) {
             Expr::Not(Box::new(self.unary()))
+        } else if self.match_any(&[TokenType::And]) {
+            self.consume(TokenType::Ident, "Expected identifier after '&'.");
+            Expr::CallFunc(
+                "ref::new".into(),
+                vec![],
+                vec![Box::new(Expr::Str(self.previous().lexeme))],
+            )
+        } else if self.match_any(&[TokenType::Star]) {
+            Expr::CallFunc("ref::deref".into(), vec![], vec![Box::new(self.primary())])
         } else {
             self.power()
         }

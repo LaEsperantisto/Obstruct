@@ -12,6 +12,8 @@ mod type_env;
 mod value;
 mod variable;
 
+// TODO Add classes
+
 use crate::env::Environment;
 use crate::expr::Expr;
 use crate::init::init;

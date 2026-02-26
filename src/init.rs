@@ -124,6 +124,39 @@ pub fn init(env: &mut Environment) {
         nil()
     });
 
+    env.declare_native("ref::new", |_env, _tenv, args| {
+        if args.len() != 1 {
+            error(0, 0, "ref::new expected exactly one argument");
+            return nil();
+        }
+
+        let inner = args[0].value_type.clone();
+
+        Value {
+            value: args[0].value.clone(),
+            value_vec: None,
+            value_type: Type::with_generics("ref", vec![inner]),
+            body: None,
+            native: None,
+            is_return: false,
+        }
+    });
+
+    env.declare_native("ref::deref", |env, tenv, args| {
+        if args.len() != 1 {
+            error(
+                0,
+                0,
+                format!("ref::deref expects exactly 1 argument, got {}.", args.len()).as_str(),
+            );
+            return nil();
+        }
+
+        let referer = args[0].clone();
+
+        Expr::Variable(referer.value.clone()).value(env, tenv)
+    });
+
     env.make_func(
         "quit",
         Box::new(Expr::Custom(|_| {

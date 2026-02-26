@@ -515,6 +515,7 @@ impl Expr {
                 env.declare(name.to_string(), val, *is_mutable);
                 nil()
             }
+
             Expr::DeclareFunction(name, block, return_type, is_mutable, parameters, gens) => {
                 env.make_func(
                     name,
