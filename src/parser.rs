@@ -450,16 +450,18 @@ impl<'a> Parser<'a> {
         }
 
         if self.match_any(&[TokenType::And]) {
-            return if self.match_any(&[TokenType::Ident]) {
-                let name = self.previous().lexeme.clone();
+            // Make a reference to the variable itself
+            return if self.check(TokenType::Ident) {
+                self.advance(); // consume the identifier
+                let var_name = self.previous().lexeme.clone();
                 Expr::CallFunc(
                     "ref::new".into(),
                     vec![],
-                    vec![Box::new(Expr::Variable(name))],
+                    vec![Box::new(Expr::Str(var_name))],
                 )
             } else {
                 let t = self.peek();
-                error(t.line, t.column, "Expected identifier after '&'");
+                error(t.line, t.column, "Expected identifier after '&'.");
                 Expr::Nothing()
             };
         }

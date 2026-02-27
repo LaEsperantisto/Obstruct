@@ -132,16 +132,35 @@ pub fn init(env: &mut Environment) {
             return nil();
         }
 
-        let val = args[0].clone();
+        // The argument must be a variable expression
+        let var_name = args[0].value.clone();
 
-        // allocate real memory slot
-        let var = Variable::new(val.clone(), true);
-        let id = env.new_ptr(var);
+        // Find the storage index of the variable
+        let mut ptr_id: Option<usize> = None;
+
+        for scope in env.scopes.iter().rev() {
+            if let Some(id) = scope.get(&var_name) {
+                ptr_id = Some(*id);
+                break;
+            }
+        }
+
+        let id = match ptr_id {
+            Some(i) => i,
+            None => {
+                error(0, 0, "Cannot take reference of undefined variable");
+                return nil();
+            }
+        };
+
+        let pointee = env.get_ptr(id);
+
+        let pointee_type = pointee.value.value_type.clone();
 
         Value {
-            value: id.to_string(), // store memory index
+            value: id.to_string(),
             value_vec: None,
-            value_type: Type::with_generics("ref", vec![val.value_type.clone()]),
+            value_type: Type::with_generics("ref", vec![pointee_type]),
             body: None,
             native: None,
             is_return: false,
@@ -331,7 +350,7 @@ fn native_vec_push(env: &mut Environment, _tenv: &mut TypeEnvironment, args: Vec
 
     // Ensure first argument is ref<vec<T>>
     if ref_value.value_type.name() != "ref" {
-        error(0, 0, "vec::push() expects ref<vec<T>> as first argument");
+        error(0, 0, "vec::push() expects ref as first argument");
         return nil();
     }
 
@@ -344,7 +363,7 @@ fn native_vec_push(env: &mut Environment, _tenv: &mut TypeEnvironment, args: Vec
     let vec_type = &ref_generics[0];
 
     if vec_type.name() != "vec" {
-        error(0, 0, "vec::push() expects ref<vec<T>> as first argument");
+        error(0, 0, "vec::push() expects ref<<vec>> as first argument");
         return nil();
     }
 

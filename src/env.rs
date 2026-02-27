@@ -7,7 +7,7 @@ use cobject::CWindow;
 use std::collections::HashMap;
 
 pub struct Environment {
-    scopes: Vec<HashMap<String, usize>>,
+    pub(crate) scopes: Vec<HashMap<String, usize>>,
     this: Vec<String>,
     window: Option<CWindow>,
     storage: Vec<Option<Variable>>,
@@ -44,6 +44,10 @@ impl Environment {
     }
 
     pub fn pop_scope(&mut self) {
+        for pointer in self.scopes.last().unwrap().values() {
+            self.storage[*pointer] = None;
+        }
+
         self.scopes.pop();
     }
 
