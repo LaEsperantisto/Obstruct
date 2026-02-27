@@ -173,6 +173,7 @@ impl Scanner {
                     self.add_token(TokenType::Slash);
                 }
             }
+            '\\' => self.add_token(TokenType::BackSlash),
             ' ' | '\r' | '\t' | '\n' => {}
             '`' => self.backtick(),
             '"' => self.string(),

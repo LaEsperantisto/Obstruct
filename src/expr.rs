@@ -14,6 +14,7 @@ pub enum Expr {
     Str(String),
     Char(String),
     Type(Type),
+    Vector(Vec<Expr>),
 
     // Binary Operators
     Add(Box<Expr>, Box<Expr>),
@@ -120,6 +121,23 @@ impl Expr {
                 native: None,
                 is_return: false,
             },
+            Expr::Vector(exprs) => {
+                let mut values = vec![];
+                let mut vec_type = nil_type();
+                for expr in exprs {
+                    let value = expr.value(env, tenv);
+                    vec_type = value.value_type.clone();
+                    values.push(value);
+                }
+                Value {
+                    value_type: Type::with_generics("vec", vec![vec_type]),
+                    value: String::new(),
+                    value_vec: Some(values),
+                    body: None,
+                    native: None,
+                    is_return: false,
+                }
+            }
 
             // ---- Binary Operators ----
             Expr::Add(l, r) => {

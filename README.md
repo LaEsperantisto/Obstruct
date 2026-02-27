@@ -188,7 +188,9 @@ arrows: `push<<i32>>(v, 5)`. The generic can be inferred.
 - `vec`:
 
 A `vec` is a resizable vector, similar to Rust's Vec. When a variable is declared as a vec,
-but no value is assigned, it defaults to an empty vec.
+but no value is assigned, it defaults to an empty vec. To define a vec literal, start with a backslash
+and then opening brace, followed by the values / expressions, then a closing brace: `\{2, 3}` is a vec
+with two items, `2` and `3`.
 
 - `arr`:
 

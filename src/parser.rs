@@ -494,6 +494,22 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn vector_lit(&mut self) -> Expr {
+        self.consume(TokenType::LeftBrace, "Expected '{' after '\\''.");
+        let mut exprs = vec![];
+
+        let mut last_expr = false;
+        while !self.match_any(&[TokenType::RightBrace]) && !last_expr {
+            let expr = self.expression();
+            exprs.push(expr);
+            if !self.match_any(&[TokenType::Comma]) {
+                last_expr = true;
+            }
+        }
+
+        Expr::Vector(exprs)
+    }
+
     // ---------- PRIMARY ----------
     fn primary(&mut self) -> Expr {
         if self.match_any(&[TokenType::LeftBrace]) {
@@ -562,6 +578,10 @@ impl<'a> Parser<'a> {
 
         if self.match_any(&[TokenType::Lam]) {
             return self.define_lambda();
+        }
+
+        if self.match_any(&[TokenType::BackSlash]) {
+            return self.vector_lit();
         }
 
         Expr::Nothing()
