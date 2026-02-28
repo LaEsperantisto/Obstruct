@@ -1,3 +1,4 @@
+use crate::span::Span;
 use crate::token_type::TokenType::Pound;
 use crate::type_env::{nil_type, Type};
 use crate::{error, expr::Expr, token::Token, token_type::TokenType};
@@ -132,7 +133,7 @@ impl<'a> Parser<'a> {
         if self.match_any(&[TokenType::Colon]) {
             let var_type = self.get_type();
 
-            Expr::Declare(name, var_type, is_mutable)
+            Expr::Declare(name, var_type, is_mutable, self.get_span())
         } else {
             self.consume(TokenType::Equal, "Expected '=' after variable name.");
             let value = self.expression();
@@ -145,7 +146,7 @@ impl<'a> Parser<'a> {
     fn assignment(&mut self) -> Expr {
         let name = self.previous().lexeme.clone();
         self.consume(TokenType::Equal, "Expected '=' after identifier.");
-        Expr::Assign(name, Box::new(self.expression()))
+        Expr::Assign(name, Box::new(self.expression()), self.get_span())
     }
 
     // ------- IF / ELSE IF / ELSE ----
@@ -352,7 +353,7 @@ impl<'a> Parser<'a> {
 
         self.consume(TokenType::RightParen, "Missing ')' after function call.");
 
-        Expr::CallFunc(name, generics, arguments)
+        Expr::CallFunc(name, generics, arguments, self.get_span())
     }
 
     // ---------- EXPRESSIONS ----------
@@ -458,6 +459,7 @@ impl<'a> Parser<'a> {
                     "ref::new".into(),
                     vec![],
                     vec![Box::new(Expr::Str(var_name))],
+                    self.get_span(),
                 )
             } else {
                 let t = self.peek();
@@ -468,7 +470,12 @@ impl<'a> Parser<'a> {
 
         if self.match_any(&[TokenType::Star]) {
             let expr = self.unary();
-            return Expr::CallFunc("ref::deref".into(), vec![], vec![Box::new(expr)]);
+            return Expr::CallFunc(
+                "ref::deref".into(),
+                vec![],
+                vec![Box::new(expr)],
+                self.get_span(),
+            );
         }
 
         self.power()
@@ -543,7 +550,7 @@ impl<'a> Parser<'a> {
         }
 
         if self.match_any(&[TokenType::Ident]) {
-            return Expr::Variable(self.previous().lexeme.clone());
+            return Expr::Variable(self.previous().lexeme.clone(), self.get_span());
         }
 
         if self.match_any(&[TokenType::Float]) {
@@ -629,6 +636,14 @@ impl<'a> Parser<'a> {
     }
 
     // ---------- UTIL ----------
+    fn get_span(&self) -> Span {
+        let token = self.previous();
+        Span {
+            line: token.line,
+            column: token.column,
+        }
+    }
+
     fn match_any(&mut self, types: &[TokenType]) -> bool {
         for t in types {
             if self.check(*t) {

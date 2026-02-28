@@ -1,4 +1,5 @@
 use crate::env::Environment;
+use crate::span::Span;
 use crate::type_env::{nil_type, substitute, unify, Type, TypeEnvironment};
 use crate::value::{func_val, nil, Func, Value};
 use crate::{error, had_error};
@@ -52,14 +53,14 @@ pub enum Expr {
         Vec<String>,
     ),
     Function(Box<Expr>, Type, Vec<(String, Type)>, Vec<String>),
-    CallFunc(String, Vec<Type>, Vec<Box<Expr>>),
+    CallFunc(String, Vec<Type>, Vec<Box<Expr>>, Span),
     Return(Box<Expr>),
 
     // Variables
-    Variable(String),
+    Variable(String, Span),
     DeclareAndAssign(String, Box<Expr>, bool),
-    Declare(String, Type, bool),
-    Assign(String, Box<Expr>),
+    Declare(String, Type, bool, Span),
+    Assign(String, Box<Expr>, Span),
     Delete(String),
     This(),
 
@@ -196,6 +197,7 @@ impl Expr {
                         "_add".into(),
                         vec![lv.value_type.clone(), rv.value_type.clone()],
                         vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
+                        Span::empty(),
                     )
                     .value(env, tenv),
                 }
@@ -230,6 +232,7 @@ impl Expr {
                         "_sub".into(),
                         vec![lv.value_type.clone(), rv.value_type.clone()],
                         vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
+                        Span::empty(),
                     )
                     .value(env, tenv),
                 }
@@ -264,6 +267,7 @@ impl Expr {
                         "_mul".into(),
                         vec![lv.value_type.clone(), rv.value_type.clone()],
                         vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
+                        Span::empty(),
                     )
                     .value(env, tenv),
                 }
@@ -312,6 +316,7 @@ impl Expr {
                         "_div".into(),
                         vec![lv.value_type.clone(), rv.value_type.clone()],
                         vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
+                        Span::empty(),
                     )
                     .value(env, tenv),
                 }
@@ -346,6 +351,7 @@ impl Expr {
                         "_mod".into(),
                         vec![lv.value_type.clone(), rv.value_type.clone()],
                         vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
+                        Span::empty(),
                     )
                     .value(env, tenv),
                 }
@@ -386,6 +392,7 @@ impl Expr {
                         "_pow".into(),
                         vec![lv.value_type.clone(), rv.value_type.clone()],
                         vec![Box::new(Expr::Value(lv)), Box::new(Expr::Value(rv))],
+                        Span::empty(),
                     )
                     .value(env, tenv),
                 }
@@ -517,18 +524,18 @@ impl Expr {
                 env.pop_scope();
                 val
             }
-            Expr::Variable(var) => env.get(var).value,
+            Expr::Variable(var, span) => env.get(var, *span).value,
             Expr::DeclareAndAssign(name, expr, is_mutable) => {
                 let value = expr.value(env, tenv);
                 env.declare(name.clone(), value.clone(), *is_mutable);
                 value
             }
-            Expr::Assign(name, expr) => {
+            Expr::Assign(name, expr, span) => {
                 env.new_this(name);
 
                 let new_value = expr.value(env, tenv);
 
-                let variable = env.get(name);
+                let variable = env.get(name, *span);
 
                 if variable.value.value_type.has_tag("ref") {
                     env.set_ptr(
@@ -553,14 +560,14 @@ impl Expr {
                     nil()
                 }
             }
-            Expr::Declare(name, var_type, is_mutable) => {
+            Expr::Declare(name, var_type, is_mutable, span) => {
                 let var_type = if let Type::Generic(name) = var_type {
                     tenv.get_gen(name.clone())
                 } else {
                     var_type.clone()
                 };
 
-                let func = env.get_func(format!("{}::new", var_type).as_str());
+                let func = env.get_func(format!("{}::new", var_type).as_str(), *span);
                 let val = func.body.value(env, tenv);
 
                 env.declare(name.to_string(), val, *is_mutable);
@@ -584,15 +591,15 @@ impl Expr {
                 return_type.clone(),
                 gens.clone(),
             )),
-            Expr::CallFunc(name, explicit_gens, arguments) => {
-                let var = env.get(name);
+            Expr::CallFunc(name, explicit_gens, arguments, span) => {
+                let var = env.get(name, *span);
 
                 if let Some(native) = var.value.native {
                     let args = arguments.iter().map(|a| a.value(env, tenv)).collect();
-                    return native(env, tenv, args);
+                    return native(env, tenv, args, *span);
                 }
 
-                let (body, params, return_type, gens) = env.get_func(name).into();
+                let (body, params, return_type, gens) = env.get_func(name, *span).into();
 
                 let mut bindings = HashMap::new();
 
@@ -679,8 +686,10 @@ impl Expr {
 
                 let mut result = match *body {
                     Expr::Custom2(func) => {
-                        let args: Vec<Value> =
-                            arguments.iter().map(|a| a.value(env, tenv)).collect();
+                        let args: Vec<Value> = arguments
+                            .iter()
+                            .map(|a: &Box<Expr>| a.value(env, tenv))
+                            .collect();
                         func(env, args)
                     }
                     Expr::Custom(func) => func(env),
@@ -735,10 +744,11 @@ impl Expr {
                     "{}::nth".to_string(),
                     vec![val.value_type],
                     vec![l.clone(), r.clone()],
+                    Span::empty(),
                 )
                 .value(env, tenv)
             }
-            Expr::This() => Expr::Variable(env.this()).value(env, tenv),
+            Expr::This() => Expr::Variable(env.this(), Span::empty()).value(env, tenv),
             Expr::Nothing() => nil(),
             Expr::Custom(func) => func(env),
             Expr::Custom2(func) => func(env, vec![]),
@@ -805,7 +815,7 @@ impl Expr {
                 "bool".into()
             }
 
-            Expr::Variable(name) => tenv.get(name),
+            Expr::Variable(name, _) => tenv.get(name),
 
             Expr::DeclareAndAssign(name, expr, _) => {
                 let t = expr.type_of(tenv);
@@ -813,12 +823,12 @@ impl Expr {
                 t
             }
 
-            Expr::Declare(name, ty, _) => {
+            Expr::Declare(name, ty, _, _) => {
                 tenv.declare(name.clone(), ty.clone());
                 nil_type()
             }
 
-            Expr::Assign(name, expr) => {
+            Expr::Assign(name, expr, _) => {
                 let expected = tenv.get(name);
                 let got = expr.type_of(tenv);
                 if expected != got {
@@ -883,7 +893,7 @@ impl Expr {
                 "func".into()
             }
 
-            Expr::CallFunc(_, _, _) => "unknown".into(),
+            Expr::CallFunc(_, _, _, _) => "unknown".into(),
 
             Expr::Nothing() => nil_type(),
 

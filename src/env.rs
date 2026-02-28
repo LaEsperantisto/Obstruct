@@ -1,5 +1,6 @@
 use crate::error;
 use crate::expr::Expr;
+use crate::span::Span;
 use crate::type_env::{nil_type, Type, TypeEnvironment};
 use crate::value::{func_val, native_func, nil, Func, Value};
 use crate::variable::Variable;
@@ -126,7 +127,7 @@ impl Environment {
         error(0, 0, format!("Undefined variable '{}'.", name).as_str());
     }
 
-    pub fn get(&self, name: &str) -> Variable {
+    pub fn get(&self, name: &str, span: Span) -> Variable {
         for scope in self.scopes.iter().rev() {
             if let Some(&id) = scope.get(name) {
                 if let Some(Some(var)) = self.storage.get(id) {
@@ -135,7 +136,11 @@ impl Environment {
             }
         }
 
-        error(0, 0, format!("Undefined variable '{}'.", name).as_str());
+        error(
+            span.line,
+            span.column,
+            format!("Undefined variable '{}'.", name).as_str(),
+        );
         Variable::new(nil(), false)
     }
 
@@ -180,7 +185,7 @@ impl Environment {
     pub fn declare_native(
         &mut self,
         name: &str,
-        func: fn(&mut Environment, &mut TypeEnvironment, Vec<Value>) -> Value,
+        func: fn(&mut Environment, &mut TypeEnvironment, Vec<Value>, Span) -> Value,
     ) {
         let scope = self.scopes.last_mut().unwrap();
 
@@ -191,8 +196,8 @@ impl Environment {
         scope.insert(name.to_string(), id);
     }
 
-    pub fn get_func(&self, name: &str) -> Func {
-        let var = self.get(name);
+    pub fn get_func(&self, name: &str, span: Span) -> Func {
+        let var = self.get(name, span);
 
         var.value.body.unwrap_or_else(|| {
             error(

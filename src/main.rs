@@ -6,12 +6,12 @@ mod expr;
 mod init;
 mod parser;
 mod scanner;
+mod span;
 mod token;
 mod token_type;
 mod type_env;
 mod value;
 mod variable;
-
 // TODO Add classes
 // TODO Implement references
 
