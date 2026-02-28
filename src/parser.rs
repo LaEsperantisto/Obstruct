@@ -495,11 +495,30 @@ impl<'a> Parser<'a> {
     }
 
     fn vector_lit(&mut self) -> Expr {
-        self.consume(TokenType::LeftBrace, "Expected '{' after '\\''.");
+        if self.match_any(&[TokenType::LeftBrace]) {
+            let mut exprs = vec![];
+
+            let mut last_expr = false;
+            while !self.match_any(&[TokenType::RightBrace]) && !last_expr {
+                let expr = self.expression();
+                exprs.push(expr);
+                if !self.match_any(&[TokenType::Comma]) {
+                    last_expr = true;
+                }
+            }
+
+            Expr::Vector(exprs)
+        } else {
+            self.consume(TokenType::LeftBrace, "Expected '{' after '\\''.");
+            Expr::Nothing()
+        }
+    }
+
+    fn array_lit(&mut self) -> Expr {
         let mut exprs = vec![];
 
         let mut last_expr = false;
-        while !self.match_any(&[TokenType::RightBrace]) && !last_expr {
+        while !self.match_any(&[TokenType::RightBrack]) && !last_expr {
             let expr = self.expression();
             exprs.push(expr);
             if !self.match_any(&[TokenType::Comma]) {
@@ -507,7 +526,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Expr::Vector(exprs)
+        Expr::Array(exprs)
     }
 
     // ---------- PRIMARY ----------
@@ -522,17 +541,6 @@ impl<'a> Parser<'a> {
             self.consume(TokenType::Ident, "THIS SHOULD BE UNREACHABLE.");
             return self.call_function();
         }
-
-        // if self.match_any(&[TokenType::LeftBrack]) {
-        //     let mut val = vec![];
-        //     loop {
-        //         val.push(self.expression());
-        //         if !self.match_any(&[TokenType::Comma]) {
-        //             break;
-        //         }
-        //     }
-        //     return;
-        // }
 
         if self.match_any(&[TokenType::Ident]) {
             return Expr::Variable(self.previous().lexeme.clone());
@@ -582,6 +590,10 @@ impl<'a> Parser<'a> {
 
         if self.match_any(&[TokenType::BackSlash]) {
             return self.vector_lit();
+        }
+
+        if self.match_any(&[TokenType::LeftBrack]) {
+            return self.array_lit();
         }
 
         Expr::Nothing()

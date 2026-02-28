@@ -97,6 +97,10 @@ impl Type {
             Type::Generic(n) => n,
         }
     }
+
+    pub fn has_tag(&self, tag: &str) -> bool {
+        self.name() == tag
+    }
 }
 
 impl From<&str> for Type {

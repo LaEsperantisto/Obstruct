@@ -29,7 +29,7 @@ impl Variable {
 
 impl fmt::Display for Variable {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.value.value_type.name() == "vec" {
+        if self.value.value_type.has_tag("vec") {
             write!(f, "{}", self.value.value_vec.clone().unwrap()[0])
         } else {
             write!(f, "{}", self.value)

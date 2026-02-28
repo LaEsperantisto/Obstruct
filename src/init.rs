@@ -8,7 +8,7 @@ use crate::variable::Variable;
 use cobject::ccolor;
 use std::io;
 
-pub fn init(env: &mut Environment) {
+pub fn init(env: &mut Environment, _tenv: &mut TypeEnvironment) {
     env.make_func(
         "i32::new",
         Box::new(Int(0)),
@@ -175,7 +175,7 @@ pub fn init(env: &mut Environment) {
 
         let referer = &args[0];
 
-        if referer.value_type.name() != "ref" {
+        if !referer.value_type.has_tag("ref") {
             error(0, 0, "Cannot dereference non-ref type");
             return nil();
         }
@@ -266,9 +266,9 @@ fn native_len(_: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>) ->
 
     Value {
         value_type: "i32".into(),
-        value: if v.value_type.name() == "str" {
+        value: if v.value_type.has_tag("str") {
             v.value.len().to_string()
-        } else if v.value_type.name() == "vec" {
+        } else if v.value_type.has_tag("vec") {
             v.value_vec.iter().len().to_string()
         } else {
             error(
@@ -301,11 +301,11 @@ fn native_str_nth(_env: &mut Environment, _: &mut TypeEnvironment, args: Vec<Val
 
     let left = args.get(0).unwrap();
     let right = args.get(1).unwrap();
-    if right.value_type.name() != "i32" {
+    if right.value_type.has_tag("i32") {
         error(0, 0, "str_nth() expects an 'i32' as right argument");
         return nil();
     }
-    if left.value_type.name() != "str" {
+    if left.value_type.has_tag("str") {
         error(0, 0, "str_nth() expects an 'str' as left argument");
         return nil();
     }
@@ -349,7 +349,7 @@ fn native_vec_push(env: &mut Environment, _tenv: &mut TypeEnvironment, args: Vec
     let elem = args[1].clone();
 
     // Ensure first argument is ref<vec<T>>
-    if ref_value.value_type.name() != "ref" {
+    if ref_value.value_type.has_tag("ref") {
         error(0, 0, "vec::push() expects ref as first argument");
         return nil();
     }
@@ -362,7 +362,7 @@ fn native_vec_push(env: &mut Environment, _tenv: &mut TypeEnvironment, args: Vec
 
     let vec_type = &ref_generics[0];
 
-    if vec_type.name() != "vec" {
+    if vec_type.has_tag("vec") {
         error(0, 0, "vec::push() expects ref<<vec>> as first argument");
         return nil();
     }
@@ -419,12 +419,12 @@ fn native_vec_nth(_: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>
     let vec_val = &args[0];
     let index_val = &args[1];
 
-    if vec_val.value_type.name() != "vec" {
+    if vec_val.value_type.has_tag("vec") {
         error(0, 0, "vec::nth() expects vec<T> as first argument");
         return nil();
     }
 
-    if index_val.value_type.name() != "i32" {
+    if index_val.value_type.has_tag("i32") {
         error(0, 0, "vec::nth() expects i32 as index");
         return nil();
     }

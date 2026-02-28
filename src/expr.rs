@@ -13,8 +13,8 @@ pub enum Expr {
     Bool(bool),
     Str(String),
     Char(String),
-    Type(Type),
     Vector(Vec<Expr>),
+    Array(Vec<Expr>),
 
     // Binary Operators
     Add(Box<Expr>, Box<Expr>),
@@ -136,6 +136,25 @@ impl Expr {
                     body: None,
                     native: None,
                     is_return: false,
+                }
+            }
+            Expr::Array(exprs) => {
+                let mut types = vec![];
+                let mut vals = vec![];
+
+                for expr in exprs {
+                    let value = expr.value(env, tenv);
+                    types.push(value.value_type.clone());
+                    vals.push(value);
+                }
+
+                Value {
+                    value_vec: Some(vals),
+                    body: None,
+                    is_return: false,
+                    native: None,
+                    value: String::new(),
+                    value_type: Type::with_generics("arr", types),
                 }
             }
 
@@ -511,8 +530,14 @@ impl Expr {
 
                 let variable = env.get(name);
 
-                if variable.value.value_type.name() == "ref" {
-                    env.assign(&variable.value.value, new_value);
+                if variable.value.value_type.has_tag("ref") {
+                    env.set_ptr(
+                        str::parse::<usize>(&variable.value.value).unwrap_or_else(|_| {
+                            error(0, 0, "Malformed 'ref'");
+                            0
+                        }),
+                        new_value,
+                    );
                 } else {
                     env.assign(name, new_value);
                 }
@@ -616,7 +641,13 @@ impl Expr {
                         let arg_type = arg_value.value_type.clone();
 
                         let expected_type = substitute(&arg_type, &bindings);
-                        unify(&expected_type, &arg_type, &mut bindings);
+
+                        if !unify(&expected_type, &arg_type, &mut bindings) {
+                            panic!(
+                                "Type mismatch: expected {}, got {}",
+                                expected_type, arg_type
+                            );
+                        }
 
                         env.declare(params[i].0.clone(), arg_value, false);
                     }
@@ -701,8 +732,8 @@ impl Expr {
             Expr::Nth(l, r) => {
                 let val = l.value(env, tenv);
                 Expr::CallFunc(
-                    format!("{}::nth", val.value_type.name()),
-                    vec![],
+                    "{}::nth".to_string(),
+                    vec![val.value_type],
                     vec![l.clone(), r.clone()],
                 )
                 .value(env, tenv)
@@ -718,8 +749,6 @@ impl Expr {
                 v.is_return = true;
                 v
             }
-
-            Expr::Type(t) => Expr::Str(t.name().to_string()).value(env, tenv),
         }
     }
 

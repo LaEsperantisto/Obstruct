@@ -16,14 +16,14 @@ pub struct Value {
 
 impl Value {
     pub fn is_true(&self) -> bool {
-        if self.value_type.name() != "bool" {
+        if !self.value_type.has_tag("bool") {
             error(
                 0,
                 0,
                 format!("Expected 'bool' but got '{}'", self.value_type).as_str(),
             );
         }
-        self.value_type.name() == "bool" && self.value == "`t"
+        self.value_type.has_tag("bool") && self.value == "`t"
     }
 
     #[inline(always)]
@@ -34,13 +34,13 @@ impl Value {
 
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.value_type.name() == "func" {
+        if self.value_type.has_tag("func") {
             if self.native.is_some() {
                 panic!("Expected body for function");
             } else {
                 write!(f, "{}", self.body.clone().unwrap().return_type)
             }
-        } else if self.value_type.name() == "vec" {
+        } else if self.value_type.has_tag("vec") || self.value_type.has_tag("arr") {
             write!(f, "[")?;
             for v in self.value_vec.clone().unwrap() {
                 write!(f, "{}, ", v)?;

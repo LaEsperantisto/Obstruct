@@ -36,6 +36,19 @@ pub fn had_error() -> bool {
 fn main() -> io::Result<()> {
     let mut args = std::env::args().skip(1);
 
+    let arg_len = args.len();
+
+    let debug = if arg_len == 2 {
+        let arg = args.next();
+        if arg == Some("--release".into()) {
+            false
+        } else {
+            true
+        }
+    } else {
+        true
+    };
+
     let arg1 = args.next();
 
     let filepath = match arg1 {
@@ -45,7 +58,10 @@ fn main() -> io::Result<()> {
 
     let mut env = Environment::new();
     let mut tenv = TypeEnvironment::new();
-    init(&mut env);
+    Expr::DeclareAndAssign("DEBUG".into(), Box::new(Expr::Bool(debug)), false)
+        .value(&mut env, &mut tenv);
+
+    init(&mut env, &mut tenv);
 
     let source = fs::read_to_string(filepath)? + "\n\nmain();";
 

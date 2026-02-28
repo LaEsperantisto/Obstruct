@@ -69,7 +69,11 @@ impl Environment {
 
     pub fn set_ptr(&mut self, id: usize, val: Value) {
         if let Some(slot) = self.storage.get_mut(id) {
-            slot.as_mut().unwrap().value = val;
+            let variable = slot.as_mut().unwrap();
+            if !variable.is_mutable {
+                error(0, 0, "Variable not mutable, could not set pointee value");
+            }
+            variable.value = val;
         } else {
             error(0, 0, "Invalid pointer ID, could not set value.");
         }
