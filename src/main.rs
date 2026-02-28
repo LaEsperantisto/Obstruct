@@ -134,7 +134,7 @@ fn run() -> Result<(), ObstructError> {
 pub fn error(line: usize, column: usize, message: &str) {
     report(line, column, message);
 
-    std::process::exit(1);
+    panic::set_hook(Box::new(|_| {}));
 }
 
 fn get_line(line: usize, _column: usize) -> String {
@@ -153,10 +153,6 @@ fn get_line(line: usize, _column: usize) -> String {
 
 pub fn report(line: usize, column: usize, message: &str) {
     let mut err = ERROR.lock().unwrap();
-
-    if err.is_err() {
-        return;
-    }
 
     println!("\n{BOLD}{ERROR_COLOR}error{RESET}{BOLD}: {message}{RESET}");
 
