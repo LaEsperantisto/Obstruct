@@ -223,6 +223,8 @@ pub fn init(env: &mut Environment, _tenv: &mut TypeEnvironment) {
                 .read_line(&mut input)
                 .expect("failed to readline");
 
+            input.pop();
+
             Value {
                 value_type: "str".into(),
                 value: input,

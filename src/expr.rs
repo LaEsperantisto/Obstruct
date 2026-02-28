@@ -115,7 +115,7 @@ impl Expr {
                 is_return: false,
             },
             Expr::Char(c) => Value {
-                value_type: "str".into(),
+                value_type: "char".into(),
                 value: c.clone(),
                 value_vec: None,
                 body: None,

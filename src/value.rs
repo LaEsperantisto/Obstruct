@@ -57,7 +57,7 @@ pub fn nil() -> Value {
     Value {
         value_type: nil_type(),
         value: "".to_string(),
-        value_vec: None,
+        value_vec: Some(vec![]),
         body: None,
         native: None,
         is_return: false,
