@@ -182,7 +182,8 @@ impl<'a> Parser<'a> {
     fn assignment(&mut self) -> Expr {
         let name = self.previous().lexeme.clone();
         self.consume(TokenType::Equal, "Expected '=' after identifier.");
-        Expr::Assign(name, Box::new(self.expression()), self.get_span())
+        let span = self.get_span();
+        Expr::Assign(name, Box::new(self.expression()), span)
     }
 
     // ------- IF / ELSE IF / ELSE ----

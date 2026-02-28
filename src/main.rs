@@ -137,7 +137,7 @@ pub fn error(line: usize, column: usize, message: &str) {
     panic::set_hook(Box::new(|_| {}));
 }
 
-fn get_line(line: usize, _column: usize) -> String {
+fn get_line(line: usize) -> String {
     let src = SOURCES.lock().unwrap();
     if !src.is_empty() {
         let source = src.last().unwrap();
@@ -158,21 +158,23 @@ pub fn report(line: usize, column: usize, message: &str) {
 
     println!("--> line {} column {}\n", line, column);
 
-    let source_line = get_line(line, column);
+    let source_line = get_line(line);
 
-    if !source_line.is_empty() {
-        println!("    |");
-        println!("{CYAN}{:>3}{RESET} | {}", line, source_line);
-
-        let prefix_len = format!("{:>3}  | ", line).len();
-        let caret_padding = " ".repeat(prefix_len + column.saturating_sub(3));
-
-        let mut caret_line = format!("{}{ERROR_COLOR}^{RESET} {message}", caret_padding);
-
-        caret_line.replace_range(4..4, "|");
-
-        println!("{}", caret_line);
+    println!("    |");
+    if line as isize - 1 > 0 {
+        let prev_line = get_line(line - 1);
+        println!("{CYAN}{:>3}{RESET} | {}", line - 1, prev_line);
     }
+    println!("{CYAN}{:>3}{RESET} | {}", line, source_line);
+
+    let prefix_len = format!("{:>3}  | ", line).len();
+    let caret_padding = " ".repeat(prefix_len + column.saturating_sub(3));
+
+    let mut caret_line = format!("{}{ERROR_COLOR}^{RESET} {message}", caret_padding);
+
+    caret_line.replace_range(4..4, "|");
+
+    println!("{}", caret_line);
 
     let stack = CALL_STACK.lock().unwrap();
     if !stack.is_empty() {

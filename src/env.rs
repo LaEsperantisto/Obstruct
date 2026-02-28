@@ -114,7 +114,11 @@ impl Environment {
             if let Some(&id) = scope.get(name) {
                 if let Some(Some(var)) = self.storage.get_mut(id) {
                     if !var.is_mutable {
-                        error(0, 0, format!("Variable '{}' not mutable", name).as_str());
+                        error(
+                            span.line,
+                            span.column,
+                            format!("Variable '{}' not mutable", name).as_str(),
+                        );
                         return;
                     }
 
