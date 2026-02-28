@@ -71,10 +71,6 @@ const STRIKETHROUGH: &str = "\x1b[9m";
 const RESET: &str = "\x1b[0m";
 
 fn main() -> Result<(), ObstructError> {
-    panic::set_hook(Box::new(|_| {
-        // Do nothing.
-    }));
-
     let result = panic::catch_unwind(|| run());
 
     result.unwrap_or_else(|_| {
@@ -138,7 +134,7 @@ fn run() -> Result<(), ObstructError> {
 pub fn error(line: usize, column: usize, message: &str) {
     report(line, column, message);
 
-    panic!();
+    std::process::exit(1);
 }
 
 fn get_line(line: usize, _column: usize) -> String {

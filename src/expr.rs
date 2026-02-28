@@ -69,6 +69,7 @@ pub enum Expr {
     // Control Flow
     If(Box<Expr>, Box<Expr>, Option<Box<Expr>>), // if condition, if block, else block
     While(Box<Expr>, Box<Expr>),
+    For(String, Box<Expr>, Box<Expr>, Span), // loopee, looper, block
 
     // Others
     Custom(fn(&mut Environment) -> Value),
@@ -567,6 +568,26 @@ impl Expr {
                     nil()
                 }
             }
+            Expr::For(loopee, looper, block, span) => {
+                let looper_value = looper.value(env, tenv);
+                if !looper_value.value_type.has_tag("vec") {
+                    error(
+                        span.line,
+                        span.column,
+                        "looper (in for loop) must have tag 'iter'",
+                    );
+                }
+
+                for val in looper_value.value_vec.unwrap() {
+                    Expr::DeclareAndAssign(loopee.clone(), Box::new(Expr::Value(val)), false)
+                        .value(env, tenv);
+                    block.value(env, tenv);
+
+                    Expr::Delete(loopee.clone()).value(env, tenv);
+                }
+
+                nil()
+            }
             Expr::Declare(name, var_type, is_mutable, span) => {
                 let var_type = if let Type::Generic(name) = var_type {
                     tenv.get_gen(name.clone())
@@ -747,8 +768,8 @@ impl Expr {
             Expr::Nth(l, r) => {
                 let val = l.value(env, tenv);
                 Expr::CallFunc(
-                    "{}::nth".to_string(),
-                    vec![val.value_type],
+                    format!("{}::nth", val.value_type),
+                    val.value_type.generics(),
                     vec![l.clone(), r.clone()],
                     Span::empty(),
                 )

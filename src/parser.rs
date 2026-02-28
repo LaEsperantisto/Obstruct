@@ -21,7 +21,11 @@ impl<'a> Parser<'a> {
             statements.push(Box::new(self.statement()));
             if !self.match_any(&[TokenType::Semicolon]) && !self.is_at_end() {
                 let t = self.peek();
-                error(t.line, t.column, "Expected ';' after statement.");
+                error(
+                    t.line,
+                    t.column,
+                    format!("Expected ';' after statement. Found '{}'", t.token_type).as_str(),
+                );
                 self.advance();
             }
         }
@@ -64,6 +68,10 @@ impl<'a> Parser<'a> {
             return self.use_file();
         }
 
+        if self.match_any(&[TokenType::For]) {
+            return self.for_loop();
+        }
+
         self.expression()
     }
 
@@ -83,7 +91,11 @@ impl<'a> Parser<'a> {
 
             if !self.check(TokenType::Semicolon) && !self.check(TokenType::RightBrace) {
                 let t = self.peek();
-                error(t.line, t.column, "Expected ';' after statement.");
+                error(
+                    t.line,
+                    t.column,
+                    format!("Expected ';' after statement. Found '{}'", t.token_type).as_str(),
+                );
                 self.advance();
             }
             if self.match_any(&[TokenType::Semicolon]) {
@@ -132,6 +144,19 @@ impl<'a> Parser<'a> {
         };
 
         Expr::While(Box::new(cond), Box::new(block))
+    }
+
+    // ----------- FOR LOOP -----------
+
+    fn for_loop(&mut self) -> Expr {
+        self.consume(TokenType::Ident, "Expected identifier after 'For' token");
+        let loopee = self.previous().lexeme;
+        self.consume(TokenType::Colon, "Expected ':' after loopee");
+        let looper = self.expression();
+        self.consume(TokenType::LeftBrace, "Expected '{' after looper");
+        let block = self.statement_block();
+
+        Expr::For(loopee, Box::new(looper), Box::new(block), self.get_span())
     }
 
     // ---------- DECLARATION ----------

@@ -330,19 +330,19 @@ fn native_str_nth(
 
     let left = args.get(0).unwrap();
     let right = args.get(1).unwrap();
-    if right.value_type.has_tag("i32") {
+    if !right.value_type.has_tag("i32") {
         error(
             span.line,
             span.column,
-            "str_nth() expects an 'i32' as right argument",
+            "str::nth() expects an 'i32' as right argument",
         );
         return nil();
     }
-    if left.value_type.has_tag("str") {
+    if !left.value_type.has_tag("str") {
         error(
             span.line,
             span.column,
-            "str_nth() expects an 'str' as left argument",
+            "str::nth() expects a 'str' as left argument",
         );
         return nil();
     }
