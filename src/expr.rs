@@ -2,7 +2,7 @@ use crate::env::Environment;
 use crate::span::Span;
 use crate::type_env::{nil_type, substitute, unify, Type, TypeEnvironment};
 use crate::value::{func_val, nil, Func, Value};
-use crate::{error, had_error};
+use crate::{error, pop_stack, push_stack};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -76,10 +76,6 @@ pub enum Expr {
 
 impl Expr {
     pub fn value(&self, env: &mut Environment, tenv: &mut TypeEnvironment) -> Value {
-        if had_error() {
-            return nil();
-        }
-
         match self {
             // ---- Literals ----
             Expr::Float(n) => Value {
@@ -507,9 +503,7 @@ impl Expr {
             // ---- Statements, Variables, Functions, Control Flow ----
             Expr::Print(r) => {
                 let val = r.value(env, tenv);
-                if !had_error() {
-                    print!("{}", val.to_string());
-                }
+                print!("{}", val);
                 val
             }
             Expr::StmtBlock(stmts) => {
@@ -684,6 +678,7 @@ impl Expr {
                 }
                 let real_return = substitute(&return_type, &bindings);
 
+                push_stack(name);
                 let mut result = match *body {
                     Expr::Custom2(func) => {
                         let args: Vec<Value> = arguments
@@ -700,13 +695,10 @@ impl Expr {
 
                 tenv.pop_func();
                 env.pop_scope();
+                pop_stack();
 
                 if result.is_return {
                     result.is_return = false;
-                }
-
-                if had_error() {
-                    return result;
                 }
 
                 if result.value_type != real_return {

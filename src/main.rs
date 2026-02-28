@@ -2,6 +2,7 @@
 extern crate core;
 
 mod env;
+mod error;
 mod expr;
 mod init;
 mod parser;
@@ -16,24 +17,76 @@ mod variable;
 // TODO Implement references
 
 use crate::env::Environment;
+use crate::error::ObstructError;
 use crate::expr::Expr;
 use crate::init::init;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
 use crate::type_env::TypeEnvironment;
-use std::io::ErrorKind;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::{fs, io};
+use std::fs;
+use std::panic;
+use std::sync::Mutex;
+static SOURCE: Mutex<Option<String>> = Mutex::new(None);
+static ERROR: Mutex<Result<(), ObstructError>> = Mutex::new(Ok(()));
+static CALL_STACK: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
-static HAD_ERROR: AtomicBool = AtomicBool::new(false);
+// Basic Colors
+const BLACK: &str = "\x1b[30m";
+const RED: &str = "\x1b[31m";
+const GREEN: &str = "\x1b[32m";
+const YELLOW: &str = "\x1b[33m";
+const BLUE: &str = "\x1b[34m";
+const MAGENTA: &str = "\x1b[35m";
+const CYAN: &str = "\x1b[36m";
+const WHITE: &str = "\x1b[37m";
 
-// static mut SOURCE: *mut String = std::ptr::null_mut();
+// Bright Colors
+const BRIGHT_RED: &str = "\x1b[91m";
+const BRIGHT_GREEN: &str = "\x1b[92m";
+const BRIGHT_YELLOW: &str = "\x1b[93m";
+const BRIGHT_BLUE: &str = "\x1b[94m";
+const BRIGHT_MAGENTA: &str = "\x1b[95m";
+const BRIGHT_CYAN: &str = "\x1b[96m";
 
-pub fn had_error() -> bool {
-    HAD_ERROR.load(Ordering::Relaxed)
+// Background Colors
+const BG_RED: &str = "\x1b[41m";
+const BG_GREEN: &str = "\x1b[42m";
+const BG_YELLOW: &str = "\x1b[43m";
+const BG_BLUE: &str = "\x1b[44m";
+const BG_MAGENTA: &str = "\x1b[45m";
+const BG_CYAN: &str = "\x1b[46m";
+
+// Extra Ansi
+const ERROR_COLOR: &str = BRIGHT_RED;
+const WARNING_COLOR: &str = BRIGHT_YELLOW;
+
+// Text Styles
+const BOLD: &str = "\x1b[1m";
+const DIM: &str = "\x1b[2m";
+const ITALIC: &str = "\x1b[3m";
+const UNDERLINE: &str = "\x1b[4m";
+const BLINK: &str = "\x1b[5m";
+const REVERSED: &str = "\x1b[7m";
+const STRIKETHROUGH: &str = "\x1b[9m";
+const RESET: &str = "\x1b[0m";
+
+fn main() -> Result<(), ObstructError> {
+    panic::set_hook(Box::new(|_| {
+        // Do nothing.
+    }));
+
+    let result = panic::catch_unwind(|| run());
+
+    result.unwrap_or_else(|_| {
+        let err = ERROR.lock().unwrap().clone();
+        match err {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        }
+    })
 }
 
-fn main() -> io::Result<()> {
+fn run() -> Result<(), ObstructError> {
     let mut args = std::env::args().skip(1);
 
     let arg_len = args.len();
@@ -63,50 +116,96 @@ fn main() -> io::Result<()> {
 
     init(&mut env, &mut tenv);
 
-    let source = fs::read_to_string(filepath)? + "\n\nmain();";
+    let source = fs::read_to_string(filepath).unwrap() + "\n\nmain();";
 
     let expr = compile(source);
 
-    if !had_error() {
-        // expr.type_of(&mut tenv);
+    expr.value(&mut env, &mut tenv);
 
-        if had_error() {
-            Err(io::Error::new(
-                ErrorKind::Other,
-                "Error during type verification",
-            ))
-        } else {
-            expr.value(&mut env, &mut tenv);
-            println!();
-            if had_error() {
-                Err(io::Error::new(ErrorKind::Other, "Error during execution"))
-            } else {
-                Ok(())
-            }
-        }
-    } else {
-        Err(io::Error::new(ErrorKind::Other, "Error during parsing"))
+    let err = ERROR.lock().unwrap().clone();
+
+    match err {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e),
     }
 }
 
 pub fn error(line: usize, column: usize, message: &str) {
-    report(line, column, "".into(), message);
+    report(line, column, message);
+
+    panic!("Execution stopped due to Obstruct error.");
 }
 
-fn get_line(_line: usize, _column: usize) -> String {
-    String::new()
+fn get_line(line: usize, _column: usize) -> String {
+    let src = SOURCE.lock().unwrap();
+    if let Some(source) = &*src {
+        source
+            .lines()
+            .nth(line.saturating_sub(1))
+            .unwrap_or("")
+            .to_string()
+    } else {
+        String::new()
+    }
 }
 
-pub fn report(line: usize, column: usize, place: String, message: &str) {
-    println!("\n\n[line {line} column {column}] Error{place}: {message}");
-    // println!("\n{} | {}", line, get_line(line, column));
-    HAD_ERROR.store(true, Ordering::Relaxed);
+pub fn report(line: usize, column: usize, message: &str) {
+    let mut err = ERROR.lock().unwrap();
+
+    if err.is_err() {
+        return;
+    }
+
+    println!("\n{BOLD}{ERROR_COLOR}error{RESET}{BOLD}: {message}{RESET}");
+
+    println!("--> line {} column {}\n", line, column);
+
+    let source_line = get_line(line, column);
+
+    if !source_line.is_empty() {
+        println!("    |");
+        println!("{CYAN}{:>3}{RESET} | {}", line, source_line);
+
+        let prefix_len = format!("{:>3}  | ", line).len();
+        let caret_padding = " ".repeat(prefix_len + column.saturating_sub(3));
+
+        let mut caret_line = format!("{}{ERROR_COLOR}^{RESET} {message}", caret_padding);
+
+        caret_line.replace_range(4..4, "|");
+
+        println!("{}", caret_line);
+    }
+
+    let stack = CALL_STACK.lock().unwrap();
+    if !stack.is_empty() {
+        println!("\n{BOLD}Stack trace:{RESET}");
+        for func in stack.iter().rev() {
+            println!("  {BRIGHT_YELLOW}->{BRIGHT_BLUE} {}", func);
+        }
+    }
+
+    println!("{RESET}\n");
+
+    *err = Err(ObstructError::new(line, column, message));
 }
 
 pub fn compile(source: String) -> Expr {
+    {
+        let mut src = SOURCE.lock().unwrap();
+        *src = Some(source.clone());
+    }
+
     let mut scanner = Scanner::new(source);
     let tokens = scanner.scan_tokens();
     let mut parser = Parser::new(tokens);
     let expr = parser.parse();
     expr
+}
+
+pub fn push_stack(name: &str) {
+    CALL_STACK.lock().unwrap().push(name.to_string());
+}
+
+pub fn pop_stack() {
+    CALL_STACK.lock().unwrap().pop();
 }
