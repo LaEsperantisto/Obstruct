@@ -167,11 +167,16 @@ impl Environment {
         parameters: Vec<(String, Type)>,
         gens: Vec<String>,
         is_mutable: bool,
+        span: Span,
     ) {
         let scope = self.scopes.last_mut().unwrap();
 
         if scope.contains_key(name) {
-            error(0, 0, format!("'{}' already defined", name).as_str());
+            error(
+                span.line,
+                span.column,
+                format!("'{}' already defined", name).as_str(),
+            );
             return;
         }
 

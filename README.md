@@ -183,6 +183,15 @@ arrows: `push<<i32>>(v, 5)`. The generic can be inferred.
 
 ---
 
+## Arrays
+
+The `arr` type is described below.
+
+To make a value of type `arr`, brackets are used (`[` and `]`). The value `[3, "hello"]` would have a type
+if `[i32, str]`, which evaluates to `arr<<i32, str>>`.
+
+---
+
 ## Data Structures
 
 - `vec`:
@@ -196,14 +205,14 @@ with two items, `2` and `3`.
 
 An `arr`, aka `Array` in some languages, is declared like this: `[val1, val2]` and is not resizable.
 The size also needs to be known at compile type. The type of an Array is "declared" similar to Rust,
-but with brackets instead of parentheses, e.g. `[i32, i32]` for the position of a 2D object. Similar
-to Rust, The `nothing` type is `[]`. However, instead of using `[i32,f64]`, you could use `arr<i32,f64>`.
+but with brackets instead of parentheses, e.g. `[i32, i32]` for the position of a 2D object. However,
+instead of using `[i32,f64]`, you could use `arr<i32,f64>`. Similar to Rust, The `nothing` type is `[]`.
 Again, this could be instead said as `arr` or `arr<>`.
 
 - `ptr`:
 
 A `ptr` is a `pointer` to memory. It can only point to the heap. To dereference a pointer, call
-the `deref` function.
+the `ptr::deref` function.
 
 - `ref`:
 

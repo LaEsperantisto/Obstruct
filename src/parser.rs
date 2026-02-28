@@ -26,7 +26,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Expr::StmtBlock(statements)
+        Expr::StmtBlockNoScope(statements)
     }
 
     // ---------- STATEMENTS ----------
@@ -60,7 +60,18 @@ impl<'a> Parser<'a> {
             return self.assignment();
         }
 
+        if self.match_any(&[TokenType::Use]) {
+            return self.use_file();
+        }
+
         self.expression()
+    }
+
+    // ---------- USE ------------
+
+    fn use_file(&mut self) -> Expr {
+        self.consume(TokenType::String, "Expected file name after 'use' keyword");
+        Expr::Use(self.previous().literal, self.get_span())
     }
 
     // ---------- BLOCK ----------
@@ -221,6 +232,8 @@ impl<'a> Parser<'a> {
 
         let name = self.advance().lexeme;
 
+        let start_span = self.get_span();
+
         let parameters: Vec<(String, Type)> = if self.match_any(&[TokenType::LeftParen]) {
             let mut parameters = vec![];
             while !self.is_at_end() && !self.check(TokenType::RightParen) {
@@ -262,6 +275,7 @@ impl<'a> Parser<'a> {
             is_mutable,
             parameters,
             generic_params,
+            start_span,
         )
     }
 
@@ -630,9 +644,21 @@ impl<'a> Parser<'a> {
             }
 
             return Type::simple(&name);
+        } else if self.match_any(&[TokenType::LeftBrack]) {
+            let mut gens = vec![];
+
+            loop {
+                gens.push(self.get_type());
+                if !self.match_any(&[TokenType::Comma]) {
+                    break;
+                }
+            }
+
+            self.consume(TokenType::RightBrack, "Expected '>' after generics");
+            return Type::with_generics("arr", gens);
         }
 
-        "arr".into()
+        nil_type()
     }
 
     // ---------- UTIL ----------

@@ -26,7 +26,7 @@ use crate::type_env::TypeEnvironment;
 use std::fs;
 use std::panic;
 use std::sync::Mutex;
-static SOURCE: Mutex<Option<String>> = Mutex::new(None);
+static SOURCES: Mutex<Vec<String>> = Mutex::new(vec![]);
 static ERROR: Mutex<Result<(), ObstructError>> = Mutex::new(Ok(()));
 static CALL_STACK: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
@@ -118,9 +118,14 @@ fn run() -> Result<(), ObstructError> {
 
     let source = fs::read_to_string(filepath).unwrap() + "\n\nmain();";
 
-    let expr = compile(source);
+    {
+        SOURCES.lock().unwrap().push(source.clone());
 
-    expr.value(&mut env, &mut tenv);
+        let expr = compile(source);
+        expr.value(&mut env, &mut tenv);
+
+        SOURCES.lock().unwrap().pop();
+    }
 
     let err = ERROR.lock().unwrap().clone();
 
@@ -133,12 +138,13 @@ fn run() -> Result<(), ObstructError> {
 pub fn error(line: usize, column: usize, message: &str) {
     report(line, column, message);
 
-    panic!("Execution stopped due to Obstruct error.");
+    panic!();
 }
 
 fn get_line(line: usize, _column: usize) -> String {
-    let src = SOURCE.lock().unwrap();
-    if let Some(source) = &*src {
+    let src = SOURCES.lock().unwrap();
+    if !src.is_empty() {
+        let source = src.last().unwrap();
         source
             .lines()
             .nth(line.saturating_sub(1))
@@ -190,15 +196,11 @@ pub fn report(line: usize, column: usize, message: &str) {
 }
 
 pub fn compile(source: String) -> Expr {
-    {
-        let mut src = SOURCE.lock().unwrap();
-        *src = Some(source.clone());
-    }
-
     let mut scanner = Scanner::new(source);
     let tokens = scanner.scan_tokens();
     let mut parser = Parser::new(tokens);
     let expr = parser.parse();
+
     expr
 }
 

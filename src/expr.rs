@@ -2,7 +2,7 @@ use crate::env::Environment;
 use crate::span::Span;
 use crate::type_env::{nil_type, substitute, unify, Type, TypeEnvironment};
 use crate::value::{func_val, nil, Func, Value};
-use crate::{error, pop_stack, push_stack};
+use crate::{compile, error, pop_stack, push_stack};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -40,6 +40,7 @@ pub enum Expr {
 
     // Statements
     StmtBlock(Vec<Box<Expr>>),
+    StmtBlockNoScope(Vec<Box<Expr>>),
     Print(Box<Expr>),
     Discard(Box<Expr>),
 
@@ -51,6 +52,7 @@ pub enum Expr {
         bool,
         Vec<(String, Type)>,
         Vec<String>,
+        Span,
     ),
     Function(Box<Expr>, Type, Vec<(String, Type)>, Vec<String>),
     CallFunc(String, Vec<Type>, Vec<Box<Expr>>, Span),
@@ -72,6 +74,7 @@ pub enum Expr {
     Custom(fn(&mut Environment) -> Value),
     Custom2(fn(&mut Environment, Vec<Value>) -> Value),
     Value(Value),
+    Use(String, Span),
 }
 
 impl Expr {
@@ -518,6 +521,16 @@ impl Expr {
                 env.pop_scope();
                 val
             }
+            Expr::StmtBlockNoScope(stmts) => {
+                let mut val = nil();
+                for stmt in stmts {
+                    val = stmt.value(env, tenv);
+                    if val.is_return {
+                        break;
+                    }
+                }
+                val
+            }
             Expr::Variable(var, span) => env.get(var, *span).value,
             Expr::DeclareAndAssign(name, expr, is_mutable) => {
                 let value = expr.value(env, tenv);
@@ -568,7 +581,7 @@ impl Expr {
                 nil()
             }
 
-            Expr::DeclareFunction(name, block, return_type, is_mutable, parameters, gens) => {
+            Expr::DeclareFunction(name, block, return_type, is_mutable, parameters, gens, span) => {
                 env.make_func(
                     name,
                     block.clone(),
@@ -576,6 +589,7 @@ impl Expr {
                     parameters.clone(),
                     gens.clone(),
                     *is_mutable,
+                    *span,
                 );
                 nil()
             }
@@ -610,10 +624,10 @@ impl Expr {
                             )
                             .as_str(),
                         );
-                    }
-
-                    for (gen_name, concrete_type) in gens.iter().zip(explicit_gens.iter()) {
-                        bindings.insert(gen_name.clone(), concrete_type.clone());
+                    } else {
+                        for (gen_name, concrete_type) in gens.iter().zip(explicit_gens.iter()) {
+                            bindings.insert(gen_name.clone(), concrete_type.clone());
+                        }
                     }
                 }
 
@@ -745,6 +759,24 @@ impl Expr {
             Expr::Custom(func) => func(env),
             Expr::Custom2(func) => func(env, vec![]),
             Expr::Value(v) => v.clone(),
+            Expr::Use(path, span) => {
+                use std::fs;
+
+                let source = fs::read_to_string(path)
+                    .map_err(|_| {
+                        error(
+                            span.line,
+                            span.column,
+                            &format!("Could not read file '{}'", path),
+                        );
+                    })
+                    .unwrap()
+                    + "\n";
+
+                let expr = compile(source);
+
+                expr.value(env, tenv)
+            }
 
             Expr::Return(expr) => {
                 let mut v = expr.value(env, tenv);
@@ -863,7 +895,7 @@ impl Expr {
                 nil_type()
             }
 
-            Expr::DeclareFunction(name, body, return_type, _, params, _gens) => {
+            Expr::DeclareFunction(name, body, return_type, _, params, _gens, _) => {
                 tenv.declare(name.clone(), "func".into());
                 tenv.push();
                 for (p, t) in params {

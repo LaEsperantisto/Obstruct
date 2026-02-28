@@ -17,6 +17,7 @@ pub fn init(env: &mut Environment, _tenv: &mut TypeEnvironment) {
         vec![],
         vec![],
         false,
+        Span::empty(),
     );
     env.make_func(
         "f64::new",
@@ -25,6 +26,7 @@ pub fn init(env: &mut Environment, _tenv: &mut TypeEnvironment) {
         vec![],
         vec![],
         false,
+        Span::empty(),
     );
     env.make_func(
         "arr::new",
@@ -33,6 +35,7 @@ pub fn init(env: &mut Environment, _tenv: &mut TypeEnvironment) {
         vec![],
         vec![],
         false,
+        Span::empty(),
     );
     env.make_func(
         "vec::new",
@@ -48,6 +51,7 @@ pub fn init(env: &mut Environment, _tenv: &mut TypeEnvironment) {
         vec![],
         vec!["T".into()],
         false,
+        Span::empty(),
     );
 
     env.make_func(
@@ -57,6 +61,7 @@ pub fn init(env: &mut Environment, _tenv: &mut TypeEnvironment) {
         vec![],
         vec![],
         false,
+        Span::empty(),
     );
 
     env.declare_native("ptr::new", |env, _tenv, values, span| {
@@ -207,6 +212,7 @@ pub fn init(env: &mut Environment, _tenv: &mut TypeEnvironment) {
         vec![],
         vec![],
         false,
+        Span::empty(),
     );
     env.make_func(
         "in",
@@ -230,6 +236,7 @@ pub fn init(env: &mut Environment, _tenv: &mut TypeEnvironment) {
         vec![],
         vec![],
         false,
+        Span::empty(),
     );
 
     env.declare_native("direct_nth", |_env, _tenv, values, span| {
