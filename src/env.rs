@@ -109,7 +109,7 @@ impl Environment {
         scope.insert(name, id);
     }
 
-    pub fn assign(&mut self, name: &str, value: Value) {
+    pub fn assign(&mut self, name: &str, value: Value, span: Span) {
         for scope in self.scopes.iter().rev() {
             if let Some(&id) = scope.get(name) {
                 if let Some(Some(var)) = self.storage.get_mut(id) {
@@ -124,7 +124,11 @@ impl Environment {
             }
         }
 
-        error(0, 0, format!("Undefined variable '{}'.", name).as_str());
+        error(
+            span.line,
+            span.column,
+            format!("Undefined variable '{}'.", name).as_str(),
+        );
     }
 
     pub fn get(&self, name: &str, span: Span) -> Variable {

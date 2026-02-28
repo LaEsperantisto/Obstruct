@@ -554,7 +554,7 @@ impl Expr {
                         new_value,
                     );
                 } else {
-                    env.assign(name, new_value);
+                    env.assign(name, new_value, *span);
                 }
                 env.end_this();
                 nil()
