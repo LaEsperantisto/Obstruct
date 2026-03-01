@@ -507,7 +507,7 @@ fn native_type_check(
     args: Vec<Value>,
     _span: Span,
 ) -> Value {
-    Str(args[0].value_type.clone().to_string()).value(env, tenv)
+    Str(args[0].value_type.clone().to_string()).get_interpreted_value(env, tenv)
 }
 
 fn native_init_window(
@@ -560,5 +560,5 @@ fn native_is_window_open(
     }
 
     let window = env.get_window();
-    Expr::Bool(window.is_open()).value(env, tenv)
+    Expr::Bool(window.is_open()).get_interpreted_value(env, tenv)
 }

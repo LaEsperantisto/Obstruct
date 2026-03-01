@@ -1,3 +1,4 @@
+use crate::expr::UseKind;
 use crate::span::Span;
 use crate::token_type::TokenType::Pound;
 use crate::type_env::{nil_type, Type};
@@ -78,8 +79,17 @@ impl<'a> Parser<'a> {
     // ---------- USE ------------
 
     fn use_file(&mut self) -> Expr {
+        let kind = if self.match_any(&[TokenType::Std]) {
+            UseKind::Std
+        } else {
+            UseKind::Normal
+        };
         self.consume(TokenType::String, "Expected file name after 'use' keyword");
-        Expr::Use(self.previous().literal, self.get_span())
+        Expr::Use {
+            kind,
+            path: self.previous().literal,
+            span: self.get_span(),
+        }
     }
 
     // ---------- BLOCK ----------

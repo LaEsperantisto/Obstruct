@@ -5,6 +5,13 @@ mod env;
 mod error;
 mod expr;
 mod init;
+mod interpreter {
+    pub mod interpret_expr;
+}
+
+mod transpiler {
+    pub mod expr_to_c;
+}
 mod parser;
 mod scanner;
 mod span;
@@ -13,8 +20,9 @@ mod token_type;
 mod type_env;
 mod value;
 mod variable;
+
+// TODO Convert to transpiler (into C)
 // TODO Add classes
-// TODO Implement references
 
 use crate::env::Environment;
 use crate::error::ObstructError;
@@ -26,6 +34,11 @@ use crate::type_env::TypeEnvironment;
 use std::fs;
 use std::panic;
 use std::sync::Mutex;
+
+// Paths
+const STD_PATH: &str = "/home/aster/dev/obstruct/std/"; // end in a "/" !!!
+
+// Global Variables
 static SOURCES: Mutex<Vec<String>> = Mutex::new(vec![]);
 static ERROR: Mutex<Result<(), ObstructError>> = Mutex::new(Ok(()));
 static CALL_STACK: Mutex<Vec<String>> = Mutex::new(Vec::new());
@@ -71,7 +84,7 @@ const STRIKETHROUGH: &str = "\x1b[9m";
 const RESET: &str = "\x1b[0m";
 
 fn main() -> Result<(), ObstructError> {
-    let result = panic::catch_unwind(|| run());
+    let result = panic::catch_unwind(|| interpret());
 
     result.unwrap_or_else(|_| {
         let err = ERROR.lock().unwrap().clone();
@@ -82,21 +95,22 @@ fn main() -> Result<(), ObstructError> {
     })
 }
 
-fn run() -> Result<(), ObstructError> {
+fn interpret() -> Result<(), ObstructError> {
     let mut args = std::env::args().skip(1);
 
     let arg_len = args.len();
 
-    let debug = if arg_len == 2 {
+    let mut debug = true;
+    let mut interpret = false;
+
+    for _ in 0..arg_len {
         let arg = args.next();
         if arg == Some("--release".into()) {
-            false
-        } else {
-            true
+            debug = false;
+        } else if arg == Some("--interpret".into()) {
+            interpret = true;
         }
-    } else {
-        true
-    };
+    }
 
     let arg1 = args.next();
 
@@ -105,22 +119,24 @@ fn run() -> Result<(), ObstructError> {
         _ => "/home/aster/dev/obstruct/main.obs".to_string(),
     };
 
-    let mut env = Environment::new();
-    let mut tenv = TypeEnvironment::new();
-    Expr::DeclareAndAssign("DEBUG".into(), Box::new(Expr::Bool(debug)), false)
-        .value(&mut env, &mut tenv);
+    if interpret {
+        let mut env = Environment::new();
+        let mut tenv = TypeEnvironment::new();
+        Expr::DeclareAndAssign("DEBUG".into(), Box::new(Expr::Bool(debug)), false)
+            .get_interpreted_value(&mut env, &mut tenv);
 
-    init(&mut env, &mut tenv);
+        init(&mut env, &mut tenv);
 
-    let source = fs::read_to_string(filepath).unwrap() + "\n\nmain();";
+        let source = fs::read_to_string(filepath).unwrap() + "\n\nmain();";
 
-    {
-        SOURCES.lock().unwrap().push(source.clone());
+        {
+            SOURCES.lock().unwrap().push(source.clone());
 
-        let expr = compile(source);
-        expr.value(&mut env, &mut tenv);
+            let expr = compile(source);
+            expr.get_interpreted_value(&mut env, &mut tenv);
 
-        SOURCES.lock().unwrap().pop();
+            SOURCES.lock().unwrap().pop();
+        }
     }
 
     let err = ERROR.lock().unwrap().clone();
