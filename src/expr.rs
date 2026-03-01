@@ -1,4 +1,4 @@
-use crate::env::Environment;
+use crate::runtime_env::RuntimeEnvironment;
 use crate::span::Span;
 use crate::type_env::Type;
 use crate::value::Value;
@@ -24,7 +24,7 @@ pub enum Expr {
     Add(Box<Expr>, Box<Expr>),
     Sub(Box<Expr>, Box<Expr>),
     Mult(Box<Expr>, Box<Expr>),
-    Divide(Box<Expr>, Box<Expr>),
+    Div(Box<Expr>, Box<Expr>),
     Mod(Box<Expr>, Box<Expr>),
     Power(Box<Expr>, Box<Expr>),
     EqualEqual(Box<Expr>, Box<Expr>),
@@ -75,8 +75,8 @@ pub enum Expr {
     For(String, Box<Expr>, Box<Expr>, Span), // loopee, looper, block
 
     // Others
-    Custom(fn(&mut Environment) -> Value),
-    Custom2(fn(&mut Environment, Vec<Value>) -> Value),
+    Custom(fn(&mut RuntimeEnvironment) -> Value),
+    Custom2(fn(&mut RuntimeEnvironment, Vec<Value>) -> Value),
     Value(Value),
     Use {
         kind: UseKind,

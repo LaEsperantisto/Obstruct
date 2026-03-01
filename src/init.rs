@@ -1,7 +1,7 @@
-use crate::env::Environment;
 use crate::error;
 use crate::expr::Expr;
 use crate::expr::Expr::{Float, Int, Nothing, Str};
+use crate::runtime_env::RuntimeEnvironment;
 use crate::span::Span;
 use crate::type_env::{nil_type, Type, TypeEnvironment};
 use crate::value::{nil, Value};
@@ -9,7 +9,7 @@ use crate::variable::Variable;
 use cobject::ccolor;
 use std::io;
 
-pub fn init(env: &mut Environment, _tenv: &mut TypeEnvironment) {
+pub fn init(env: &mut RuntimeEnvironment, _tenv: &mut TypeEnvironment) {
     env.make_func(
         "i32::new",
         Box::new(Int(0)),
@@ -282,7 +282,12 @@ pub fn init(env: &mut Environment, _tenv: &mut TypeEnvironment) {
     env.declare_native("is_window_open", native_is_window_open);
 }
 
-fn native_len(_: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>, span: Span) -> Value {
+fn native_len(
+    _: &mut RuntimeEnvironment,
+    _: &mut TypeEnvironment,
+    args: Vec<Value>,
+    span: Span,
+) -> Value {
     if args.len() != 1 {
         error(span.line, span.column, "len() expects 1 argument");
         return nil();
@@ -312,7 +317,7 @@ fn native_len(_: &mut Environment, _: &mut TypeEnvironment, args: Vec<Value>, sp
 }
 
 fn native_str_nth(
-    _env: &mut Environment,
+    _env: &mut RuntimeEnvironment,
     _: &mut TypeEnvironment,
     args: Vec<Value>,
     span: Span,
@@ -379,7 +384,7 @@ fn native_str_nth(
 }
 
 fn native_vec_push(
-    env: &mut Environment,
+    env: &mut RuntimeEnvironment,
     _tenv: &mut TypeEnvironment,
     args: Vec<Value>,
     span: Span,
@@ -463,7 +468,7 @@ fn native_vec_push(
 }
 
 fn native_vec_nth(
-    _: &mut Environment,
+    _: &mut RuntimeEnvironment,
     _: &mut TypeEnvironment,
     args: Vec<Value>,
     span: Span,
@@ -502,7 +507,7 @@ fn native_vec_nth(
 }
 
 fn native_type_check(
-    env: &mut Environment,
+    env: &mut RuntimeEnvironment,
     tenv: &mut TypeEnvironment,
     args: Vec<Value>,
     _span: Span,
@@ -511,7 +516,7 @@ fn native_type_check(
 }
 
 fn native_init_window(
-    env: &mut Environment,
+    env: &mut RuntimeEnvironment,
     _: &mut TypeEnvironment,
     args: Vec<Value>,
     span: Span,
@@ -525,7 +530,7 @@ fn native_init_window(
 }
 
 fn native_draw_window(
-    env: &mut Environment,
+    env: &mut RuntimeEnvironment,
     _: &mut TypeEnvironment,
     args: Vec<Value>,
     span: Span,
@@ -546,7 +551,7 @@ fn native_draw_window(
 }
 
 fn native_is_window_open(
-    env: &mut Environment,
+    env: &mut RuntimeEnvironment,
     tenv: &mut TypeEnvironment,
     args: Vec<Value>,
     span: Span,

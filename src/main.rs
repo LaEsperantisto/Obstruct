@@ -1,15 +1,17 @@
 #![allow(dead_code)]
 extern crate core;
 
-mod env;
 mod error;
 mod expr;
 mod init;
+mod runtime_env;
 mod interpreter {
     pub mod interpret_expr;
 }
 
 mod transpiler {
+    pub mod code_gen_context;
+    pub mod compiletime_env;
     pub mod expr_to_c;
 }
 mod parser;
@@ -24,12 +26,14 @@ mod variable;
 // TODO Convert to transpiler (into C)
 // TODO Add classes
 
-use crate::env::Environment;
 use crate::error::ObstructError;
 use crate::expr::Expr;
 use crate::init::init;
 use crate::parser::Parser;
+use crate::runtime_env::RuntimeEnvironment;
 use crate::scanner::Scanner;
+use crate::transpiler::code_gen_context::CodeGenContext;
+use crate::transpiler::compiletime_env::CompileTimeEnv;
 use crate::type_env::TypeEnvironment;
 use std::fs;
 use std::panic;
@@ -119,25 +123,34 @@ fn interpret() -> Result<(), ObstructError> {
         _ => "/home/aster/dev/obstruct/main.obs".to_string(),
     };
 
+    let mut source = fs::read_to_string(filepath).unwrap();
     if interpret {
-        let mut env = Environment::new();
+        source.push_str("\n\nmain();");
+    }
+    SOURCES.lock().unwrap().push(source.clone());
+
+    let ast = compile(source);
+
+    if interpret {
+        let mut env = RuntimeEnvironment::new();
         let mut tenv = TypeEnvironment::new();
+        init(&mut env, &mut tenv);
         Expr::DeclareAndAssign("DEBUG".into(), Box::new(Expr::Bool(debug)), false)
             .get_interpreted_value(&mut env, &mut tenv);
+        ast.get_interpreted_value(&mut env, &mut tenv);
+    } else {
+        use std::fs::File;
+        use std::io::Write;
 
-        init(&mut env, &mut tenv);
+        let mut ctx = CodeGenContext::new();
+        let mut cte = CompileTimeEnv::new();
 
-        let source = fs::read_to_string(filepath).unwrap() + "\n\nmain();";
+        ast.to_c(&mut cte, &mut ctx);
 
-        {
-            SOURCES.lock().unwrap().push(source.clone());
-
-            let expr = compile(source);
-            expr.get_interpreted_value(&mut env, &mut tenv);
-
-            SOURCES.lock().unwrap().pop();
-        }
+        let mut file = File::create("out.c").unwrap();
+        file.write_all(ctx.output.as_bytes()).unwrap();
     }
+    SOURCES.lock().unwrap().pop();
 
     let err = ERROR.lock().unwrap().clone();
 

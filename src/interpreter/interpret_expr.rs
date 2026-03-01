@@ -1,5 +1,5 @@
-use crate::env::Environment;
 use crate::expr::{Expr, UseKind};
+use crate::runtime_env::RuntimeEnvironment;
 use crate::span::Span;
 use crate::type_env::{nil_type, substitute, unify, Type, TypeEnvironment};
 use crate::value::{func_val, nil, Func, Value};
@@ -9,7 +9,7 @@ use std::collections::HashMap;
 impl Expr {
     pub fn get_interpreted_value(
         &self,
-        env: &mut Environment,
+        env: &mut RuntimeEnvironment,
         tenv: &mut TypeEnvironment,
     ) -> Value {
         match self {
@@ -205,7 +205,7 @@ impl Expr {
                 }
             }
 
-            Expr::Divide(l, r) => {
+            Expr::Div(l, r) => {
                 let lv = l.get_interpreted_value(env, tenv);
                 let rv = r.get_interpreted_value(env, tenv);
 

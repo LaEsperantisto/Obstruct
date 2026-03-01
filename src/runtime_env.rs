@@ -7,14 +7,14 @@ use crate::variable::Variable;
 use cobject::CWindow;
 use std::collections::HashMap;
 
-pub struct Environment {
+pub struct RuntimeEnvironment {
     pub(crate) scopes: Vec<HashMap<String, usize>>,
     this: Vec<String>,
     window: Option<CWindow>,
     storage: Vec<Option<Variable>>,
 }
 
-impl Environment {
+impl RuntimeEnvironment {
     pub fn new() -> Self {
         Self {
             scopes: vec![HashMap::new()],
@@ -198,7 +198,7 @@ impl Environment {
     pub fn declare_native(
         &mut self,
         name: &str,
-        func: fn(&mut Environment, &mut TypeEnvironment, Vec<Value>, Span) -> Value,
+        func: fn(&mut RuntimeEnvironment, &mut TypeEnvironment, Vec<Value>, Span) -> Value,
     ) {
         let scope = self.scopes.last_mut().unwrap();
 
