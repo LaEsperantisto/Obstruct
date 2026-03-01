@@ -89,7 +89,7 @@ impl Expr {
                 ctx.output.push_str(";\n");
             }
 
-            Expr::DeclareFunction(name, block, return_type, is_mutable, args, gens, span) => {
+            Expr::DeclareFunction(name, block, return_type, _is_mutable, args, _gens, span) => {
                 if cte.var_exists(name) {
                     error(
                         *span,

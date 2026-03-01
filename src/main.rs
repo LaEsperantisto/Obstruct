@@ -115,8 +115,8 @@ fn run_compiled_c_file(path: &str) {
 fn main() -> Result<(), ObstructError> {
     let result = panic::catch_unwind(|| interpret());
 
-    // compile_c_file("out.c", "out.a");
-    // run_compiled_c_file("out.a");
+    compile_c_file("out.c", "out.a");
+    run_compiled_c_file("out.a");
 
     result.unwrap_or_else(|_| {
         let err = ERROR.lock().unwrap().clone();
@@ -180,6 +180,15 @@ fn interpret() -> Result<(), ObstructError> {
         let mut cte = CompileTimeEnv::new();
 
         ast.to_c(&mut cte, &mut ctx);
+
+        ctx.output.push_str(
+            "\n
+int main() {
+    return v_0s_0();
+}
+
+",
+        );
 
         let mut file = File::create("out.c").unwrap();
         file.write_all(ctx.output.as_bytes()).unwrap();

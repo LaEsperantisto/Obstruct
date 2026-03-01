@@ -15,6 +15,11 @@ impl CodeGenContext {
 typedef int32_t t_0;
 typedef const char* t_1;
 typedef double t_2;
+
+void _print(t_0 i) {
+    printf(\"%d\",i);
+}
+
 ",
         );
         ctx
