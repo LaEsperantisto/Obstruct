@@ -9,11 +9,12 @@ impl CodeGenContext {
         };
         ctx.output.push_str(
             "
+#include <stdint.h>
+#include <stdio.h>
 
-
-
-
-
+typedef int32_t t_0;
+typedef const char* t_1;
+typedef double t_2;
 ",
         );
         ctx

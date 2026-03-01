@@ -1,4 +1,5 @@
 use crate::error;
+use crate::span::Span;
 use crate::token::Token;
 use crate::token_type::TokenType;
 use std::collections::HashMap;
@@ -185,7 +186,13 @@ impl Scanner {
                 } else if self.alpha(c) {
                     self.identifier();
                 } else {
-                    error(self.line, self.column, "Unexpected character.");
+                    error(
+                        Span {
+                            line: self.line,
+                            column: self.column,
+                        },
+                        "Unexpected character.",
+                    );
                 }
             }
         }
@@ -276,8 +283,10 @@ impl Scanner {
                 '\\' => {
                     if self.is_at_end() {
                         error(
-                            self.line,
-                            self.column,
+                            Span {
+                                line: self.line,
+                                column: self.column,
+                            },
                             "Unterminated escape sequence in string.",
                         );
                         return;
@@ -292,8 +301,10 @@ impl Scanner {
                         '"' => value.push('"'),
                         _ => {
                             error(
-                                self.line,
-                                self.column,
+                                Span {
+                                    line: self.line,
+                                    column: self.column,
+                                },
                                 &format!("Invalid escape sequence: \\{}", esc),
                             );
                             return;
@@ -304,7 +315,13 @@ impl Scanner {
             }
         }
 
-        error(self.line, self.column, "Unterminated string literal.");
+        error(
+            Span {
+                line: self.line,
+                column: self.column,
+            },
+            "Unterminated string literal.",
+        );
     }
 
     fn number(&mut self) {
@@ -352,14 +369,26 @@ impl Scanner {
 
     fn character(&mut self) {
         if self.is_at_end() {
-            error(self.line, self.column, "Unterminated character literal.");
+            error(
+                Span {
+                    line: self.line,
+                    column: self.column,
+                },
+                "Unterminated character literal.",
+            );
             return;
         }
 
         let c = self.advance();
         let value = if c == '\\' {
             if self.is_at_end() {
-                error(self.line, self.column, "Unterminated escape sequence.");
+                error(
+                    Span {
+                        line: self.line,
+                        column: self.column,
+                    },
+                    "Unterminated escape sequence.",
+                );
                 return;
             }
             let esc = self.advance();
@@ -371,8 +400,10 @@ impl Scanner {
                 'r' => "\r".to_string(),
                 _ => {
                     error(
-                        self.line,
-                        self.column,
+                        Span {
+                            line: self.line,
+                            column: self.column,
+                        },
                         &format!("Invalid escape sequence: \\{}", esc),
                     );
                     return;
@@ -384,8 +415,10 @@ impl Scanner {
 
         if self.peek() != '\'' {
             error(
-                self.line,
-                self.column,
+                Span {
+                    line: self.line,
+                    column: self.column,
+                },
                 "Character literal too long or missing closing quote.",
             );
             return;
@@ -398,8 +431,10 @@ impl Scanner {
     fn backtick(&mut self) {
         if self.is_at_end() {
             error(
-                self.line,
-                self.column,
+                Span {
+                    line: self.line,
+                    column: self.column,
+                },
                 "Expected character after backtick (`)",
             );
             return;
@@ -419,8 +454,10 @@ impl Scanner {
             'v' => self.add_token(TokenType::This),
             _ => {
                 error(
-                    self.line,
-                    self.column,
+                    Span {
+                        line: self.line,
+                        column: self.column,
+                    },
                     "Invalid character after backtick (`)",
                 );
                 return;
@@ -429,8 +466,10 @@ impl Scanner {
 
         if self.alpha(self.peek()) {
             error(
-                self.line,
-                self.column,
+                Span {
+                    line: self.line,
+                    column: self.column,
+                },
                 "Only a single character should be after a backtick (`)",
             );
         }
@@ -449,6 +488,12 @@ impl Scanner {
             }
         }
 
-        error(self.line, self.column, "Unterminated block comment.");
+        error(
+            Span {
+                line: self.line,
+                column: self.column,
+            },
+            "Unterminated block comment.",
+        );
     }
 }

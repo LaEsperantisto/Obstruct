@@ -46,6 +46,7 @@ pub enum Expr {
     StmtBlockNoScope(Vec<Box<Expr>>),
     Print(Box<Expr>),
     Discard(Box<Expr>),
+    Stmt(Box<Expr>),
 
     // Functions
     DeclareFunction(
@@ -63,8 +64,7 @@ pub enum Expr {
 
     // Variables
     Variable(String, Span),
-    DeclareAndAssign(String, Box<Expr>, bool),
-    Declare(String, Type, bool, Span),
+    Declare(String, Option<Type>, Option<Box<Expr>>, bool, Span),
     Assign(String, Box<Expr>, Span),
     Delete(String),
     This(),

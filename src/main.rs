@@ -32,11 +32,13 @@ use crate::init::init;
 use crate::parser::Parser;
 use crate::runtime_env::RuntimeEnvironment;
 use crate::scanner::Scanner;
+use crate::span::Span;
 use crate::transpiler::code_gen_context::CodeGenContext;
 use crate::transpiler::compiletime_env::CompileTimeEnv;
 use crate::type_env::TypeEnvironment;
 use std::fs;
 use std::panic;
+use std::process::Command;
 use std::sync::Mutex;
 
 // Paths
@@ -87,8 +89,34 @@ const REVERSED: &str = "\x1b[7m";
 const STRIKETHROUGH: &str = "\x1b[9m";
 const RESET: &str = "\x1b[0m";
 
+fn compile_c_file(path: &str, output: &str) {
+    let status = Command::new("gcc")
+        .arg(path)
+        .arg("-o")
+        .arg(output)
+        .status()
+        .expect("failed to compile C code");
+
+    if !status.success() {
+        panic!("C compilation failed");
+    }
+}
+
+fn run_compiled_c_file(path: &str) {
+    let status = Command::new(format!("./{}", path))
+        .status()
+        .expect("Failed to run compiled program");
+
+    if !status.success() {
+        panic!("Failed to run program");
+    }
+}
+
 fn main() -> Result<(), ObstructError> {
     let result = panic::catch_unwind(|| interpret());
+
+    // compile_c_file("out.c", "out.a");
+    // run_compiled_c_file("out.a");
 
     result.unwrap_or_else(|_| {
         let err = ERROR.lock().unwrap().clone();
@@ -135,8 +163,14 @@ fn interpret() -> Result<(), ObstructError> {
         let mut env = RuntimeEnvironment::new();
         let mut tenv = TypeEnvironment::new();
         init(&mut env, &mut tenv);
-        Expr::DeclareAndAssign("DEBUG".into(), Box::new(Expr::Bool(debug)), false)
-            .get_interpreted_value(&mut env, &mut tenv);
+        Expr::Declare(
+            "DEBUG".into(),
+            None,
+            Some(Box::new(Expr::Bool(debug))),
+            false,
+            Span::empty(),
+        )
+        .get_interpreted_value(&mut env, &mut tenv);
         ast.get_interpreted_value(&mut env, &mut tenv);
     } else {
         use std::fs::File;
@@ -160,8 +194,8 @@ fn interpret() -> Result<(), ObstructError> {
     }
 }
 
-pub fn error(line: usize, column: usize, message: &str) {
-    report(line, column, message);
+pub fn error(span: Span, message: &str) {
+    report(span.line, span.column, message);
 
     panic::set_hook(Box::new(|_| {}));
 }
@@ -190,6 +224,11 @@ pub fn report(line: usize, column: usize, message: &str) {
     let source_line = get_line(line);
 
     println!("    |");
+    if line as isize - 2 > 0 {
+        let prev_line = get_line(line - 2);
+        println!("{CYAN}{:>3}{RESET} | {}", line - 2, prev_line);
+    }
+
     if line as isize - 1 > 0 {
         let prev_line = get_line(line - 1);
         println!("{CYAN}{:>3}{RESET} | {}", line - 1, prev_line);
@@ -197,7 +236,7 @@ pub fn report(line: usize, column: usize, message: &str) {
     println!("{CYAN}{:>3}{RESET} | {}", line, source_line);
 
     let prefix_len = format!("{:>3}  | ", line).len();
-    let caret_padding = " ".repeat(prefix_len + column.saturating_sub(3));
+    let caret_padding = " ".repeat((prefix_len + column).saturating_sub(3));
 
     let mut caret_line = format!("{}{ERROR_COLOR}^{RESET} {message}", caret_padding);
 

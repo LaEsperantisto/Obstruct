@@ -23,8 +23,7 @@ impl<'a> Parser<'a> {
             if !self.match_any(&[TokenType::Semicolon]) && !self.is_at_end() {
                 let t = self.peek();
                 error(
-                    t.line,
-                    t.column,
+                    self.get_span(),
                     format!("Expected ';' after statement. Found '{}'", t.token_type).as_str(),
                 );
                 self.advance();
@@ -73,7 +72,7 @@ impl<'a> Parser<'a> {
             return self.for_loop();
         }
 
-        self.expression()
+        Expr::Stmt(Box::new(self.expression()))
     }
 
     // ---------- USE ------------
@@ -102,8 +101,7 @@ impl<'a> Parser<'a> {
             if !self.check(TokenType::Semicolon) && !self.check(TokenType::RightBrace) {
                 let t = self.peek();
                 error(
-                    t.line,
-                    t.column,
+                    self.get_span(),
                     format!("Expected ';' after statement. Found '{}'", t.token_type).as_str(),
                 );
                 self.advance();
@@ -125,8 +123,7 @@ impl<'a> Parser<'a> {
         if self.match_any(&[TokenType::Ident]) {
             Expr::Delete(self.previous().lexeme)
         } else {
-            let t = self.peek();
-            error(t.line, t.column, "Expected variable name after 'del'.");
+            error(self.get_span(), "Expected variable name after 'del'.");
             Expr::Nothing()
         }
     }
@@ -141,10 +138,8 @@ impl<'a> Parser<'a> {
         let block = if self.match_any(&[TokenType::LeftBrace]) {
             self.statement_block()
         } else {
-            let t = self.peek();
             error(
-                t.line,
-                t.column,
+                self.get_span(),
                 ("Expected '{' after 'while' condition, found '".to_string()
                     + self.previous().lexeme.as_str()
                     + "'")
@@ -176,16 +171,22 @@ impl<'a> Parser<'a> {
         self.consume(TokenType::Ident, "Expected variable name.");
         let name = self.previous().lexeme.clone();
 
-        if self.match_any(&[TokenType::Colon]) {
-            let var_type = self.get_type();
-
-            Expr::Declare(name, var_type, is_mutable, self.get_span())
+        let var_type = if self.match_any(&[TokenType::Colon]) {
+            Some(self.get_type())
         } else {
-            self.consume(TokenType::Equal, "Expected '=' after variable name.");
-            let value = self.expression();
+            None
+        };
+        let expr = if self.match_any(&[TokenType::Equal]) {
+            Some(Box::new(self.expression()))
+        } else {
+            None
+        };
 
-            Expr::DeclareAndAssign(name, Box::new(value), is_mutable)
+        if var_type.is_none() && expr.is_none() {
+            let span = self.get_span();
+            error(span, "Expected type or expression or both, got neither");
         }
+        Expr::Declare(name, var_type, expr, is_mutable, self.get_span())
     }
 
     // ---------- ASSIGNMENT ----------
@@ -204,10 +205,8 @@ impl<'a> Parser<'a> {
         let if_block = if self.match_any(&[TokenType::LeftBrace]) {
             self.statement_block()
         } else {
-            let t = self.peek();
             error(
-                t.line,
-                t.column,
+                self.get_span(),
                 ("Expected '{' after 'if' condition, found '".to_string()
                     + self.previous().lexeme.as_str()
                     + "'")
@@ -512,8 +511,7 @@ impl<'a> Parser<'a> {
                     self.get_span(),
                 )
             } else {
-                let t = self.peek();
-                error(t.line, t.column, "Expected identifier after '&'.");
+                error(self.get_span(), "Expected identifier after '&'.");
                 Expr::Nothing()
             };
         }
@@ -739,8 +737,7 @@ impl<'a> Parser<'a> {
         } else {
             let t = self.peek();
             error(
-                t.line,
-                t.column,
+                self.get_span(),
                 format!("{} Found: {}", message, t.token_type).as_str(),
             );
             self.advance();

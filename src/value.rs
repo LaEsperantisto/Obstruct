@@ -20,8 +20,7 @@ impl Value {
     pub fn is_true(&self) -> bool {
         if !self.value_type.has_tag("bool") {
             error(
-                0,
-                0,
+                Span::empty(),
                 format!("Expected 'bool' but got '{}'", self.value_type).as_str(),
             );
         }

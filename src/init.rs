@@ -67,8 +67,7 @@ pub fn init(env: &mut RuntimeEnvironment, _tenv: &mut TypeEnvironment) {
     env.declare_native("ptr::new", |env, _tenv, values, span| {
         if values.len() != 1 {
             error(
-                span.line,
-                span.column,
+                span,
                 format!("ptr::new expects exactly 1 argument, got {}.", values.len()).as_str(),
             );
             return nil();
@@ -93,8 +92,7 @@ pub fn init(env: &mut RuntimeEnvironment, _tenv: &mut TypeEnvironment) {
     env.declare_native("ptr::deref", |env, _tenv, values, span| {
         if values.len() != 1 {
             error(
-                span.line,
-                span.column,
+                span,
                 format!(
                     "ptr::deref expects exactly 1 argument, got {}.",
                     values.len()
@@ -114,8 +112,7 @@ pub fn init(env: &mut RuntimeEnvironment, _tenv: &mut TypeEnvironment) {
     env.declare_native("ptr::free", |env, _tenv, values, span| {
         if values.len() != 1 {
             error(
-                span.line,
-                span.column,
+                span,
                 format!(
                     "ptr::free expects exactly 1 argument, got {}.",
                     values.len()
@@ -134,11 +131,7 @@ pub fn init(env: &mut RuntimeEnvironment, _tenv: &mut TypeEnvironment) {
 
     env.declare_native("ref::new", |env, _tenv, args, span| {
         if args.len() != 1 {
-            error(
-                span.line,
-                span.column,
-                "ref::new expected exactly one argument",
-            );
+            error(span, "ref::new expected exactly one argument");
             return nil();
         }
 
@@ -158,11 +151,7 @@ pub fn init(env: &mut RuntimeEnvironment, _tenv: &mut TypeEnvironment) {
         let id = match ptr_id {
             Some(i) => i,
             None => {
-                error(
-                    span.line,
-                    span.column,
-                    "Cannot take reference of undefined variable",
-                );
+                error(span, "Cannot take reference of undefined variable");
                 return nil();
             }
         };
@@ -183,18 +172,14 @@ pub fn init(env: &mut RuntimeEnvironment, _tenv: &mut TypeEnvironment) {
 
     env.declare_native("ref::deref", |env, _tenv, args, span| {
         if args.len() != 1 {
-            error(
-                span.line,
-                span.column,
-                "ref::deref expects exactly 1 argument",
-            );
+            error(span, "ref::deref expects exactly 1 argument");
             return nil();
         }
 
         let referer = &args[0];
 
         if !referer.value_type.has_tag("ref") {
-            error(span.line, span.column, "Cannot dereference non-ref type");
+            error(span, "Cannot dereference non-ref type");
             return nil();
         }
 
@@ -205,7 +190,7 @@ pub fn init(env: &mut RuntimeEnvironment, _tenv: &mut TypeEnvironment) {
     env.make_func(
         "quit",
         Box::new(Expr::Custom(|_| {
-            error(0, 0, "Manual exit");
+            error(Span::empty(), "Manual exit");
             nil()
         })),
         nil_type(),
@@ -243,11 +228,7 @@ pub fn init(env: &mut RuntimeEnvironment, _tenv: &mut TypeEnvironment) {
 
     env.declare_native("direct_nth", |_env, _tenv, values, span| {
         if values.len() != 2 {
-            error(
-                span.line,
-                span.column,
-                "Expected exactly two arguments for direct_nth",
-            );
+            error(span, "Expected exactly two arguments for direct_nth");
             return nil();
         }
 
@@ -256,15 +237,14 @@ pub fn init(env: &mut RuntimeEnvironment, _tenv: &mut TypeEnvironment) {
 
         if value.value_vec.is_none() {
             error(
-                0,
-                0,
+                Span::empty(),
                 "First argument of function direct_nth did not have a value_vec; could not index",
             );
             return nil();
         }
 
         if index >= value.value_vec.as_ref().unwrap().len() {
-            error(0, 0, "Index out of bounds");
+            error(Span::empty(), "Index out of bounds");
 
             return nil();
         }
@@ -289,7 +269,7 @@ fn native_len(
     span: Span,
 ) -> Value {
     if args.len() != 1 {
-        error(span.line, span.column, "len() expects 1 argument");
+        error(span, "len() expects 1 argument");
         return nil();
     }
 
@@ -303,8 +283,7 @@ fn native_len(
             v.value_vec.iter().len().to_string()
         } else {
             error(
-                span.line,
-                span.column,
+                span,
                 format!("len() could not find length of type {}", v.value_type).as_str(),
             );
             String::new()
@@ -324,8 +303,7 @@ fn native_str_nth(
 ) -> Value {
     if args.len() != 2 {
         error(
-            span.line,
-            span.column,
+            span,
             format!(
                 "str::nth() expects 2 arguments but got {} argument/s",
                 args.len()
@@ -338,26 +316,17 @@ fn native_str_nth(
     let left = args.get(0).unwrap();
     let right = args.get(1).unwrap();
     if !right.value_type.has_tag("i32") {
-        error(
-            span.line,
-            span.column,
-            "str::nth() expects an 'i32' as right argument",
-        );
+        error(span, "str::nth() expects an 'i32' as right argument");
         return nil();
     }
     if !left.value_type.has_tag("str") {
-        error(
-            span.line,
-            span.column,
-            "str::nth() expects a 'str' as left argument",
-        );
+        error(span, "str::nth() expects a 'str' as left argument");
         return nil();
     }
 
     if str::parse::<usize>(right.value.as_str()).unwrap() >= left.value.chars().count() {
         error(
-            span.line,
-            span.column,
+            span,
             format!(
                 "Out of bounds index '{}' with str of len '{}'",
                 str::parse::<usize>(right.value.as_str()).unwrap(),
@@ -390,7 +359,7 @@ fn native_vec_push(
     span: Span,
 ) -> Value {
     if args.len() != 2 {
-        error(span.line, span.column, "vec::push() expects 2 arguments");
+        error(span, "vec::push() expects 2 arguments");
         return nil();
     }
 
@@ -399,34 +368,26 @@ fn native_vec_push(
 
     // Ensure first argument is ref<vec<T>>
     if ref_value.value_type.has_tag("ref") {
-        error(
-            span.line,
-            span.column,
-            "vec::push() expects ref as first argument",
-        );
+        error(span, "vec::push() expects ref as first argument");
         return nil();
     }
 
     let ref_generics = ref_value.value_type.generics();
     if ref_generics.len() != 1 {
-        error(span.line, span.column, "Malformed ref type");
+        error(span, "Malformed ref type");
         return nil();
     }
 
     let vec_type = &ref_generics[0];
 
     if vec_type.has_tag("vec") {
-        error(
-            span.line,
-            span.column,
-            "vec::push() expects ref<<vec>> as first argument",
-        );
+        error(span, "vec::push() expects ref<<vec>> as first argument");
         return nil();
     }
 
     let vec_generics = vec_type.generics();
     if vec_generics.len() != 1 {
-        error(span.line, span.column, "Malformed vec type");
+        error(span, "Malformed vec type");
         return nil();
     }
 
@@ -434,8 +395,7 @@ fn native_vec_push(
 
     if &elem.value_type != inner_type {
         error(
-            0,
-            0,
+            Span::empty(),
             format!("vec::push expected {}, got {}", inner_type, elem.value_type).as_str(),
         );
         return nil();
@@ -447,7 +407,7 @@ fn native_vec_push(
     let ptr_id = match ref_value.value.parse::<usize>() {
         Ok(id) => id,
         Err(_) => {
-            error(span.line, span.column, "Invalid ref pointer index");
+            error(span, "Invalid ref pointer index");
             return nil();
         }
     };
@@ -457,7 +417,7 @@ fn native_vec_push(
 
     // Ensure stored value is actually a vector
     if heap_var.value.value_vec.is_none() {
-        error(span.line, span.column, "Referenced value is not a vector");
+        error(span, "Referenced value is not a vector");
         return nil();
     }
 
@@ -474,7 +434,7 @@ fn native_vec_nth(
     span: Span,
 ) -> Value {
     if args.len() != 2 {
-        error(span.line, span.column, "vec::nth() expects 2 arguments");
+        error(span, "vec::nth() expects 2 arguments");
         return nil();
     }
 
@@ -482,16 +442,12 @@ fn native_vec_nth(
     let index_val = &args[1];
 
     if vec_val.value_type.has_tag("vec") {
-        error(
-            span.line,
-            span.column,
-            "vec::nth() expects vec<T> as first argument",
-        );
+        error(span, "vec::nth() expects vec<T> as first argument");
         return nil();
     }
 
     if index_val.value_type.has_tag("i32") {
-        error(span.line, span.column, "vec::nth() expects i32 as index");
+        error(span, "vec::nth() expects i32 as index");
         return nil();
     }
 
@@ -499,7 +455,7 @@ fn native_vec_nth(
     let index = index_val.value.parse::<usize>().unwrap();
 
     if index >= vec.len() {
-        error(span.line, span.column, "vec::nth() index out of bounds");
+        error(span, "vec::nth() index out of bounds");
         return nil();
     }
 
@@ -522,7 +478,7 @@ fn native_init_window(
     span: Span,
 ) -> Value {
     if args.len() != 1 {
-        error(span.line, span.column, "init_window() expects 1 argument");
+        error(span, "init_window() expects 1 argument");
     }
     env.make_window(args[0].value.clone());
     env.get_window().init();
@@ -536,7 +492,7 @@ fn native_draw_window(
     span: Span,
 ) -> Value {
     if !args.is_empty() {
-        error(span.line, span.column, "show_window() expects no argument");
+        error(span, "show_window() expects no argument");
     }
 
     let window = env.get_window();
@@ -557,11 +513,7 @@ fn native_is_window_open(
     span: Span,
 ) -> Value {
     if !args.is_empty() {
-        error(
-            span.line,
-            span.column,
-            "is_window_open() expects no argument",
-        );
+        error(span, "is_window_open() expects no argument");
     }
 
     let window = env.get_window();

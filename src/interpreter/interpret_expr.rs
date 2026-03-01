@@ -213,7 +213,7 @@ impl Expr {
                     ("f64", "f64") | ("i32", "i32") => {
                         let rv_num = rv.value.parse::<f64>().unwrap_or(0.0);
                         let result = if rv_num == 0.0 {
-                            error(0, 0, "Undefined dividing by 0");
+                            error(Span::empty(), "Undefined dividing by 0");
                             0.0
                         } else {
                             lv.value.parse::<f64>().unwrap_or(0.0) / rv_num
@@ -456,11 +456,6 @@ impl Expr {
                 val
             }
             Expr::Variable(var, span) => env.get(var, *span).value,
-            Expr::DeclareAndAssign(name, expr, is_mutable) => {
-                let value = expr.get_interpreted_value(env, tenv);
-                env.declare(name.clone(), value.clone(), *is_mutable);
-                value
-            }
             Expr::Assign(name, expr, span) => {
                 env.new_this(name);
 
@@ -471,7 +466,7 @@ impl Expr {
                 if variable.value.value_type.has_tag("ref") {
                     env.set_ptr(
                         str::parse::<usize>(&variable.value.value).unwrap_or_else(|_| {
-                            error(0, 0, "Malformed 'ref'");
+                            error(Span::empty(), "Malformed 'ref'");
                             0
                         }),
                         new_value,
@@ -494,16 +489,18 @@ impl Expr {
             Expr::For(loopee, looper, block, span) => {
                 let looper_value = looper.get_interpreted_value(env, tenv);
                 if !looper_value.value_type.has_tag("vec") {
-                    error(
-                        span.line,
-                        span.column,
-                        "looper (in for loop) must have tag 'iter'",
-                    );
+                    error(*span, "looper (in for loop) must have tag 'iter'");
                 }
 
                 for val in looper_value.value_vec.unwrap() {
-                    Expr::DeclareAndAssign(loopee.clone(), Box::new(Expr::Value(val)), false)
-                        .get_interpreted_value(env, tenv);
+                    Expr::Declare(
+                        loopee.clone(),
+                        None,
+                        Some(Box::new(Expr::Value(val))),
+                        false,
+                        *span,
+                    )
+                    .get_interpreted_value(env, tenv);
                     block.get_interpreted_value(env, tenv);
 
                     Expr::Delete(loopee.clone()).get_interpreted_value(env, tenv);
@@ -511,11 +508,11 @@ impl Expr {
 
                 nil()
             }
-            Expr::Declare(name, var_type, is_mutable, span) => {
-                let var_type = if let Type::Generic(name) = var_type {
+            Expr::Declare(name, var_type, _expr, is_mutable, span) => {
+                let var_type = if let Type::Generic(name) = var_type.clone().unwrap() {
                     tenv.get_gen(name.clone())
                 } else {
-                    var_type.clone()
+                    var_type.clone().unwrap()
                 };
 
                 let func = env.get_func(format!("{}::new", var_type).as_str(), *span);
@@ -561,8 +558,7 @@ impl Expr {
                 if !explicit_gens.is_empty() {
                     if explicit_gens.len() != gens.len() {
                         error(
-                            0,
-                            0,
+                            Span::empty(),
                             format!(
                                 "Function '{}' expects {} generic parameters but got {}",
                                 name,
@@ -580,8 +576,7 @@ impl Expr {
 
                 if params.len() != arguments.len() {
                     error(
-                        0,
-                        0,
+                        Span::empty(),
                         format!(
                             "Got {} arguments for function '{}', expected {}",
                             arguments.len(),
@@ -616,7 +611,7 @@ impl Expr {
                     if gens.is_empty() {
                         for generic in gens {
                             if bindings.contains_key(&generic) {
-                                error(0, 0, "Cannot infer generic type");
+                                error(Span::empty(), "Cannot infer generic type");
                             }
                         }
                     }
@@ -664,8 +659,7 @@ impl Expr {
 
                 if result.value_type != real_return {
                     error(
-                        0,
-                        0,
+                        Span::empty(),
                         format!(
                             "Return type expected {}, got {} when calling function {}",
                             real_return, result.value_type, name
@@ -721,11 +715,7 @@ impl Expr {
 
                 let source = fs::read_to_string(&full_path)
                     .map_err(|_| {
-                        error(
-                            span.line,
-                            span.column,
-                            &format!("Could not read file '{}'", full_path),
-                        );
+                        error(*span, &format!("Could not read file '{}'", full_path));
                     })
                     .unwrap()
                     + "\n";
@@ -740,6 +730,7 @@ impl Expr {
                 v.is_return = true;
                 v
             }
+            Expr::Stmt(body) => body.get_interpreted_value(env, tenv),
         }
     }
 }
