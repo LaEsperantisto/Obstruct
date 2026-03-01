@@ -30,6 +30,7 @@ impl Scanner {
         keywords.insert("fn".into(), TokenType::Fn);
         keywords.insert("mac".into(), TokenType::Mac);
         keywords.insert("lam".into(), TokenType::Lam);
+        keywords.insert("std".into(), TokenType::Std);
 
         Scanner {
             source,

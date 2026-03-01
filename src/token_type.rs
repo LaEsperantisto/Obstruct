@@ -71,6 +71,7 @@ pub enum TokenType {
     Fn,
     Mac,
     Lam,
+    Std,
 
     Nil, // this gives an error - not supposed to be fetched - interpreter badly programmed
     EOF, // End Of File
@@ -148,6 +149,7 @@ impl fmt::Display for TokenType {
             TokenType::Fn => "Fn",
             TokenType::Mac => "Mac",
             TokenType::Lam => "Lam",
+            TokenType::Std => "Std",
 
             TokenType::Nil => "Nil",
             TokenType::EOF => "EOF",
