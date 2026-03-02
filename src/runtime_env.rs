@@ -239,7 +239,7 @@ impl RuntimeEnvironment {
 fn nil_func() -> Variable {
     Variable {
         value: func_val(Func::new(
-            Box::new(Expr::StmtBlock(vec![])),
+            Box::new(Expr::StmtBlock(vec![], Span::empty())),
             vec![],
             nil_type(),
             vec![],

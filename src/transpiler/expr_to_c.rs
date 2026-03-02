@@ -1,12 +1,13 @@
 use crate::error;
 use crate::expr::Expr;
+use crate::span::Span;
 use crate::transpiler::code_gen_context::CodeGenContext;
 use crate::transpiler::compiletime_env::CompileTimeEnv;
 use crate::type_env::{nil_type, Type};
 
 impl Expr {
     pub fn to_c(&self, cte: &mut CompileTimeEnv, ctx: &mut CodeGenContext) -> bool {
-        // if returns true - requires a semicolon at end of statement
+        // if true - requires a semicolon at end of statement
         match self {
             Expr::Int(n) => {
                 ctx.body.push_str(&n.to_string());
@@ -49,7 +50,7 @@ impl Expr {
                     .to_c(cte, ctx);
                 false
             }
-            Expr::StmtBlockNoScope(exprs) => {
+            Expr::StmtBlockNoScope(exprs, _span) => {
                 for expr in exprs {
                     if expr.to_c(cte, ctx) {
                         ctx.body.push(';');
@@ -58,10 +59,10 @@ impl Expr {
                 }
                 false
             }
-            Expr::StmtBlock(exprs) => {
+            Expr::StmtBlock(exprs, span) => {
                 cte.push_scope();
                 ctx.body.push_str("{\n");
-                Expr::StmtBlockNoScope(exprs.clone()).to_c(cte, ctx);
+                Expr::StmtBlockNoScope(exprs.clone(), *span).to_c(cte, ctx);
                 ctx.body.push('}');
                 cte.pop_scope();
                 false
@@ -146,10 +147,11 @@ impl Expr {
                 for arg in args {
                     arg_types.push(arg.1.clone());
                 }
+                let ret_type = block.returned_type(cte, *span).unwrap();
                 let return_type = if return_type.is_some() {
                     return_type.clone().unwrap()
                 } else {
-                    block.get_type(cte)
+                    ret_type
                 };
 
                 cte.declare_var(
@@ -190,7 +192,7 @@ impl Expr {
                 false
             }
 
-            Expr::Return(expr) => {
+            Expr::Return(expr, _span) => {
                 ctx.body.push_str("return ");
                 expr.to_c(cte, ctx);
                 true
@@ -199,22 +201,78 @@ impl Expr {
             _ => panic!("unexpected expression '{:?}'", self),
         }
     }
-    pub fn get_type(&self, cte: &CompileTimeEnv) -> Type {
+    fn get_type(&self, cte: &CompileTimeEnv) -> Type {
         match self {
             Expr::Int(_) => "i32".into(),
             Expr::Float(_) => "f64".into(),
             Expr::Str(_) => "str".into(),
             Expr::Bool(_) => "bool".into(),
-            Expr::Return(expr) => expr.get_type(cte),
+            Expr::Return(expr, _span) => expr.get_type(cte),
             Expr::CallFunc(name, _, _, _) => {
                 let variable = cte.get_var(name).unwrap().1;
                 variable.generics()[0].clone()
             }
-            Expr::StmtBlockNoScope(exprs) => exprs.last().unwrap().get_type(cte),
-            Expr::StmtBlock(exprs) => exprs.last().unwrap().get_type(cte),
+            Expr::StmtBlockNoScope(exprs, _span) => exprs.last().unwrap().get_type(cte),
+            Expr::StmtBlock(exprs, _span) => exprs.last().unwrap().get_type(cte),
             Expr::Variable(name, _) => cte.get_var(name).unwrap().1,
             Expr::Discard(expr) => expr.get_type(cte),
             _ => nil_type(),
+        }
+    }
+
+    fn returned_type(&self, cte: &CompileTimeEnv, span: Span) -> Option<Type> {
+        match self {
+            Expr::Return(expr, _span) => Some(expr.get_type(cte)),
+            Expr::Discard(expr) => expr.returned_type(cte, span),
+            Expr::StmtBlockNoScope(exprs, span) => {
+                let mut return_type = None;
+                for expr in exprs {
+                    let ret_type = expr.returned_type(cte, *span);
+                    if let Some(returned_type) = ret_type {
+                        if let Some(expected_type) = return_type.clone() {
+                            if expected_type != returned_type {
+                                error(
+                                    {
+                                        let expr_span = expr.get_span();
+                                        if expr_span == Span::empty() {
+                                            *span
+                                        } else {
+                                            expr_span
+                                        }
+                                    },
+                                    "Returned type was different to previous returned type",
+                                );
+                            }
+                        } else {
+                            return_type = Some(returned_type);
+                        }
+                    }
+                }
+                return_type
+            }
+            Expr::StmtBlock(exprs, span) => {
+                Expr::StmtBlockNoScope(exprs.clone(), *span).returned_type(cte, *span)
+            }
+            _ => None,
+        }
+    }
+
+    fn get_span(&self) -> Span {
+        match self {
+            Expr::Add(_, _, span)
+            | Expr::Sub(_, _, span)
+            | Expr::Mult(_, _, span)
+            | Expr::Div(_, _, span)
+            | Expr::Power(_, _, span)
+            | Expr::Mod(_, _, span)
+            | Expr::BangEqual(_, _, span)
+            | Expr::EqualEqual(_, _, span)
+            | Expr::GreaterEqual(_, _, span)
+            | Expr::LessEqual(_, _, span)
+            | Expr::Less(_, _, span)
+            | Expr::Greater(_, _, span)
+            | Expr::Return(_, span) => *span,
+            _ => Span::empty(),
         }
     }
 }

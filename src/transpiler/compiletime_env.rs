@@ -25,6 +25,7 @@ impl CompileTimeEnv {
         this.register_type(Type::simple("i32"));
         this.register_type(Type::simple("arr"));
         this.register_type(Type::simple("f64"));
+        this.register_type(Type::simple("bool"));
         this.declare_var(
             "_print".to_string(),
             false,

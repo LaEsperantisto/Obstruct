@@ -30,7 +30,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Expr::StmtBlockNoScope(statements)
+        Expr::StmtBlockNoScope(statements, self.get_span())
     }
 
     // ---------- STATEMENTS ----------
@@ -114,7 +114,7 @@ impl<'a> Parser<'a> {
         }
 
         self.consume(TokenType::RightBrace, "Expected '}' after block.");
-        Expr::StmtBlock(statements)
+        Expr::StmtBlock(statements, self.get_span())
     }
 
     // ---------- DELETE VAR -----------
@@ -369,7 +369,7 @@ impl<'a> Parser<'a> {
 
     fn return_stmt(&mut self) -> Expr {
         let value = self.expression();
-        Expr::Return(Box::new(value))
+        Expr::Return(Box::new(value), self.get_span())
     }
 
     fn call_function(&mut self) -> Expr {

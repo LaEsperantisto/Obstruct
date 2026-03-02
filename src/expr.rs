@@ -42,8 +42,8 @@ pub enum Expr {
     Not(Box<Expr>),
 
     // Statements
-    StmtBlock(Vec<Box<Expr>>),
-    StmtBlockNoScope(Vec<Box<Expr>>),
+    StmtBlock(Vec<Box<Expr>>, Span),
+    StmtBlockNoScope(Vec<Box<Expr>>, Span),
     Print(Box<Expr>, Span),
     Discard(Box<Expr>),
     Stmt(Box<Expr>),
@@ -59,7 +59,7 @@ pub enum Expr {
     ),
     Function(Box<Expr>, Type, Vec<(String, Type)>, Vec<String>),
     CallFunc(String, Vec<Type>, Vec<Box<Expr>>, Span),
-    Return(Box<Expr>),
+    Return(Box<Expr>, Span),
 
     // Variables
     Variable(String, Span),

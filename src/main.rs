@@ -42,6 +42,7 @@ const STD_PATH: &str = "/home/aster/dev/obstruct/std/"; // end in a "/" !!!
 static SOURCES: Mutex<Vec<String>> = Mutex::new(vec![]);
 static ERROR: Mutex<Result<(), ObstructError>> = Mutex::new(Ok(()));
 static CALL_STACK: Mutex<Vec<String>> = Mutex::new(Vec::new());
+static PROGRAM_NAME: Mutex<String> = Mutex::new(String::new());
 
 // Basic Colors
 const BLACK: &str = "\x1b[30m";
@@ -107,10 +108,13 @@ fn run_compiled_c_file(path: &str) {
 }
 
 fn main() -> Result<(), ObstructError> {
-    let result = panic::catch_unwind(|| interpret());
+    let result = panic::catch_unwind(|| run());
 
-    compile_c_file("out.c", "out.a");
-    run_compiled_c_file("out.a");
+    compile_c_file(
+        &(PROGRAM_NAME.lock().unwrap().clone() + ".c"),
+        &PROGRAM_NAME.lock().unwrap().clone(),
+    );
+    run_compiled_c_file(&(PROGRAM_NAME.lock().unwrap().clone() + ".c"));
     println!();
 
     result.unwrap_or_else(|_| {
@@ -122,34 +126,34 @@ fn main() -> Result<(), ObstructError> {
     })
 }
 
-fn interpret() -> Result<(), ObstructError> {
+fn run() -> Result<(), ObstructError> {
     let mut args = std::env::args().skip(1);
 
     let arg_len = args.len();
 
     let mut debug = true;
-    let mut interpret = false;
 
     for _ in 0..arg_len {
         let arg = args.next();
         if arg == Some("--release".into()) {
             debug = false;
-        } else if arg == Some("--interpret".into()) {
-            interpret = true;
         }
     }
 
     let arg1 = args.next();
 
     let filepath = match arg1 {
-        Some(filename) => filename,
-        _ => "/home/aster/dev/obstruct/main.obs".to_string(),
+        Some(filename) => {
+            *PROGRAM_NAME.lock().unwrap() = filename.clone();
+            filename
+        }
+        _ => {
+            *PROGRAM_NAME.lock().unwrap() = "main".into();
+            "/home/aster/dev/obstruct/main.obs".to_string()
+        }
     };
 
     let mut source = fs::read_to_string(filepath).unwrap();
-    if interpret {
-        source.push_str("\n\nmain();");
-    }
     SOURCES.lock().unwrap().push(source.clone());
 
     let ast = compile(source);
@@ -162,7 +166,7 @@ fn interpret() -> Result<(), ObstructError> {
 
     ast.to_c(&mut cte, &mut ctx);
 
-    let mut file = File::create("out.c").unwrap();
+    let mut file = File::create(PROGRAM_NAME.lock().unwrap().clone() + ".c").unwrap();
     file.write_all(ctx.combine(&mut cte).as_bytes()).unwrap();
 
     SOURCES.lock().unwrap().pop();
