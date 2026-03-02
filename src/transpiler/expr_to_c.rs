@@ -72,7 +72,7 @@ impl Expr {
                         format!("Variable '{}' already exists", name).as_str(),
                     );
                 }
-                cte.declare_var(name.clone());
+                cte.declare_var(name.clone(), *is_mutable, var_type.clone().unwrap());
                 ctx.body += format!(
                     "{} {}=",
                     cte.c_type_name(&var_type.clone().unwrap(), *span),
@@ -106,8 +106,8 @@ impl Expr {
                 true
             }
 
-            Expr::DeclareFunction(name, block, return_type, _is_mutable, args, _gens, span) => {
-                if cte.var_exists(name) {
+            Expr::DeclareFunction(name, block, return_type, is_mutable, args, _gens, span) => {
+                if cte.get_var(name).is_some() && !cte.get_var(name).unwrap().0 {
                     error(
                         *span,
                         format!(
@@ -117,7 +117,21 @@ impl Expr {
                         .as_str(),
                     );
                 }
-                cte.declare_var(name.clone());
+                let mut arg_types = vec![];
+                for arg in args {
+                    arg_types.push(arg.1.clone());
+                }
+                cte.declare_var(
+                    name.clone(),
+                    *is_mutable,
+                    Type::with_generics("func", {
+                        let old_arg_types = arg_types.clone();
+                        arg_types.push(return_type.clone());
+                        let output = arg_types;
+                        arg_types = old_arg_types;
+                        output
+                    }),
+                );
                 ctx.body.push_str(
                     format!(
                         "{} {}(",
@@ -128,7 +142,7 @@ impl Expr {
                 );
 
                 for arg in args {
-                    cte.declare_var(arg.0.clone());
+                    cte.declare_var(arg.0.clone(), false, arg.1.clone());
                     ctx.body.push_str(&cte.c_type_name(&arg.1, *span));
                     ctx.body.push(' ');
                     ctx.body.push_str(&cte.c_var_name(&arg.0, *span));

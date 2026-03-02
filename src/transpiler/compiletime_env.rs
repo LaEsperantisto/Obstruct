@@ -1,11 +1,11 @@
 use crate::error;
 use crate::span::Span;
-use crate::type_env::Type;
+use crate::type_env::{nil_type, Type};
 use std::collections::HashMap;
 
 pub struct CompileTimeEnv {
     types: Vec<Type>,
-    scopes: Vec<HashMap<String, usize>>,
+    scopes: Vec<HashMap<String, (usize, bool, Type)>>, // id, is_mutable, type
     current_scope: usize,
 
     next_var_id: usize,
@@ -25,7 +25,11 @@ impl CompileTimeEnv {
         this.register_type(Type::simple("i32"));
         this.register_type(Type::simple("arr"));
         this.register_type(Type::simple("f64"));
-        this.declare_var("_print".to_string());
+        this.declare_var(
+            "_print".to_string(),
+            false,
+            Type::with_generics("func", vec![nil_type(), Type::simple("i32")]),
+        );
 
         this
     }
@@ -44,12 +48,12 @@ impl CompileTimeEnv {
 
     // Variable Handling
 
-    pub fn declare_var(&mut self, name: String) -> usize {
+    pub fn declare_var(&mut self, name: String, is_mutable: bool, var_type: Type) -> usize {
         let id = self.next_var_id;
         self.next_var_id += 1;
 
         let scope = self.scopes.last_mut().unwrap();
-        scope.insert(name, id);
+        scope.insert(name, (id, is_mutable, var_type));
 
         id
     }
@@ -57,7 +61,16 @@ impl CompileTimeEnv {
     fn resolve_var(&self, name: &str) -> Option<(usize, usize)> {
         for (idx, scope) in self.scopes.iter().enumerate().rev() {
             if let Some(id) = scope.get(name) {
-                return Some((*id, idx));
+                return Some((id.0, idx));
+            }
+        }
+        None
+    }
+
+    pub fn get_var(&self, name: &str) -> Option<(bool, Type)> {
+        for scope in self.scopes.iter().rev() {
+            if let Some((id, is_mutable, var_type)) = scope.get(name) {
+                return Some((*is_mutable, var_type.clone()));
             }
         }
         None
