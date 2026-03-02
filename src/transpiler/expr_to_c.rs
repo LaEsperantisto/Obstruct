@@ -1,51 +1,68 @@
 use crate::error;
 use crate::expr::Expr;
+use crate::expr::Expr::StmtBlockNoScope;
 use crate::transpiler::code_gen_context::CodeGenContext;
 use crate::transpiler::compiletime_env::CompileTimeEnv;
 use crate::type_env::{nil_type, Type};
 
 impl Expr {
-    pub fn to_c(&self, cte: &mut CompileTimeEnv, ctx: &mut CodeGenContext) {
+    pub fn to_c(&self, cte: &mut CompileTimeEnv, ctx: &mut CodeGenContext) -> bool {
         match self {
             Expr::Int(n) => {
-                ctx.output.push_str(&n.to_string());
+                ctx.body.push_str(&n.to_string());
+                false
             }
-            Expr::Add(l, r) => {
-                self.func(cte, ctx, &[l, r], "_add");
+            Expr::Add(l, r, span) => {
+                Expr::CallFunc("_add".into(), vec![], vec![l.clone(), r.clone()], *span)
+                    .to_c(cte, ctx);
+                false
             }
-            Expr::Sub(l, r) => {
-                self.func(cte, ctx, &[l, r], "_sub");
+            Expr::Sub(l, r, span) => {
+                Expr::CallFunc("_sub".into(), vec![], vec![l.clone(), r.clone()], *span)
+                    .to_c(cte, ctx);
+                false
             }
-            Expr::Mult(l, r) => {
-                self.func(cte, ctx, &[l, r], "_mult");
+            Expr::Mult(l, r, span) => {
+                Expr::CallFunc("_mult".into(), vec![], vec![l.clone(), r.clone()], *span)
+                    .to_c(cte, ctx);
+                false
             }
-            Expr::Div(l, r) => {
-                self.func(cte, ctx, &[l, r], "_div");
+            Expr::Div(l, r, span) => {
+                Expr::CallFunc("_div".into(), vec![], vec![l.clone(), r.clone()], *span)
+                    .to_c(cte, ctx);
+                false
             }
             Expr::StmtBlockNoScope(exprs) => {
                 for expr in exprs {
-                    expr.to_c(cte, ctx);
-                    ctx.output.push('\n');
+                    if expr.to_c(cte, ctx) {
+                        ctx.body.push(';');
+                    }
+                    ctx.body.push('\n');
                 }
+                false
             }
             Expr::StmtBlock(exprs) => {
-                ctx.output.push_str("{\n");
-                for expr in exprs {
-                    expr.to_c(cte, ctx);
-                    ctx.output.push('\n');
-                }
-                ctx.output.push('}');
+                cte.push_scope();
+                ctx.body.push_str("{\n");
+                StmtBlockNoScope(exprs.clone()).to_c(cte, ctx);
+                ctx.body.push('}');
+                cte.pop_scope();
+                false
             }
 
-            Expr::Print(expr) => self.func(cte, ctx, &[expr], "_print"),
+            Expr::Print(expr, span) => {
+                Expr::CallFunc("_print".into(), vec![], vec![expr.clone()], *span).to_c(cte, ctx);
+                true
+            }
 
             Expr::Discard(expr) => {
                 expr.to_c(cte, ctx);
-                ctx.output.push(';');
+                true
             }
 
             Expr::Variable(name, span) => {
-                ctx.output.push_str(&cte.c_var_name(name, *span));
+                ctx.body.push_str(&cte.c_var_name(name, *span));
+                false
             }
 
             Expr::Declare(name, var_type, expr, is_mutable, span) => {
@@ -56,37 +73,37 @@ impl Expr {
                     );
                 }
                 cte.declare_var(name.clone());
-                ctx.output += format!(
-                    "{} {} {} = ",
-                    if *is_mutable { "" } else { "const" },
+                ctx.body += format!(
+                    "{} {}=",
                     cte.c_type_name(&var_type.clone().unwrap(), *span),
                     cte.c_var_name(&name, *span),
                 )
                 .as_str();
                 expr.clone().unwrap().to_c(cte, ctx);
-                ctx.output.push_str(";\n");
+                true
             }
 
             Expr::CallFunc(name, _gens, exprs, span) => {
                 if !cte.var_exists(name) {
                     error(*span, &format!("Function '{}' does not exist", name));
                 }
-                ctx.output
+                ctx.body
                     .push_str(format!("{}(", cte.c_var_name(name, *span)).as_str());
                 for expr in exprs {
                     expr.to_c(cte, ctx);
-                    ctx.output.push(',');
+                    ctx.body.push(',');
                 }
                 if exprs.len() >= 1 {
-                    ctx.output.pop();
+                    ctx.body.pop();
                 }
 
-                ctx.output.push_str(")");
+                ctx.body.push_str(")");
+                true
             }
 
             Expr::Stmt(expr) => {
                 expr.to_c(cte, ctx);
-                ctx.output.push_str(";\n");
+                true
             }
 
             Expr::DeclareFunction(name, block, return_type, _is_mutable, args, _gens, span) => {
@@ -101,7 +118,7 @@ impl Expr {
                     );
                 }
                 cte.declare_var(name.clone());
-                ctx.output.push_str(
+                ctx.body.push_str(
                     format!(
                         "{} {}(",
                         cte.c_type_name(return_type, *span),
@@ -112,40 +129,30 @@ impl Expr {
 
                 for arg in args {
                     cte.declare_var(arg.0.clone());
-                    ctx.output.push_str(&cte.c_type_name(&arg.1, *span));
-                    ctx.output.push(' ');
-                    ctx.output.push_str(&cte.c_var_name(&arg.0, *span));
-                    ctx.output.push_str(", ");
+                    ctx.body.push_str(&cte.c_type_name(&arg.1, *span));
+                    ctx.body.push(' ');
+                    ctx.body.push_str(&cte.c_var_name(&arg.0, *span));
+                    ctx.body.push_str(", ");
                 }
-                if ctx.output.ends_with(", ") {
-                    ctx.output.pop();
-                    ctx.output.pop();
+                if ctx.body.ends_with(", ") {
+                    ctx.body.pop();
+                    ctx.body.pop();
                 }
 
-                ctx.output.push(')');
+                ctx.body.push(')');
 
                 block.to_c(cte, ctx);
-                // ctx.output.push_str("}\n\n");
+                false
             }
 
             Expr::Return(expr) => {
-                ctx.output.push_str("return ");
+                ctx.body.push_str("return ");
                 expr.to_c(cte, ctx);
+                true
             }
 
             _ => panic!("unexpected expression '{:?}'", self),
         }
-    }
-    fn func(&self, cte: &mut CompileTimeEnv, ctx: &mut CodeGenContext, args: &[&Expr], name: &str) {
-        ctx.output.push_str(name);
-        ctx.output.push('(');
-        args[0].to_c(cte, ctx);
-        for arg in args[1..].iter() {
-            ctx.output.push(',');
-            arg.to_c(cte, ctx);
-        }
-
-        ctx.output.push(')');
     }
     pub fn get_type(&self, _cte: &CompileTimeEnv) -> Type {
         match self {

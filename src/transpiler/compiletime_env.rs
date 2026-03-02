@@ -23,6 +23,9 @@ impl CompileTimeEnv {
         };
 
         this.register_type(Type::simple("i32"));
+        this.register_type(Type::simple("arr"));
+        this.register_type(Type::simple("f64"));
+        this.declare_var("_print".to_string());
 
         this
     }
@@ -51,10 +54,10 @@ impl CompileTimeEnv {
         id
     }
 
-    fn resolve_var(&self, name: &str) -> Option<usize> {
-        for scope in self.scopes.iter().rev() {
+    fn resolve_var(&self, name: &str) -> Option<(usize, usize)> {
+        for (idx, scope) in self.scopes.iter().enumerate().rev() {
             if let Some(id) = scope.get(name) {
-                return Some(*id);
+                return Some((*id, idx));
             }
         }
         None
@@ -70,14 +73,11 @@ impl CompileTimeEnv {
     }
 
     pub fn c_var_name(&self, name: &str, span: Span) -> String {
-        format!(
-            "v_{}s_{}",
-            self.current_scope,
-            self.resolve_var(name).unwrap_or_else(|| {
-                error(span, format!("Could not find variable '{}'", name).as_str());
-                0
-            })
-        )
+        let (id, scope) = self.resolve_var(name).unwrap_or_else(|| {
+            error(span, format!("Could not find variable '{}'", name).as_str());
+            (0, 0)
+        });
+        format!("v_{}s_{}", id, scope,)
     }
 
     // Type Handling

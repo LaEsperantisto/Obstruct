@@ -21,22 +21,22 @@ pub enum Expr {
     Array(Vec<Expr>),
 
     // Binary Operators
-    Add(Box<Expr>, Box<Expr>),
-    Sub(Box<Expr>, Box<Expr>),
-    Mult(Box<Expr>, Box<Expr>),
-    Div(Box<Expr>, Box<Expr>),
-    Mod(Box<Expr>, Box<Expr>),
-    Power(Box<Expr>, Box<Expr>),
-    EqualEqual(Box<Expr>, Box<Expr>),
-    BangEqual(Box<Expr>, Box<Expr>),
-    GreaterEqual(Box<Expr>, Box<Expr>),
-    LessEqual(Box<Expr>, Box<Expr>),
-    Less(Box<Expr>, Box<Expr>),
-    Greater(Box<Expr>, Box<Expr>),
-    And(Box<Expr>, Box<Expr>),
-    Or(Box<Expr>, Box<Expr>),
+    Add(Box<Expr>, Box<Expr>, Span),
+    Sub(Box<Expr>, Box<Expr>, Span),
+    Mult(Box<Expr>, Box<Expr>, Span),
+    Div(Box<Expr>, Box<Expr>, Span),
+    Mod(Box<Expr>, Box<Expr>, Span),
+    Power(Box<Expr>, Box<Expr>, Span),
+    EqualEqual(Box<Expr>, Box<Expr>, Span),
+    BangEqual(Box<Expr>, Box<Expr>, Span),
+    GreaterEqual(Box<Expr>, Box<Expr>, Span),
+    LessEqual(Box<Expr>, Box<Expr>, Span),
+    Less(Box<Expr>, Box<Expr>, Span),
+    Greater(Box<Expr>, Box<Expr>, Span),
+    And(Box<Expr>, Box<Expr>, Span),
+    Or(Box<Expr>, Box<Expr>, Span),
 
-    Nth(Box<Expr>, Box<Expr>),
+    Nth(Box<Expr>, Box<Expr>, Span),
 
     // Unary Operators
     Not(Box<Expr>),
@@ -44,7 +44,7 @@ pub enum Expr {
     // Statements
     StmtBlock(Vec<Box<Expr>>),
     StmtBlockNoScope(Vec<Box<Expr>>),
-    Print(Box<Expr>),
+    Print(Box<Expr>, Span),
     Discard(Box<Expr>),
     Stmt(Box<Expr>),
 

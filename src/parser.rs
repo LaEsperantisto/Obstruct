@@ -230,19 +230,23 @@ impl<'a> Parser<'a> {
     fn print(&mut self) -> Expr {
         if self.peek().token_type == TokenType::Dollar {
             self.advance();
-            Expr::Print(Box::new(Expr::Add(
-                Box::new({
-                    let Expr::Print(a) = self.print() else {
-                        return Expr::Nothing();
-                    };
-                    *a
-                }),
-                Box::new(Expr::Str("\n".to_string())),
-            )))
+            Expr::Print(
+                Box::new(Expr::Add(
+                    Box::new({
+                        let Expr::Print(a, _) = self.print() else {
+                            return Expr::Nothing();
+                        };
+                        *a
+                    }),
+                    Box::new(Expr::Str("\n".to_string())),
+                    self.get_span(),
+                )),
+                self.get_span(),
+            )
         } else if self.peek().token_type == TokenType::Semicolon {
             Expr::Str(String::new())
         } else {
-            Expr::Print(Box::new(self.expression()))
+            Expr::Print(Box::new(self.expression()), self.get_span())
         }
     }
 
@@ -417,8 +421,8 @@ impl<'a> Parser<'a> {
             let op = self.previous().token_type;
             let right = self.compare();
             expr = match op {
-                TokenType::And => Expr::And(Box::new(expr), Box::new(right)),
-                TokenType::Or => Expr::Or(Box::new(expr), Box::new(right)),
+                TokenType::And => Expr::And(Box::new(expr), Box::new(right), self.get_span()),
+                TokenType::Or => Expr::Or(Box::new(expr), Box::new(right), self.get_span()),
                 _ => unreachable!(),
             };
         }
@@ -440,12 +444,22 @@ impl<'a> Parser<'a> {
             let op = self.previous().token_type;
             let right = self.term();
             expr = match op {
-                TokenType::EqualEqual => Expr::EqualEqual(Box::new(expr), Box::new(right)),
-                TokenType::BangEqual => Expr::BangEqual(Box::new(expr), Box::new(right)),
-                TokenType::Greater => Expr::Greater(Box::new(expr), Box::new(right)),
-                TokenType::GreaterEqual => Expr::GreaterEqual(Box::new(expr), Box::new(right)),
-                TokenType::Less => Expr::Less(Box::new(expr), Box::new(right)),
-                TokenType::LessEqual => Expr::LessEqual(Box::new(expr), Box::new(right)),
+                TokenType::EqualEqual => {
+                    Expr::EqualEqual(Box::new(expr), Box::new(right), self.get_span())
+                }
+                TokenType::BangEqual => {
+                    Expr::BangEqual(Box::new(expr), Box::new(right), self.get_span())
+                }
+                TokenType::Greater => {
+                    Expr::Greater(Box::new(expr), Box::new(right), self.get_span())
+                }
+                TokenType::GreaterEqual => {
+                    Expr::GreaterEqual(Box::new(expr), Box::new(right), self.get_span())
+                }
+                TokenType::Less => Expr::Less(Box::new(expr), Box::new(right), self.get_span()),
+                TokenType::LessEqual => {
+                    Expr::LessEqual(Box::new(expr), Box::new(right), self.get_span())
+                }
                 _ => unreachable!(),
             };
         }
@@ -460,8 +474,8 @@ impl<'a> Parser<'a> {
             let op = self.previous().token_type;
             let right = self.factor();
             expr = match op {
-                TokenType::Plus => Expr::Add(Box::new(expr), Box::new(right)),
-                TokenType::Minus => Expr::Sub(Box::new(expr), Box::new(right)),
+                TokenType::Plus => Expr::Add(Box::new(expr), Box::new(right), self.get_span()),
+                TokenType::Minus => Expr::Sub(Box::new(expr), Box::new(right), self.get_span()),
                 _ => unreachable!(),
             };
         }
@@ -476,9 +490,9 @@ impl<'a> Parser<'a> {
             let op = self.previous().token_type;
             let right = self.unary();
             expr = match op {
-                TokenType::Star => Expr::Mult(Box::new(expr), Box::new(right)),
-                TokenType::Slash => Expr::Div(Box::new(expr), Box::new(right)),
-                TokenType::Mod => Expr::Mod(Box::new(expr), Box::new(right)),
+                TokenType::Star => Expr::Mult(Box::new(expr), Box::new(right), self.get_span()),
+                TokenType::Slash => Expr::Div(Box::new(expr), Box::new(right), self.get_span()),
+                TokenType::Mod => Expr::Mod(Box::new(expr), Box::new(right), self.get_span()),
                 _ => unreachable!(),
             };
         }
@@ -488,11 +502,19 @@ impl<'a> Parser<'a> {
 
     fn unary(&mut self) -> Expr {
         if self.match_any(&[TokenType::Minus]) {
-            return Expr::Sub(Box::new(Expr::Nothing()), Box::new(self.unary()));
+            return Expr::Sub(
+                Box::new(Expr::Nothing()),
+                Box::new(self.unary()),
+                self.get_span(),
+            );
         }
 
         if self.match_any(&[TokenType::Plus]) {
-            return Expr::Add(Box::new(Expr::Nothing()), Box::new(self.unary()));
+            return Expr::Add(
+                Box::new(Expr::Nothing()),
+                Box::new(self.unary()),
+                self.get_span(),
+            );
         }
 
         if self.match_any(&[TokenType::Bang]) {
@@ -533,7 +555,7 @@ impl<'a> Parser<'a> {
         let mut expr = self.nth();
 
         while self.match_any(&[TokenType::StarStar]) {
-            expr = Expr::Power(Box::new(expr), Box::new(self.nth()));
+            expr = Expr::Power(Box::new(expr), Box::new(self.nth()), self.get_span());
         }
 
         expr
@@ -543,7 +565,7 @@ impl<'a> Parser<'a> {
         if self.match_any(&[TokenType::LeftBrack]) {
             let expr = self.expression();
             self.consume(TokenType::RightBrack, "Expected ']' after indexing.");
-            Expr::Nth(Box::new(val), Box::new(expr))
+            Expr::Nth(Box::new(val), Box::new(expr), self.get_span())
         } else {
             val
         }

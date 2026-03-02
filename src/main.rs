@@ -5,9 +5,6 @@ mod error;
 mod expr;
 mod init;
 mod runtime_env;
-mod interpreter {
-    pub mod interpret_expr;
-}
 
 mod transpiler {
     pub mod code_gen_context;
@@ -28,14 +25,11 @@ mod variable;
 
 use crate::error::ObstructError;
 use crate::expr::Expr;
-use crate::init::init;
 use crate::parser::Parser;
-use crate::runtime_env::RuntimeEnvironment;
 use crate::scanner::Scanner;
 use crate::span::Span;
 use crate::transpiler::code_gen_context::CodeGenContext;
 use crate::transpiler::compiletime_env::CompileTimeEnv;
-use crate::type_env::TypeEnvironment;
 use std::fs;
 use std::panic;
 use std::process::Command;
@@ -117,6 +111,7 @@ fn main() -> Result<(), ObstructError> {
 
     compile_c_file("out.c", "out.a");
     run_compiled_c_file("out.a");
+    println!();
 
     result.unwrap_or_else(|_| {
         let err = ERROR.lock().unwrap().clone();
@@ -159,40 +154,17 @@ fn interpret() -> Result<(), ObstructError> {
 
     let ast = compile(source);
 
-    if interpret {
-        let mut env = RuntimeEnvironment::new();
-        let mut tenv = TypeEnvironment::new();
-        init(&mut env, &mut tenv);
-        Expr::Declare(
-            "DEBUG".into(),
-            None,
-            Some(Box::new(Expr::Bool(debug))),
-            false,
-            Span::empty(),
-        )
-        .get_interpreted_value(&mut env, &mut tenv);
-        ast.get_interpreted_value(&mut env, &mut tenv);
-    } else {
-        use std::fs::File;
-        use std::io::Write;
+    use std::fs::File;
+    use std::io::Write;
 
-        let mut ctx = CodeGenContext::new();
-        let mut cte = CompileTimeEnv::new();
+    let mut ctx = CodeGenContext::new();
+    let mut cte = CompileTimeEnv::new();
 
-        ast.to_c(&mut cte, &mut ctx);
+    ast.to_c(&mut cte, &mut ctx);
 
-        ctx.output.push_str(
-            "\n
-int main() {
-    return v_0s_0();
-}
+    let mut file = File::create("out.c").unwrap();
+    file.write_all(ctx.combine(&mut cte).as_bytes()).unwrap();
 
-",
-        );
-
-        let mut file = File::create("out.c").unwrap();
-        file.write_all(ctx.output.as_bytes()).unwrap();
-    }
     SOURCES.lock().unwrap().pop();
 
     let err = ERROR.lock().unwrap().clone();
