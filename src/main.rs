@@ -32,6 +32,7 @@ use crate::transpiler::code_gen_context::CodeGenContext;
 use crate::transpiler::compiletime_env::CompileTimeEnv;
 use std::fs;
 use std::panic;
+use std::path::Path;
 use std::process::Command;
 use std::sync::Mutex;
 
@@ -108,52 +109,45 @@ fn run_compiled_c_file(path: &str) {
 }
 
 fn main() -> Result<(), ObstructError> {
-    let result = panic::catch_unwind(|| run());
+    let result = run();
 
-    compile_c_file(
-        &(PROGRAM_NAME.lock().unwrap().clone() + ".c"),
-        &PROGRAM_NAME.lock().unwrap().clone(),
-    );
-    run_compiled_c_file(&(PROGRAM_NAME.lock().unwrap().clone() + ".c"));
+    if result.is_err() {
+        std::process::exit(1);
+    }
+
+    let program_name = PROGRAM_NAME.lock().unwrap().clone();
+
+    compile_c_file(&(program_name.clone() + ".c"), &program_name);
+    run_compiled_c_file(&program_name);
     println!();
 
-    result.unwrap_or_else(|_| {
-        let err = ERROR.lock().unwrap().clone();
-        match err {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        }
-    })
+    result
 }
 
 fn run() -> Result<(), ObstructError> {
-    let mut args = std::env::args().skip(1);
+    let args: Vec<String> = std::env::args().skip(1).collect();
 
-    let arg_len = args.len();
-
+    let mut filepath = "/home/aster/dev/obstruct/main.obs".to_string();
     let mut debug = true;
 
-    for _ in 0..arg_len {
-        let arg = args.next();
-        if arg == Some("--release".into()) {
+    for arg in &args {
+        if arg == "--release" {
             debug = false;
+        } else {
+            filepath = arg.clone();
         }
     }
 
-    let arg1 = args.next();
+    let program_name = Path::new(&filepath)
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or(&filepath)
+        .to_string();
 
-    let filepath = match arg1 {
-        Some(filename) => {
-            *PROGRAM_NAME.lock().unwrap() = filename.clone();
-            filename
-        }
-        _ => {
-            *PROGRAM_NAME.lock().unwrap() = "main".into();
-            "/home/aster/dev/obstruct/main.obs".to_string()
-        }
-    };
+    *PROGRAM_NAME.lock().unwrap() = program_name;
 
-    let mut source = fs::read_to_string(filepath).unwrap();
+    let file = fs::read_to_string(&filepath);
+    let source = file.unwrap();
     SOURCES.lock().unwrap().push(source.clone());
 
     let ast = compile(source);
@@ -171,12 +165,8 @@ fn run() -> Result<(), ObstructError> {
 
     SOURCES.lock().unwrap().pop();
 
-    let err = ERROR.lock().unwrap().clone();
-
-    match err {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e),
-    }
+    let error = ERROR.lock().unwrap().clone();
+    error
 }
 
 pub fn error(span: Span, message: &str) {

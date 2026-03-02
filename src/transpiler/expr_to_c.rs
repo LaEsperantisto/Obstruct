@@ -147,11 +147,15 @@ impl Expr {
                 for arg in args {
                     arg_types.push(arg.1.clone());
                 }
-                let ret_type = block.returned_type(cte, *span).unwrap();
+                let ret_type = block.returned_type(cte, *span);
                 let return_type = if return_type.is_some() {
                     return_type.clone().unwrap()
                 } else {
-                    ret_type
+                    if let Some(ty) = ret_type {
+                        ty
+                    } else {
+                        nil_type()
+                    }
                 };
 
                 cte.declare_var(
@@ -197,6 +201,8 @@ impl Expr {
                 expr.to_c(cte, ctx);
                 true
             }
+
+            Expr::Nothing() => false,
 
             _ => panic!("unexpected expression '{:?}'", self),
         }
