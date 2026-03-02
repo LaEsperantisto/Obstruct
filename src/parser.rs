@@ -253,8 +253,6 @@ impl<'a> Parser<'a> {
     // ---------- FUNCTIONS ------------
 
     fn define_function(&mut self) -> Expr {
-        let is_mutable = self.match_any(&[TokenType::At]);
-
         let mut generic_params = vec![];
 
         if self.match_any(&[TokenType::LessLess]) {
@@ -295,9 +293,9 @@ impl<'a> Parser<'a> {
         };
 
         let return_type = if !self.check(TokenType::LeftBrace) {
-            self.get_type()
+            Some(self.get_type())
         } else {
-            nil_type()
+            None
         };
 
         self.consume(
@@ -311,7 +309,6 @@ impl<'a> Parser<'a> {
             name,
             body,
             return_type,
-            is_mutable,
             parameters,
             generic_params,
             start_span,

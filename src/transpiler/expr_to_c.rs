@@ -1,20 +1,37 @@
 use crate::error;
 use crate::expr::Expr;
-use crate::expr::Expr::StmtBlockNoScope;
 use crate::transpiler::code_gen_context::CodeGenContext;
 use crate::transpiler::compiletime_env::CompileTimeEnv;
 use crate::type_env::{nil_type, Type};
 
 impl Expr {
     pub fn to_c(&self, cte: &mut CompileTimeEnv, ctx: &mut CodeGenContext) -> bool {
+        // if returns true - requires a semicolon at end of statement
         match self {
             Expr::Int(n) => {
                 ctx.body.push_str(&n.to_string());
                 false
             }
+            Expr::Bool(b) => {
+                ctx.body.push_str(if *b { "1" } else { "0" });
+                false
+            }
+
             Expr::Add(l, r, span) => {
                 Expr::CallFunc("_add".into(), vec![], vec![l.clone(), r.clone()], *span)
                     .to_c(cte, ctx);
+                false
+            }
+            Expr::If(if_cond, if_block, else_block) => {
+                ctx.body.push_str("if (");
+                if_cond.to_c(cte, ctx);
+                ctx.body.push_str(")");
+                if_block.to_c(cte, ctx);
+                if else_block.is_some() {
+                    ctx.body.push_str(" else ");
+                    else_block.clone().unwrap().to_c(cte, ctx);
+                }
+
                 false
             }
             Expr::Sub(l, r, span) => {
@@ -44,7 +61,7 @@ impl Expr {
             Expr::StmtBlock(exprs) => {
                 cte.push_scope();
                 ctx.body.push_str("{\n");
-                StmtBlockNoScope(exprs.clone()).to_c(cte, ctx);
+                Expr::StmtBlockNoScope(exprs.clone()).to_c(cte, ctx);
                 ctx.body.push('}');
                 cte.pop_scope();
                 false
@@ -72,10 +89,18 @@ impl Expr {
                         format!("Variable '{}' already exists", name).as_str(),
                     );
                 }
-                cte.declare_var(name.clone(), *is_mutable, var_type.clone().unwrap());
+                let var_type = if var_type.is_some() {
+                    cte.declare_var(name.clone(), *is_mutable, var_type.clone().unwrap());
+                    var_type.clone().unwrap()
+                } else {
+                    let t = expr.clone().unwrap().get_type(cte);
+                    cte.declare_var(name.clone(), *is_mutable, t.clone());
+                    t
+                };
+
                 ctx.body += format!(
                     "{} {}=",
-                    cte.c_type_name(&var_type.clone().unwrap(), *span),
+                    cte.c_type_name(&var_type, *span),
                     cte.c_var_name(&name, *span),
                 )
                 .as_str();
@@ -106,12 +131,12 @@ impl Expr {
                 true
             }
 
-            Expr::DeclareFunction(name, block, return_type, is_mutable, args, _gens, span) => {
-                if cte.get_var(name).is_some() && !cte.get_var(name).unwrap().0 {
+            Expr::DeclareFunction(name, block, return_type, args, _gens, span) => {
+                if cte.get_var(name).is_some() {
                     error(
                         *span,
                         format!(
-                            "Variable '{}' already exists, could not declare function",
+                            "Variable '{}' already exists and is immutable, could not declare function",
                             name
                         )
                         .as_str(),
@@ -121,9 +146,15 @@ impl Expr {
                 for arg in args {
                     arg_types.push(arg.1.clone());
                 }
+                let return_type = if return_type.is_some() {
+                    return_type.clone().unwrap()
+                } else {
+                    block.get_type(cte)
+                };
+
                 cte.declare_var(
                     name.clone(),
-                    *is_mutable,
+                    false,
                     Type::with_generics("func", {
                         let old_arg_types = arg_types.clone();
                         arg_types.push(return_type.clone());
@@ -135,7 +166,7 @@ impl Expr {
                 ctx.body.push_str(
                     format!(
                         "{} {}(",
-                        cte.c_type_name(return_type, *span),
+                        cte.c_type_name(&return_type, *span),
                         cte.c_var_name(&name, *span),
                     )
                     .as_str(),
@@ -168,8 +199,21 @@ impl Expr {
             _ => panic!("unexpected expression '{:?}'", self),
         }
     }
-    pub fn get_type(&self, _cte: &CompileTimeEnv) -> Type {
+    pub fn get_type(&self, cte: &CompileTimeEnv) -> Type {
         match self {
+            Expr::Int(_) => "i32".into(),
+            Expr::Float(_) => "f64".into(),
+            Expr::Str(_) => "str".into(),
+            Expr::Bool(_) => "bool".into(),
+            Expr::Return(expr) => expr.get_type(cte),
+            Expr::CallFunc(name, _, _, _) => {
+                let variable = cte.get_var(name).unwrap().1;
+                variable.generics()[0].clone()
+            }
+            Expr::StmtBlockNoScope(exprs) => exprs.last().unwrap().get_type(cte),
+            Expr::StmtBlock(exprs) => exprs.last().unwrap().get_type(cte),
+            Expr::Variable(name, _) => cte.get_var(name).unwrap().1,
+            Expr::Discard(expr) => expr.get_type(cte),
             _ => nil_type(),
         }
     }

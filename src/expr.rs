@@ -52,8 +52,7 @@ pub enum Expr {
     DeclareFunction(
         String,
         Box<Expr>,
-        Type,
-        bool,
+        Option<Type>,
         Vec<(String, Type)>,
         Vec<String>,
         Span,
