@@ -30,7 +30,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Expr::StmtBlockNoScope(statements, self.get_span())
+        Expr::StmtBlock(statements, self.get_span())
     }
 
     // ---------- STATEMENTS ----------
@@ -57,6 +57,10 @@ impl<'a> Parser<'a> {
 
         if self.match_any(&[TokenType::Del]) {
             return self.delete();
+        }
+
+        if self.match_any(&[TokenType::QuestionMark]) {
+            return self.if_statement(false);
         }
 
         if self.check(TokenType::Ident) && self.peek_next(TokenType::Equal) {
@@ -114,7 +118,7 @@ impl<'a> Parser<'a> {
         }
 
         self.consume(TokenType::RightBrace, "Expected '}' after block.");
-        Expr::StmtBlock(statements, self.get_span())
+        Expr::StmtBlockWithScope(statements, self.get_span())
     }
 
     // ---------- DELETE VAR -----------
@@ -199,7 +203,7 @@ impl<'a> Parser<'a> {
 
     // ------- IF / ELSE IF / ELSE ----
 
-    fn if_statement(&mut self) -> Expr {
+    fn if_statement(&mut self, is_expr: bool) -> Expr {
         let if_cond = self.expression();
         // self.current += 1;
         let if_block = if self.match_any(&[TokenType::LeftBrace]) {
@@ -218,13 +222,13 @@ impl<'a> Parser<'a> {
         let mut else_block = None;
 
         if self.match_any(&[TokenType::TildeQuestionMark]) {
-            else_block = Some(Box::new(self.if_statement()));
+            else_block = Some(Box::new(self.if_statement(is_expr)));
         } else if self.match_any(&[TokenType::Tilde]) {
             self.consume(TokenType::LeftBrace, "Expected '{' after 'TILDE'.");
             else_block = Some(Box::new(self.statement_block()));
         }
 
-        Expr::If(Box::new(if_cond), Box::new(if_block), else_block)
+        Expr::If(Box::new(if_cond), Box::new(if_block), else_block, is_expr)
     }
     // ---------- PRINT ---------------
     fn print(&mut self) -> Expr {
@@ -651,11 +655,11 @@ impl<'a> Parser<'a> {
         }
 
         if self.match_any(&[TokenType::QuestionMark]) {
-            return self.if_statement();
+            return self.if_statement(true);
         }
 
         if self.match_any(&[TokenType::This]) {
-            return Expr::This();
+            return Expr::This(self.get_span());
         }
 
         if self.match_any(&[TokenType::Lam]) {

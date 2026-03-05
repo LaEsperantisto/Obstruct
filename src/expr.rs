@@ -42,8 +42,8 @@ pub enum Expr {
     Not(Box<Expr>),
 
     // Statements
+    StmtBlockWithScope(Vec<Box<Expr>>, Span),
     StmtBlock(Vec<Box<Expr>>, Span),
-    StmtBlockNoScope(Vec<Box<Expr>>, Span),
     Print(Box<Expr>, Span),
     Discard(Box<Expr>),
     Stmt(Box<Expr>),
@@ -66,10 +66,10 @@ pub enum Expr {
     Declare(String, Option<Type>, Option<Box<Expr>>, bool, Span),
     Assign(String, Box<Expr>, Span),
     Delete(String),
-    This(),
+    This(Span),
 
     // Control Flow
-    If(Box<Expr>, Box<Expr>, Option<Box<Expr>>), // if condition, if block, else block
+    If(Box<Expr>, Box<Expr>, Option<Box<Expr>>, bool), // if condition, if block, else block, is an expression (and not a statement)
     While(Box<Expr>, Box<Expr>),
     For(String, Box<Expr>, Box<Expr>, Span), // loopee, looper, block
 
@@ -82,4 +82,5 @@ pub enum Expr {
         path: String,
         span: Span,
     },
+    Input(String),
 }

@@ -11,6 +11,12 @@ mod transpiler {
     pub mod compiletime_env;
     pub mod expr_to_c;
 }
+mod englich {
+    pub mod englich_parser;
+    pub mod englich_scanner;
+    pub mod englich_token;
+    pub mod englich_token_type;
+}
 mod parser;
 mod scanner;
 mod span;
@@ -20,9 +26,11 @@ mod type_env;
 mod value;
 mod variable;
 
+// TODO Implement parser, etc. for Englich
 // TODO Convert to transpiler (into C)
 // TODO Add classes
 
+use crate::englich::{englich_parser, englich_scanner};
 use crate::error::ObstructError;
 use crate::expr::Expr;
 use crate::parser::Parser;
@@ -127,12 +135,15 @@ fn main() -> Result<(), ObstructError> {
 fn run() -> Result<(), ObstructError> {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
-    let mut filepath = "/home/aster/dev/obstruct/main.obs".to_string();
+    let mut filepath = "/home/aster/dev/englich/main.eng".to_string();
     let mut debug = true;
+    let mut englich = true;
 
     for arg in &args {
         if arg == "--release" {
             debug = false;
+        } else if arg == "--englich" {
+            englich = true;
         } else {
             filepath = arg.clone();
         }
@@ -150,13 +161,16 @@ fn run() -> Result<(), ObstructError> {
     let source = file.unwrap();
     SOURCES.lock().unwrap().push(source.clone());
 
-    let ast = compile(source);
-
+    let ast = if !englich {
+        compile(source)
+    } else {
+        englich_compile(source)
+    };
     use std::fs::File;
     use std::io::Write;
 
     let mut ctx = CodeGenContext::new();
-    let mut cte = CompileTimeEnv::new();
+    let mut cte = CompileTimeEnv::new(&mut ctx);
 
     ast.to_c(&mut cte, &mut ctx);
 
@@ -236,6 +250,15 @@ pub fn compile(source: String) -> Expr {
     let mut scanner = Scanner::new(source);
     let tokens = scanner.scan_tokens();
     let mut parser = Parser::new(tokens);
+    let expr = parser.parse();
+
+    expr
+}
+
+pub fn englich_compile(source: String) -> Expr {
+    let mut scanner = englich_scanner::Scanner::new(source);
+    let tokens = scanner.scan_tokens();
+    let mut parser = englich_parser::Parser::new(tokens);
     let expr = parser.parse();
 
     expr

@@ -17,20 +17,58 @@ impl Expr {
                 ctx.body.push_str(if *b { "1" } else { "0" });
                 false
             }
+            Expr::Char(c) => {
+                ctx.body.push('\'');
+                ctx.body.push_str(&c.to_string());
+                ctx.body.push('\'');
+                false
+            }
+            Expr::Str(s) => {
+                ctx.body.push('"');
+                ctx.body.push_str(s);
+                ctx.body.push('"');
+                false
+            }
 
             Expr::Add(l, r, span) => {
                 Expr::CallFunc("_add".into(), vec![], vec![l.clone(), r.clone()], *span)
                     .to_c(cte, ctx);
                 false
             }
-            Expr::If(if_cond, if_block, else_block) => {
-                ctx.body.push_str("if (");
-                if_cond.to_c(cte, ctx);
-                ctx.body.push_str(")");
-                if_block.to_c(cte, ctx);
-                if else_block.is_some() {
-                    ctx.body.push_str(" else ");
-                    else_block.clone().unwrap().to_c(cte, ctx);
+
+            Expr::Less(l, r, span) => {
+                Expr::CallFunc("_less".into(), vec![], vec![l.clone(), r.clone()], *span)
+                    .to_c(cte, ctx);
+                false
+            }
+
+            Expr::If(if_cond, if_block, else_block, is_expr) => {
+                if !is_expr {
+                    ctx.body.push_str("if (");
+                    if_cond.to_c(cte, ctx);
+                    ctx.body.push_str(")");
+                    if_block.to_c(cte, ctx);
+                    if else_block.is_some() {
+                        ctx.body.push_str(" else ");
+                        else_block.clone().unwrap().to_c(cte, ctx);
+                    }
+                } else {
+                    error(
+                        if_cond.get_span(),
+                        "EXPRESSION IF STATEMENTS NOT IMPLEMENTED",
+                    );
+                }
+
+                let else_type = if let Some(ty) = else_block {
+                    ty.get_type(cte)
+                } else {
+                    nil_type()
+                };
+                if if_block.get_type(cte) != else_type {
+                    error(
+                        if_block.get_span(),
+                        "if and else blocks had different types",
+                    );
                 }
 
                 false
@@ -50,7 +88,7 @@ impl Expr {
                     .to_c(cte, ctx);
                 false
             }
-            Expr::StmtBlockNoScope(exprs, _span) => {
+            Expr::StmtBlock(exprs, _span) => {
                 for expr in exprs {
                     if expr.to_c(cte, ctx) {
                         ctx.body.push(';');
@@ -59,17 +97,23 @@ impl Expr {
                 }
                 false
             }
-            Expr::StmtBlock(exprs, span) => {
+            Expr::StmtBlockWithScope(exprs, span) => {
                 cte.push_scope();
                 ctx.body.push_str("{\n");
-                Expr::StmtBlockNoScope(exprs.clone(), *span).to_c(cte, ctx);
+                Expr::StmtBlock(exprs.clone(), *span).to_c(cte, ctx);
                 ctx.body.push('}');
                 cte.pop_scope();
                 false
             }
 
             Expr::Print(expr, span) => {
-                Expr::CallFunc("_print".into(), vec![], vec![expr.clone()], *span).to_c(cte, ctx);
+                Expr::CallFunc(
+                    "_print".into(),
+                    vec![expr.get_type(cte)],
+                    vec![expr.clone()],
+                    *span,
+                )
+                .to_c(cte, ctx);
                 true
             }
 
@@ -83,13 +127,14 @@ impl Expr {
                 false
             }
 
+            Expr::This(span) => {
+                ctx.body.push(' ');
+                ctx.body.push_str(&cte.c_var_name(cte.this(), *span));
+                ctx.body.push(' ');
+                false
+            }
+
             Expr::Declare(name, var_type, expr, is_mutable, span) => {
-                if cte.var_exists(name) {
-                    error(
-                        *span,
-                        format!("Variable '{}' already exists", name).as_str(),
-                    );
-                }
                 let var_type = if var_type.is_some() {
                     cte.declare_var(name.clone(), *is_mutable, var_type.clone().unwrap());
                     var_type.clone().unwrap()
@@ -151,13 +196,14 @@ impl Expr {
                 let return_type = if return_type.is_some() {
                     return_type.clone().unwrap()
                 } else {
-                    if let Some(ty) = ret_type {
+                    if let Some(ty) = ret_type.clone() {
                         ty
                     } else {
                         nil_type()
                     }
                 };
 
+                cte.add_func_type(return_type.clone(), arg_types.clone(), ctx, *span);
                 cte.declare_var(
                     name.clone(),
                     false,
@@ -196,15 +242,45 @@ impl Expr {
                 false
             }
 
+            Expr::Assign(name, expr, span) => {
+                cte.push_this(name);
+                ctx.body.push_str(&cte.c_var_name(&name, *span));
+                ctx.body.push('=');
+                expr.to_c(cte, ctx);
+                cte.pop_this();
+                true
+            }
+
             Expr::Return(expr, _span) => {
                 ctx.body.push_str("return ");
                 expr.to_c(cte, ctx);
                 true
             }
 
+            Expr::Delete(name) => {
+                cte.del_var(name);
+                false
+            }
+
             Expr::Nothing() => false,
 
-            _ => panic!("unexpected expression '{:?}'", self),
+            Expr::While(cond, block) => {
+                ctx.body.push_str("while (");
+                cond.to_c(cte, ctx);
+                ctx.body.push_str("){\n");
+                block.to_c(cte, ctx);
+                ctx.body.push_str("}");
+                false
+            }
+
+            Expr::Input(name) => {
+                ctx.body.push_str("scanf(\"%d\",&");
+                ctx.body.push_str(&cte.c_var_name(name, Span::empty()));
+                ctx.body.push_str(")");
+                true
+            }
+
+            _ => panic!("unexpected expression (for transpilation) '{:?}'", self),
         }
     }
     fn get_type(&self, cte: &CompileTimeEnv) -> Type {
@@ -213,16 +289,19 @@ impl Expr {
             Expr::Float(_) => "f64".into(),
             Expr::Str(_) => "str".into(),
             Expr::Bool(_) => "bool".into(),
+            Expr::Char(_) => "char".into(),
+            Expr::Add(_, _, _) => "i32".into(),
             Expr::Return(expr, _span) => expr.get_type(cte),
             Expr::CallFunc(name, _, _, _) => {
                 let variable = cte.get_var(name).unwrap().1;
                 variable.generics()[0].clone()
             }
-            Expr::StmtBlockNoScope(exprs, _span) => exprs.last().unwrap().get_type(cte),
             Expr::StmtBlock(exprs, _span) => exprs.last().unwrap().get_type(cte),
+            Expr::StmtBlockWithScope(exprs, _span) => exprs.last().unwrap().get_type(cte),
             Expr::Variable(name, _) => cte.get_var(name).unwrap().1,
             Expr::Discard(expr) => expr.get_type(cte),
-            _ => nil_type(),
+            Expr::Print(expr, _) => expr.get_type(cte),
+            _ => panic!("unexpected expression (for type check) '{:?}'", self),
         }
     }
 
@@ -230,7 +309,7 @@ impl Expr {
         match self {
             Expr::Return(expr, _span) => Some(expr.get_type(cte)),
             Expr::Discard(expr) => expr.returned_type(cte, span),
-            Expr::StmtBlockNoScope(exprs, span) => {
+            Expr::StmtBlock(exprs, span) => {
                 let mut return_type = None;
                 for expr in exprs {
                     let ret_type = expr.returned_type(cte, *span);
@@ -256,8 +335,8 @@ impl Expr {
                 }
                 return_type
             }
-            Expr::StmtBlock(exprs, span) => {
-                Expr::StmtBlockNoScope(exprs.clone(), *span).returned_type(cte, *span)
+            Expr::StmtBlockWithScope(exprs, span) => {
+                Expr::StmtBlock(exprs.clone(), *span).returned_type(cte, *span)
             }
             _ => None,
         }

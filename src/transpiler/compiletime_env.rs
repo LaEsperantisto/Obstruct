@@ -1,5 +1,6 @@
 use crate::error;
 use crate::span::Span;
+use crate::transpiler::code_gen_context::CodeGenContext;
 use crate::type_env::{nil_type, Type};
 use std::collections::HashMap;
 
@@ -8,16 +9,21 @@ pub struct CompileTimeEnv {
     scopes: Vec<HashMap<String, (usize, bool, Type)>>, // id, is_mutable, type
     current_scope: usize,
 
+    these: Vec<String>,
+
     next_var_id: usize,
     next_type_id: usize,
 }
 
 impl CompileTimeEnv {
-    pub fn new() -> CompileTimeEnv {
+    pub fn new(ctx: &mut CodeGenContext) -> CompileTimeEnv {
         let mut this = CompileTimeEnv {
             types: Vec::new(),
             scopes: vec![HashMap::new()],
             current_scope: 0,
+
+            these: Vec::new(),
+
             next_var_id: 0,
             next_type_id: 0,
         };
@@ -26,10 +32,85 @@ impl CompileTimeEnv {
         this.register_type(Type::simple("arr"));
         this.register_type(Type::simple("f64"));
         this.register_type(Type::simple("bool"));
+        this.register_type(Type::simple("char"));
         this.declare_var(
             "_print".to_string(),
             false,
             Type::with_generics("func", vec![nil_type(), Type::simple("i32")]),
+        );
+        this.add_func_type(nil_type(), vec![Type::simple("i32")], ctx, Span::empty());
+        this.declare_var(
+            "_add".to_string(),
+            false,
+            Type::with_generics(
+                "func",
+                vec![
+                    Type::simple("i32"),
+                    Type::simple("i32"),
+                    Type::simple("i32"),
+                ],
+            ),
+        );
+        this.add_func_type(
+            nil_type(),
+            vec![Type::simple("i32"), Type::simple("i32")],
+            ctx,
+            Span::empty(),
+        );
+
+        this.declare_var(
+            "_less".to_string(),
+            false,
+            Type::with_generics(
+                "func",
+                vec![
+                    Type::simple("i32"),
+                    Type::simple("i32"),
+                    Type::simple("i32"),
+                ],
+            ),
+        );
+        this.add_func_type(
+            nil_type(),
+            vec![Type::simple("i32"), Type::simple("i32")],
+            ctx,
+            Span::empty(),
+        );
+        this.declare_var(
+            "_less".to_string(),
+            false,
+            Type::with_generics(
+                "func",
+                vec![
+                    Type::simple("i32"),
+                    Type::simple("i32"),
+                    Type::simple("i32"),
+                ],
+            ),
+        );
+        this.add_func_type(
+            nil_type(),
+            vec![Type::simple("i32"), Type::simple("i32")],
+            ctx,
+            Span::empty(),
+        );
+        this.declare_var(
+            "_sub".to_string(),
+            false,
+            Type::with_generics(
+                "func",
+                vec![
+                    Type::simple("i32"),
+                    Type::simple("i32"),
+                    Type::simple("i32"),
+                ],
+            ),
+        );
+        this.add_func_type(
+            nil_type(),
+            vec![Type::simple("i32"), Type::simple("i32")],
+            ctx,
+            Span::empty(),
         );
 
         this
@@ -70,7 +151,7 @@ impl CompileTimeEnv {
 
     pub fn get_var(&self, name: &str) -> Option<(bool, Type)> {
         for scope in self.scopes.iter().rev() {
-            if let Some((id, is_mutable, var_type)) = scope.get(name) {
+            if let Some((_id, is_mutable, var_type)) = scope.get(name) {
                 return Some((*is_mutable, var_type.clone()));
             }
         }
@@ -79,7 +160,7 @@ impl CompileTimeEnv {
 
     pub fn var_exists(&self, name: &str) -> bool {
         for scope in self.scopes.iter().rev() {
-            if let Some(_id) = scope.get(name) {
+            if let Some(_) = scope.get(name) {
                 return true;
             }
         }
@@ -123,5 +204,55 @@ impl CompileTimeEnv {
                 0
             })
         )
+    }
+
+    pub fn add_func_type(
+        &mut self,
+        ret_type: Type,
+        arg_types: Vec<Type>,
+        ctx: &mut CodeGenContext,
+        span: Span,
+    ) -> usize {
+        let mut gens = arg_types.clone();
+        gens.push(ret_type.clone());
+
+        if let Some(id) = self.get_type_id(&Type::with_generics("func", gens.clone())) {
+            return id;
+        }
+
+        let func_type = Type::with_generics("func", gens);
+        let id = self.register_type(func_type.clone());
+        ctx.types.push_str("typedef ");
+        ctx.types.push_str(&self.c_type_name(&ret_type, span));
+        ctx.types
+            .push_str(&format!("(*{})", self.c_type_name(&func_type, span)));
+        ctx.types.push('(');
+        for ty in arg_types.iter() {
+            ctx.types.push_str(&self.c_type_name(&ty, span));
+            ctx.types.push(',');
+        }
+        if arg_types.len() >= 1 {
+            ctx.types.pop();
+        }
+        ctx.types.push_str(");\n");
+        id
+    }
+
+    pub fn push_this(&mut self, this: &str) {
+        self.these.push(this.to_string());
+    }
+    pub fn pop_this(&mut self) {
+        self.these.pop();
+    }
+    pub fn this(&self) -> &str {
+        &self.these.last().unwrap()
+    }
+
+    pub fn del_var(&mut self, name: &str) {
+        for scope in self.scopes.iter_mut().rev() {
+            if let Some(_id) = scope.get(name) {
+                scope.remove(name);
+            }
+        }
     }
 }
