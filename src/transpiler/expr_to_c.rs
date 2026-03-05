@@ -291,6 +291,7 @@ impl Expr {
             Expr::Bool(_) => "bool".into(),
             Expr::Char(_) => "char".into(),
             Expr::Add(_, _, _) => "i32".into(),
+            Expr::Sub(_, _, _) => "i32".into(),
             Expr::Return(expr, _span) => expr.get_type(cte),
             Expr::CallFunc(name, _, _, _) => {
                 let variable = cte.get_var(name).unwrap().1;

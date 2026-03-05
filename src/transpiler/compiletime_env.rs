@@ -57,7 +57,6 @@ impl CompileTimeEnv {
             ctx,
             Span::empty(),
         );
-
         this.declare_var(
             "_less".to_string(),
             false,
@@ -69,30 +68,6 @@ impl CompileTimeEnv {
                     Type::simple("i32"),
                 ],
             ),
-        );
-        this.add_func_type(
-            nil_type(),
-            vec![Type::simple("i32"), Type::simple("i32")],
-            ctx,
-            Span::empty(),
-        );
-        this.declare_var(
-            "_less".to_string(),
-            false,
-            Type::with_generics(
-                "func",
-                vec![
-                    Type::simple("i32"),
-                    Type::simple("i32"),
-                    Type::simple("i32"),
-                ],
-            ),
-        );
-        this.add_func_type(
-            nil_type(),
-            vec![Type::simple("i32"), Type::simple("i32")],
-            ctx,
-            Span::empty(),
         );
         this.declare_var(
             "_sub".to_string(),
@@ -105,12 +80,6 @@ impl CompileTimeEnv {
                     Type::simple("i32"),
                 ],
             ),
-        );
-        this.add_func_type(
-            nil_type(),
-            vec![Type::simple("i32"), Type::simple("i32")],
-            ctx,
-            Span::empty(),
         );
 
         this
