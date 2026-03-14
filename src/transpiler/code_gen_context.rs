@@ -34,7 +34,7 @@ typedef double t_2; // f64
 typedef bool t_3; // bool
 typedef char t_4; // char
 
-t_1 v_0s_0(t_0 i) { // print
+t_1 v_0s_0(t_0 i) { // print i32
     printf(\"%d\",i);
 }
 

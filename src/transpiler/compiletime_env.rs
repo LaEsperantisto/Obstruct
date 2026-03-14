@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 pub struct CompileTimeEnv {
     types: Vec<Type>,
+    simple_types: HashMap<String, usize>,
     scopes: Vec<HashMap<String, (usize, bool, Type)>>, // id, is_mutable, type
     current_scope: usize,
 
@@ -19,6 +20,7 @@ impl CompileTimeEnv {
     pub fn new(ctx: &mut CodeGenContext) -> CompileTimeEnv {
         let mut this = CompileTimeEnv {
             types: Vec::new(),
+            simple_types: HashMap::new(),
             scopes: vec![HashMap::new()],
             current_scope: 0,
 
@@ -154,6 +156,7 @@ impl CompileTimeEnv {
         let id = self.next_type_id;
         self.next_type_id += 1;
 
+        self.simple_types.insert(ty.name().to_string(), id);
         self.types.push(ty);
         id
     }
@@ -162,17 +165,31 @@ impl CompileTimeEnv {
         self.types.iter().position(|t| t == ty)
     }
 
-    pub fn c_type_name(&self, type_name: &Type, span: Span) -> String {
-        format!(
-            "t_{}",
-            self.get_type_id(type_name).unwrap_or_else(|| {
-                error(
-                    span,
-                    format!("Could not find type '{}'", type_name).as_str(),
-                );
-                0
-            })
-        )
+    pub fn c_type_name(&self, ty: &Type, span: Span) -> String {
+        let type_id = self.get_type_id(ty).unwrap_or_else(|| {
+            error(span, format!("Could not find type '{}'", ty).as_str());
+            0
+        });
+
+        let mut name = format!("t_{}", type_id);
+
+        let gens = ty.generics();
+
+        if !gens.is_empty() {
+            name.push('C');
+
+            for (i, g) in gens.iter().enumerate() {
+                name.push_str(&self.c_type_name(g, span));
+
+                if i != gens.len() - 1 {
+                    name.push('_');
+                }
+            }
+
+            name.push('D');
+        }
+
+        name
     }
 
     pub fn add_func_type(

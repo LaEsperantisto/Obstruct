@@ -48,6 +48,10 @@ impl<'a> Parser<'a> {
             let var = self.item();
             return Expr::StmtBlock(
                 vec![
+                    Box::new(Expr::Print(
+                        Box::new(Expr::Str(var.clone() + ": ")),
+                        self.get_span(),
+                    )),
                     Box::new(Expr::Declare(
                         var.clone(),
                         None,
@@ -426,6 +430,12 @@ impl<'a> Parser<'a> {
     fn primary(&mut self) -> Expr {
         if self.match_any(&[TokenType::Int]) {
             return Expr::Int(str::parse::<i32>(&self.previous().lexeme).unwrap());
+        }
+        if self.match_any(&[TokenType::Float]) {
+            return Expr::Float(str::parse::<f64>(&self.previous().lexeme).unwrap());
+        }
+        if self.match_any(&[TokenType::String]) {
+            return Expr::Str(self.previous().lexeme);
         }
 
         if self.check(TokenType::Ident) {

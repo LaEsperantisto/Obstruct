@@ -135,9 +135,9 @@ fn main() -> Result<(), ObstructError> {
 fn run() -> Result<(), ObstructError> {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
-    let mut filepath = "/home/aster/dev/englich/main.eng".to_string();
+    let mut filepath = "/home/aster/dev/obstruct/main.obs".to_string();
     let mut debug = true;
-    let mut englich = true;
+    let mut englich = false;
 
     for arg in &args {
         if arg == "--release" {
