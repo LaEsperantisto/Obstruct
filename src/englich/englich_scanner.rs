@@ -33,6 +33,7 @@ impl Scanner {
         keywords.insert("show".into(), TokenType::Show);
         keywords.insert("end".into(), TokenType::End);
         keywords.insert("enter".into(), TokenType::Enter);
+        keywords.insert("call".into(), TokenType::Call);
 
         Scanner {
             source,

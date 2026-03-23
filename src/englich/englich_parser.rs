@@ -1,3 +1,4 @@
+use crate::englich::englich_token_type::TokenType::Dot;
 use crate::span::Span;
 use crate::type_env::{nil_type, Type};
 use crate::{
@@ -45,7 +46,7 @@ impl<'a> Parser<'a> {
 
         if self.match_any(&[TokenType::Enter]) {
             self.advance();
-            let var = self.item();
+            let var = self.item(&[Dot]);
             return Expr::StmtBlock(
                 vec![
                     Box::new(Expr::Print(
@@ -199,7 +200,7 @@ impl<'a> Parser<'a> {
         let is_mutable = true;
 
         self.advance();
-        let name = self.item();
+        let name = self.item(&[TokenType::Be]);
 
         let var_type = if self.match_any(&[TokenType::Nil]) {
             Some(self.get_type())
@@ -221,7 +222,7 @@ impl<'a> Parser<'a> {
 
     // ---------- ASSIGNMENT ----------
     fn assignment(&mut self) -> Expr {
-        let name = self.item();
+        let name = self.item(&[TokenType::To]);
         self.consume(TokenType::To, "Expected 'to' after identifier.");
         let span = self.get_span();
         Expr::Assign(name, Box::new(self.expression()), span)
@@ -280,7 +281,7 @@ impl<'a> Parser<'a> {
         }*/
 
         self.advance();
-        let name = self.item();
+        let name = self.item(&[TokenType::Colon]);
 
         let start_span = self.get_span();
 
@@ -376,7 +377,8 @@ impl<'a> Parser<'a> {
     }
 
     fn call_function(&mut self) -> Expr {
-        let name = self.previous().lexeme;
+        self.advance();
+        let name = self.item_ident();
 
         let generics = vec![];
 
@@ -391,11 +393,11 @@ impl<'a> Parser<'a> {
             self.consume(TokenType::GreaterGreater, "Expected '>' after generics");
         }*/
 
-        self.consume(TokenType::LeftParen, "Expected '(' after function name.");
+        // self.consume(TokenType::LeftParen, "Expected '(' after function name.");
 
-        let mut arguments = vec![];
+        let arguments = vec![];
 
-        if !self.check(TokenType::RightParen) {
+        /*if !self.check(TokenType::RightParen) {
             loop {
                 arguments.push(Box::new(self.expression()));
                 if !self.match_any(&[TokenType::Comma]) {
@@ -404,7 +406,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        self.consume(TokenType::RightParen, "Missing ')' after function call.");
+        self.consume(TokenType::RightParen, "Missing ')' after function call.");*/
 
         Expr::CallFunc(name, generics, arguments, self.get_span())
     }
@@ -440,8 +442,12 @@ impl<'a> Parser<'a> {
 
         if self.check(TokenType::Ident) {
             self.advance();
-            let item = self.item();
+            let item = self.item_ident();
             return Expr::Variable(item, self.get_span());
+        }
+
+        if self.match_any(&[TokenType::Call]) {
+            return self.call_function();
         }
 
         if self.match_any(&[TokenType::LeftParen]) {
@@ -569,12 +575,25 @@ impl<'a> Parser<'a> {
             .unwrap_or_else(Token::nil)
     }
 
-    fn item(&mut self) -> String {
+    fn item(&mut self, tokens: &[TokenType]) -> String {
         self.current -= 1;
         let mut item = String::new();
-        while self.advance().token_type == TokenType::Ident {
+        while !tokens.contains(&self.advance().token_type) {
             item.push(' ');
             item.push_str(self.previous().lexeme.as_str());
+        }
+        item.remove(0);
+        self.current -= 1;
+        item
+    }
+
+    fn item_ident(&mut self) -> String {
+        self.current -= 1;
+        let mut item = String::new();
+        let token = self.advance();
+        while token.token_type == TokenType::Ident {
+            item.push(' ');
+            item.push_str(&self.previous().lexeme);
         }
         item.remove(0);
         self.current -= 1;

@@ -34,6 +34,7 @@ pub enum TokenType {
     Show,
     End,
     Enter,
+    Call,
 
     Nil, // this gives an error - not supposed to be fetched - interpreter badly programmed
     EOF, // End Of File
@@ -72,6 +73,7 @@ impl fmt::Display for TokenType {
             TokenType::Show => "Show",
             TokenType::End => "End",
             TokenType::Enter => "Enter",
+            TokenType::Call => "Call",
 
             TokenType::Nil => "Nil",
             TokenType::EOF => "EOF",
