@@ -681,9 +681,9 @@ impl<'a> Parser<'a> {
         if self.match_any(&[TokenType::Ident]) {
             let name = self.previous().lexeme.clone();
 
-            // Generic placeholder (capital letter convention)
+            // Generic placeholder
             if name.chars().next().unwrap().is_uppercase() && !self.check(TokenType::LessLess) {
-                return Type::generic(&name);
+                return Type::conceptual(&name);
             }
 
             if self.match_any(&[TokenType::LessLess]) {

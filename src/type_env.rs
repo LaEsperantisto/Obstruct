@@ -1,3 +1,4 @@
+use crate::span::Span;
 use core::fmt;
 use std::collections::HashMap;
 
@@ -54,10 +55,10 @@ impl TypeEnvironment {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
-    Concrete { name: String, generics: Vec<Type> },
-    Generic(String), // T, U, etc
+    Concrete { name: String, generics: Vec<Type> }, // vec<<i32>>
+    Conceptual(String),                             // T, U, etc
 }
 
 impl Type {
@@ -69,18 +70,17 @@ impl Type {
     }
 
     pub fn is_generic(&self) -> bool {
-        matches!(self, Type::Generic(_))
+        matches!(self, Type::Conceptual(_))
     }
 
-    pub fn generic(name: &str) -> Self {
-        Type::Generic(name.into())
+    pub fn conceptual(name: &str) -> Self {
+        Type::Conceptual(name.into())
     }
 
-    pub fn generics(&self) -> Vec<Type> {
-        if let Type::Concrete { name: _, generics } = &self {
-            generics.clone()
-        } else {
-            vec![]
+    pub fn generics(&self) -> &[Type] {
+        match self {
+            Type::Concrete { generics, .. } => generics,
+            _ => &[],
         }
     }
 
@@ -94,7 +94,7 @@ impl Type {
     pub fn name(&self) -> &str {
         match self {
             Type::Concrete { name, .. } => name,
-            Type::Generic(n) => n,
+            Type::Conceptual(n) => n,
         }
     }
 
@@ -118,7 +118,7 @@ impl From<String> for Type {
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Type::Generic(n) => write!(f, "{}", n),
+            Type::Conceptual(n) => write!(f, "{}", n),
             Type::Concrete { name, generics } => {
                 if generics.is_empty() {
                     write!(f, "{}", name)
@@ -141,7 +141,7 @@ pub fn nil_type() -> Type {
 
 pub fn unify(pattern: &Type, actual: &Type, bindings: &mut HashMap<String, Type>) -> bool {
     match (pattern, actual) {
-        (Type::Generic(name), t) => {
+        (Type::Conceptual(name), t) => {
             if let Some(bound) = bindings.get(name) {
                 bound == t
             } else {
@@ -176,13 +176,13 @@ pub fn unify(pattern: &Type, actual: &Type, bindings: &mut HashMap<String, Type>
     }
 }
 
-pub fn substitute(t: &Type, map: &HashMap<String, Type>) -> Type {
+pub fn substitute(t: &Type, map: &HashMap<String, Type>, span: Span) -> Type {
     match t {
-        Type::Generic(n) => map.get(n).cloned().unwrap_or(t.clone()),
+        Type::Conceptual(n) => map.get(n).cloned().unwrap_or(t.clone()),
 
         Type::Concrete { name, generics } => Type::Concrete {
             name: name.clone(),
-            generics: generics.iter().map(|g| substitute(g, map)).collect(),
+            generics: generics.iter().map(|g| substitute(g, map, span)).collect(),
         },
     }
 }

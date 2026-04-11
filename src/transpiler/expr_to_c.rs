@@ -204,6 +204,7 @@ impl Expr {
                 };
 
                 cte.add_func_type(return_type.clone(), arg_types.clone(), ctx, *span);
+                let _ = (); // add_func_type no longer returns a value
                 cte.declare_var(
                     name.clone(),
                     false,

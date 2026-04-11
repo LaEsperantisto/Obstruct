@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 extern crate core;
+const DEBUG: bool = true;
 
 mod error;
 mod expr;
@@ -26,8 +27,10 @@ mod type_env;
 mod value;
 mod variable;
 
-// TODO Implement parser, etc. for Englich
-// TODO Convert to transpiler (into C)
+#[cfg(test)]
+mod tests;
+
+// TODO Add generics
 // TODO Add classes
 
 use crate::englich::{englich_parser, englich_scanner};
@@ -38,7 +41,11 @@ use crate::scanner::Scanner;
 use crate::span::Span;
 use crate::transpiler::code_gen_context::CodeGenContext;
 use crate::transpiler::compiletime_env::CompileTimeEnv;
+use colored::Colorize;
+use image::GenericImageView;
 use std::fs;
+use std::fs::File;
+use std::io::Write;
 use std::panic;
 use std::path::Path;
 use std::process::Command;
@@ -133,9 +140,35 @@ fn main() -> Result<(), ObstructError> {
 }
 
 fn run() -> Result<(), ObstructError> {
+    let img = image::open("gfx/icon.png").unwrap();
+
+    let size = if DEBUG {
+        50
+    } else {
+        terminal_size::terminal_size().unwrap().0.0 / 2
+    };
+
+    let img = img.thumbnail(size as u32, size as u32);
+
+    for y in 0..img.height() {
+        for x in 0..img.width() {
+            let pixel = img.get_pixel(x, y);
+            let r = pixel[0];
+            let g = pixel[1];
+            let b = pixel[2];
+
+            print!("{}", "  ".on_truecolor(r, g, b));
+        }
+        println!();
+    }
+
     let args: Vec<String> = std::env::args().skip(1).collect();
 
-    let mut filepath = "/home/aster/dev/obstruct/main.obs".to_string();
+    let mut filepath = if DEBUG {
+        "/home/aster/dev/obstruct/main.obs".to_string()
+    } else {
+        "".to_string()
+    };
     let mut debug = true;
     let mut englich = false;
 
@@ -166,8 +199,6 @@ fn run() -> Result<(), ObstructError> {
     } else {
         englich_compile(source)
     };
-    use std::fs::File;
-    use std::io::Write;
 
     let mut ctx = CodeGenContext::new();
     let mut cte = CompileTimeEnv::new(&mut ctx);
