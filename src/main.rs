@@ -30,7 +30,11 @@ mod variable;
 #[cfg(test)]
 mod tests;
 
-// TODO Add generics
+// TODO Add generic functions
+// TODO Add generic types
+// TODO Add "Vec"
+// TODO Add "str"
+// TODO Add references
 // TODO Add classes
 
 use crate::englich::{englich_parser, englich_scanner};
@@ -140,13 +144,9 @@ fn main() -> Result<(), ObstructError> {
 }
 
 fn run() -> Result<(), ObstructError> {
-    let img = image::open("gfx/icon.png").unwrap();
+    let img = image::open("/home/aster/dev/rust/Obstruct/gfx/icon.png").unwrap();
 
-    let size = if DEBUG {
-        50
-    } else {
-        terminal_size::terminal_size().unwrap().0.0 / 2
-    };
+    let size = 50;
 
     let img = img.thumbnail(size as u32, size as u32);
 
@@ -202,6 +202,8 @@ fn run() -> Result<(), ObstructError> {
 
     let mut ctx = CodeGenContext::new();
     let mut cte = CompileTimeEnv::new(&mut ctx);
+
+    ctx.body.push_str(&format!("\nbool DEBUG = {};\n\n", debug));
 
     ast.to_c(&mut cte, &mut ctx);
 
