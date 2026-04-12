@@ -109,7 +109,7 @@ impl Expr {
             Expr::Print(expr, span) => {
                 Expr::CallFunc(
                     "_print".into(),
-                    vec![expr.get_type(cte)],
+                    vec![],  // _print is non-generic, no type parameters
                     vec![expr.clone()],
                     *span,
                 )
@@ -154,12 +154,12 @@ impl Expr {
                 true
             }
 
-            Expr::CallFunc(name, _gens, exprs, span) => {
+            Expr::CallFunc(name, gens, exprs, span) => {
                 if !cte.var_exists(name) {
                     error(*span, &format!("Function '{}' does not exist", name));
                 }
                 ctx.body
-                    .push_str(format!("{}(", cte.c_var_name(name, *span)).as_str());
+                    .push_str(format!("{}(", cte.c_func_instance_name(name, gens, *span)).as_str());
                 for expr in exprs {
                     expr.to_c(cte, ctx);
                     ctx.body.push(',');
@@ -204,15 +204,13 @@ impl Expr {
                 };
 
                 cte.add_func_type(return_type.clone(), arg_types.clone(), ctx, *span);
-                let _ = (); // add_func_type no longer returns a value
+                // Declare the variable first so c_func_instance_name can find it
                 cte.declare_var(
                     name.clone(),
                     false,
                     Type::with_generics("func", {
-                        let old_arg_types = arg_types.clone();
                         arg_types.push(return_type.clone());
                         let output = arg_types;
-                        arg_types = old_arg_types;
                         output
                     }),
                 );
@@ -220,7 +218,7 @@ impl Expr {
                     format!(
                         "{} {}(",
                         cte.c_type_name(&return_type, *span),
-                        cte.c_var_name(&name, *span),
+                        cte.c_func_instance_name(&name, &[], *span),
                     )
                     .as_str(),
                 );

@@ -1,18 +1,11 @@
 //! Parser tests
 //! Tests AST construction from tokens
 
-use crate::parser::Parser;
-use crate::scanner::Scanner;
-
-/// Helper to parse source and return the AST
-fn parse_source(source: &str) -> crate::expr::Expr {
-    let mut scanner = Scanner::new(source.to_string());
-    let tokens = scanner.scan_tokens();
-    let mut parser = Parser::new(tokens);
-    parser.parse()
-}
-
 // ========== Statement Block ==========
+
+fn parse_source(source: &str) -> crate::expr::Expr {
+    crate::parse(source.to_string())
+}
 
 #[test]
 fn test_parse_empty_block() {
@@ -42,24 +35,22 @@ fn test_parse_multiple_statements() {
 fn test_parse_immutable_declaration() {
     let expr = parse_source("#x = 42;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Declare(name, _, expr_value, mutable, _) => {
-                    assert_eq!(name, "x");
-                    assert!(!*mutable);
-                    match expr_value {
-                        Some(boxed) => {
-                            if let crate::expr::Expr::Int(42) = boxed.as_ref() {}
-                            else {
-                                panic!("Expected Int(42)");
-                            }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Declare(name, _, expr_value, mutable, _) => {
+                assert_eq!(name, "x");
+                assert!(!*mutable);
+                match expr_value {
+                    Some(boxed) => {
+                        if let crate::expr::Expr::Int(42) = boxed.as_ref() {
+                        } else {
+                            panic!("Expected Int(42)");
                         }
-                        _ => panic!("Expected Some value"),
                     }
+                    _ => panic!("Expected Some value"),
                 }
-                _ => panic!("Expected Declare, got {:?}", statements[0]),
             }
-        }
+            _ => panic!("Expected Declare, got {:?}", statements[0]),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -68,25 +59,23 @@ fn test_parse_immutable_declaration() {
 fn test_parse_mutable_declaration() {
     let expr = parse_source("#@y = 3.14;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Declare(name, _, expr_value, mutable, _) => {
-                    assert_eq!(name, "y");
-                    assert!(*mutable);
-                    match expr_value {
-                        Some(boxed) => {
-                            if let crate::expr::Expr::Float(f) = boxed.as_ref() {
-                                assert!((f - 3.14).abs() < 0.0001);
-                            } else {
-                                panic!("Expected Float(3.14)");
-                            }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Declare(name, _, expr_value, mutable, _) => {
+                assert_eq!(name, "y");
+                assert!(*mutable);
+                match expr_value {
+                    Some(boxed) => {
+                        if let crate::expr::Expr::Float(f) = boxed.as_ref() {
+                            assert!((f - 3.14).abs() < 0.0001);
+                        } else {
+                            panic!("Expected Float(3.14)");
                         }
-                        _ => panic!("Expected Some value"),
                     }
+                    _ => panic!("Expected Some value"),
                 }
-                _ => panic!("Expected Declare"),
             }
-        }
+            _ => panic!("Expected Declare"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -95,16 +84,14 @@ fn test_parse_mutable_declaration() {
 fn test_parse_typed_declaration_without_value() {
     let expr = parse_source("#x: i32;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Declare(name, var_type, expr_value, _, _) => {
-                    assert_eq!(name, "x");
-                    assert!(var_type.is_some());
-                    assert!(expr_value.is_none());
-                }
-                _ => panic!("Expected Declare"),
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Declare(name, var_type, expr_value, _, _) => {
+                assert_eq!(name, "x");
+                assert!(var_type.is_some());
+                assert!(expr_value.is_none());
             }
-        }
+            _ => panic!("Expected Declare"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -113,16 +100,14 @@ fn test_parse_typed_declaration_without_value() {
 fn test_parse_declaration_with_type_and_value() {
     let expr = parse_source("#x: i32 = 42;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Declare(name, var_type, expr_value, _, _) => {
-                    assert_eq!(name, "x");
-                    assert!(var_type.is_some());
-                    assert!(expr_value.is_some());
-                }
-                _ => panic!("Expected Declare"),
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Declare(name, var_type, expr_value, _, _) => {
+                assert_eq!(name, "x");
+                assert!(var_type.is_some());
+                assert!(expr_value.is_some());
             }
-        }
+            _ => panic!("Expected Declare"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -133,18 +118,16 @@ fn test_parse_declaration_with_type_and_value() {
 fn test_parse_assignment() {
     let expr = parse_source("x = 10;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Assign(name, expr_value, _) => {
-                    assert_eq!(name, "x");
-                    if let crate::expr::Expr::Int(10) = expr_value.as_ref() {}
-                    else {
-                        panic!("Expected Int(10)");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Assign(name, expr_value, _) => {
+                assert_eq!(name, "x");
+                if let crate::expr::Expr::Int(10) = expr_value.as_ref() {
+                } else {
+                    panic!("Expected Int(10)");
                 }
-                _ => panic!("Expected Assign"),
             }
-        }
+            _ => panic!("Expected Assign"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -155,12 +138,10 @@ fn test_parse_assignment() {
 fn test_parse_if_statement() {
     let expr = parse_source("? x > 5 { ret; }");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::If(_, _, _, _) => {}
-                _ => panic!("Expected If"),
-            }
-        }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::If(_, _, _, _) => {}
+            _ => panic!("Expected If"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -169,14 +150,12 @@ fn test_parse_if_statement() {
 fn test_parse_if_else_if() {
     let expr = parse_source("? x > 5 { ret; } ~? x == 5 { ret; }");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::If(_, _, else_block, _) => {
-                    assert!(else_block.is_some());
-                }
-                _ => panic!("Expected If"),
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::If(_, _, else_block, _) => {
+                assert!(else_block.is_some());
             }
-        }
+            _ => panic!("Expected If"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -185,14 +164,12 @@ fn test_parse_if_else_if() {
 fn test_parse_if_else() {
     let expr = parse_source("? x > 5 { ret; } ~ { ret; }");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::If(_, _, else_block, _) => {
-                    assert!(else_block.is_some());
-                }
-                _ => panic!("Expected If"),
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::If(_, _, else_block, _) => {
+                assert!(else_block.is_some());
             }
-        }
+            _ => panic!("Expected If"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -203,12 +180,10 @@ fn test_parse_if_else() {
 fn test_parse_while_loop() {
     let expr = parse_source("£ x < 10 { ret; }");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::While(_, _) => {}
-                _ => panic!("Expected While"),
-            }
-        }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::While(_, _) => {}
+            _ => panic!("Expected While"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -219,12 +194,10 @@ fn test_parse_while_loop() {
 fn test_parse_for_loop() {
     let expr = parse_source("for i: 0..5 { ret; }");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::For(_, _, _, _) => {}
-                _ => panic!("Expected For"),
-            }
-        }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::For(_, _, _, _) => {}
+            _ => panic!("Expected For"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -235,12 +208,10 @@ fn test_parse_for_loop() {
 fn test_parse_print() {
     let expr = parse_source(r#"$"Hello";"#);
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Print(_, _) => {}
-                _ => panic!("Expected Print"),
-            }
-        }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Print(_, _) => {}
+            _ => panic!("Expected Print"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -271,12 +242,10 @@ fn test_parse_println() {
 fn test_parse_return() {
     let expr = parse_source("ret x;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Return(_, _) => {}
-                _ => panic!("Expected Return"),
-            }
-        }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Return(_, _) => {}
+            _ => panic!("Expected Return"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -285,17 +254,15 @@ fn test_parse_return() {
 fn test_parse_return_value() {
     let expr = parse_source("ret 42;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Return(inner, _) => {
-                    if let crate::expr::Expr::Int(42) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Int(42)");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Return(inner, _) => {
+                if let crate::expr::Expr::Int(42) = inner.as_ref() {
+                } else {
+                    panic!("Expected Int(42)");
                 }
-                _ => panic!("Expected Return"),
             }
-        }
+            _ => panic!("Expected Return"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -306,14 +273,12 @@ fn test_parse_return_value() {
 fn test_parse_delete() {
     let expr = parse_source("del x;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Delete(name) => {
-                    assert_eq!(name, "x");
-                }
-                _ => panic!("Expected Delete"),
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Delete(name) => {
+                assert_eq!(name, "x");
             }
-        }
+            _ => panic!("Expected Delete"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -324,17 +289,15 @@ fn test_parse_delete() {
 fn test_parse_function_definition() {
     let expr = parse_source("fn add(a: i32, b: i32) i32 { ret a + b; }");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::DeclareFunction(name, _, _, params, _, _) => {
-                    assert_eq!(name, "add");
-                    assert_eq!(params.len(), 2);
-                    assert_eq!(params[0].0, "a");
-                    assert_eq!(params[1].0, "b");
-                }
-                _ => panic!("Expected DeclareFunction"),
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::DeclareFunction(name, _, _, params, _, _) => {
+                assert_eq!(name, "add");
+                assert_eq!(params.len(), 2);
+                assert_eq!(params[0].0, "a");
+                assert_eq!(params[1].0, "b");
             }
-        }
+            _ => panic!("Expected DeclareFunction"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -343,15 +306,13 @@ fn test_parse_function_definition() {
 fn test_parse_function_without_return_type() {
     let expr = parse_source("fn print() { ret; }");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::DeclareFunction(name, _, return_type, _, _, _) => {
-                    assert_eq!(name, "print");
-                    assert!(return_type.is_none());
-                }
-                _ => panic!("Expected DeclareFunction"),
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::DeclareFunction(name, _, return_type, _, _, _) => {
+                assert_eq!(name, "print");
+                assert!(return_type.is_none());
             }
-        }
+            _ => panic!("Expected DeclareFunction"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -360,15 +321,13 @@ fn test_parse_function_without_return_type() {
 fn test_parse_function_with_generics() {
     let expr = parse_source("fn <<T>> push(v: vec<<T>>, item: T) { ret; }");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::DeclareFunction(_, _, _, _, generics, _) => {
-                    assert_eq!(generics.len(), 1);
-                    assert_eq!(generics[0], "T");
-                }
-                _ => panic!("Expected DeclareFunction"),
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::DeclareFunction(_, _, _, _, generics, _) => {
+                assert_eq!(generics.len(), 1);
+                assert_eq!(generics[0], "T");
             }
-        }
+            _ => panic!("Expected DeclareFunction"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -379,17 +338,15 @@ fn test_parse_function_with_generics() {
 fn test_parse_lambda() {
     let expr = parse_source("#f = lam { ret 42; };");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Declare(_, _, Some(inner), _, _) => {
-                    if let crate::expr::Expr::Function(_, _, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Function");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Declare(_, _, Some(inner), _, _) => {
+                if let crate::expr::Expr::Function(_, _, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected Function");
                 }
-                _ => panic!("Expected Declare with lambda"),
             }
-        }
+            _ => panic!("Expected Declare with lambda"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -400,17 +357,15 @@ fn test_parse_lambda() {
 fn test_parse_addition() {
     let expr = parse_source("1 + 2;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Add(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Add");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Add(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected Add");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -419,17 +374,15 @@ fn test_parse_addition() {
 fn test_parse_subtraction() {
     let expr = parse_source("1 - 2;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Sub(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Sub");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Sub(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected Sub");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -438,17 +391,15 @@ fn test_parse_subtraction() {
 fn test_parse_multiplication() {
     let expr = parse_source("1 * 2;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Mult(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Mult");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Mult(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected Mult");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -457,17 +408,15 @@ fn test_parse_multiplication() {
 fn test_parse_division() {
     let expr = parse_source("1 / 2;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Div(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Div");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Div(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected Div");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -476,17 +425,15 @@ fn test_parse_division() {
 fn test_parse_modulo() {
     let expr = parse_source("5 % 2;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Mod(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Mod");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Mod(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected Mod");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -495,17 +442,15 @@ fn test_parse_modulo() {
 fn test_parse_power() {
     let expr = parse_source("2 ** 3;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Power(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Power");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Power(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected Power");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -516,17 +461,15 @@ fn test_parse_power() {
 fn test_parse_equal() {
     let expr = parse_source("1 == 2;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::EqualEqual(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected EqualEqual");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::EqualEqual(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected EqualEqual");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -535,17 +478,15 @@ fn test_parse_equal() {
 fn test_parse_not_equal() {
     let expr = parse_source("1 != 2;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::BangEqual(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected BangEqual");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::BangEqual(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected BangEqual");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -554,17 +495,15 @@ fn test_parse_not_equal() {
 fn test_parse_less_than() {
     let expr = parse_source("1 < 2;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Less(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Less");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Less(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected Less");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -573,17 +512,15 @@ fn test_parse_less_than() {
 fn test_parse_greater_than() {
     let expr = parse_source("2 > 1;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Greater(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Greater");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Greater(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected Greater");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -592,17 +529,15 @@ fn test_parse_greater_than() {
 fn test_parse_less_equal() {
     let expr = parse_source("1 <= 2;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::LessEqual(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected LessEqual");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::LessEqual(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected LessEqual");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -611,17 +546,15 @@ fn test_parse_less_equal() {
 fn test_parse_greater_equal() {
     let expr = parse_source("2 >= 1;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::GreaterEqual(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected GreaterEqual");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::GreaterEqual(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected GreaterEqual");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -632,17 +565,15 @@ fn test_parse_greater_equal() {
 fn test_parse_and() {
     let expr = parse_source("`t & `f;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::And(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected And");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::And(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected And");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -651,17 +582,15 @@ fn test_parse_and() {
 fn test_parse_or() {
     let expr = parse_source("`t | `f;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Or(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Or");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Or(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected Or");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -672,17 +601,15 @@ fn test_parse_or() {
 fn test_parse_negation() {
     let expr = parse_source("!x;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Not(_) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Not");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Not(_) = inner.as_ref() {
+                } else {
+                    panic!("Expected Not");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -691,17 +618,15 @@ fn test_parse_negation() {
 fn test_parse_unary_minus() {
     let expr = parse_source("-5;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Sub(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Sub for unary minus");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Sub(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected Sub for unary minus");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -712,19 +637,17 @@ fn test_parse_unary_minus() {
 fn test_parse_function_call() {
     let expr = parse_source("add(1, 2);");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::CallFunc(name, _, args, _) = inner.as_ref() {
-                        assert_eq!(name, "add");
-                        assert_eq!(args.len(), 2);
-                    } else {
-                        panic!("Expected CallFunc");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::CallFunc(name, _, args, _) = inner.as_ref() {
+                    assert_eq!(name, "add");
+                    assert_eq!(args.len(), 2);
+                } else {
+                    panic!("Expected CallFunc");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -733,19 +656,17 @@ fn test_parse_function_call() {
 fn test_parse_generic_function_call() {
     let expr = parse_source("push<<i32>>(v, 5);");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::CallFunc(name, generics, _, _) = inner.as_ref() {
-                        assert_eq!(name, "push");
-                        assert_eq!(generics.len(), 1);
-                    } else {
-                        panic!("Expected CallFunc");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::CallFunc(name, generics, _, _) = inner.as_ref() {
+                    assert_eq!(name, "push");
+                    assert_eq!(generics.len(), 1);
+                } else {
+                    panic!("Expected CallFunc");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -756,17 +677,15 @@ fn test_parse_generic_function_call() {
 fn test_parse_array_indexing() {
     let expr = parse_source("arr[0];");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Nth(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Nth");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Nth(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected Nth");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -775,18 +694,16 @@ fn test_parse_array_indexing() {
 fn test_parse_array_literal() {
     let expr = parse_source("[1, 2, 3];");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Array(exprs) = inner.as_ref() {
-                        assert_eq!(exprs.len(), 3);
-                    } else {
-                        panic!("Expected Array");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Array(exprs) = inner.as_ref() {
+                    assert_eq!(exprs.len(), 3);
+                } else {
+                    panic!("Expected Array");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -797,18 +714,16 @@ fn test_parse_array_literal() {
 fn test_parse_vector_literal() {
     let expr = parse_source(r#"\{1, 2, 3};"#);
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Vector(exprs) = inner.as_ref() {
-                        assert_eq!(exprs.len(), 3);
-                    } else {
-                        panic!("Expected Vector");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Vector(exprs) = inner.as_ref() {
+                    assert_eq!(exprs.len(), 3);
+                } else {
+                    panic!("Expected Vector");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -819,17 +734,15 @@ fn test_parse_vector_literal() {
 fn test_parse_integer() {
     let expr = parse_source("42;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Int(42) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Int(42)");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Int(42) = inner.as_ref() {
+                } else {
+                    panic!("Expected Int(42)");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -838,18 +751,16 @@ fn test_parse_integer() {
 fn test_parse_float() {
     let expr = parse_source("3.14;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Float(f) = inner.as_ref() {
-                        assert!((f - 3.14).abs() < 0.0001);
-                    } else {
-                        panic!("Expected Float");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Float(f) = inner.as_ref() {
+                    assert!((f - 3.14).abs() < 0.0001);
+                } else {
+                    panic!("Expected Float");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -858,18 +769,16 @@ fn test_parse_float() {
 fn test_parse_string() {
     let expr = parse_source(r#""hello";"#);
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Str(s) = inner.as_ref() {
-                        assert_eq!(s, "hello");
-                    } else {
-                        panic!("Expected Str");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Str(s) = inner.as_ref() {
+                    assert_eq!(s, "hello");
+                } else {
+                    panic!("Expected Str");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -878,17 +787,15 @@ fn test_parse_string() {
 fn test_parse_bool_true() {
     let expr = parse_source("`t;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Bool(true) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Bool(true)");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Bool(true) = inner.as_ref() {
+                } else {
+                    panic!("Expected Bool(true)");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -897,17 +804,15 @@ fn test_parse_bool_true() {
 fn test_parse_bool_false() {
     let expr = parse_source("`f;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Bool(false) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Bool(false)");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Bool(false) = inner.as_ref() {
+                } else {
+                    panic!("Expected Bool(false)");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -916,18 +821,16 @@ fn test_parse_bool_false() {
 fn test_parse_char() {
     let expr = parse_source("'a';");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Char(c) = inner.as_ref() {
-                        assert_eq!(c, "a");
-                    } else {
-                        panic!("Expected Char");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Char(c) = inner.as_ref() {
+                    assert_eq!(c, "a");
+                } else {
+                    panic!("Expected Char");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -938,17 +841,15 @@ fn test_parse_char() {
 fn test_parse_parenthesized_expr() {
     let expr = parse_source("(1 + 2);");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::Add(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Add (parentheses should be stripped)");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::Add(_, _, _) = inner.as_ref() {
+                } else {
+                    panic!("Expected Add (parentheses should be stripped)");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -986,18 +887,16 @@ fn test_operator_precedence() {
 fn test_parse_block_expression() {
     let expr = parse_source("{ 1; 2; 3; }");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Stmt(inner) => {
-                    if let crate::expr::Expr::StmtBlockWithScope(inner_stmts, _) = inner.as_ref() {
-                        assert_eq!(inner_stmts.len(), 3);
-                    } else {
-                        panic!("Expected StmtBlockWithScope");
-                    }
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Stmt(inner) => {
+                if let crate::expr::Expr::StmtBlockWithScope(inner_stmts, _) = inner.as_ref() {
+                    assert_eq!(inner_stmts.len(), 3);
+                } else {
+                    panic!("Expected StmtBlockWithScope");
                 }
-                _ => panic!("Expected Stmt"),
             }
-        }
+            _ => panic!("Expected Stmt"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -1008,15 +907,13 @@ fn test_parse_block_expression() {
 fn test_parse_use_statement() {
     let expr = parse_source(r#"use "mymodule";"#);
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Use { kind, path, .. } => {
-                    assert_eq!(path, "mymodule");
-                    assert!(matches!(kind, crate::expr::UseKind::Normal));
-                }
-                _ => panic!("Expected Use"),
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Use { kind, path, .. } => {
+                assert_eq!(path, "mymodule");
+                assert!(matches!(kind, crate::expr::UseKind::Normal));
             }
-        }
+            _ => panic!("Expected Use"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }
@@ -1025,15 +922,13 @@ fn test_parse_use_statement() {
 fn test_parse_use_std() {
     let expr = parse_source(r#"use std "math";"#);
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Use { kind, path, .. } => {
-                    assert_eq!(path, "math");
-                    assert!(matches!(kind, crate::expr::UseKind::Std));
-                }
-                _ => panic!("Expected Use"),
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::Use { kind, path, .. } => {
+                assert_eq!(path, "math");
+                assert!(matches!(kind, crate::expr::UseKind::Std));
             }
-        }
+            _ => panic!("Expected Use"),
+        },
         _ => panic!("Expected StmtBlock"),
     }
 }

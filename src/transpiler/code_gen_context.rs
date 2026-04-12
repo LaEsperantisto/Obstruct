@@ -28,26 +28,26 @@ impl CodeGenContext {
 #include <stdio.h>
 #include <stdbool.h>
 
-typedef int32_t t_0; // i32
-typedef void t_1; // []
-typedef double t_2; // f64
-typedef bool t_3; // bool
-typedef char t_4; // char
+typedef int32_t t_0CD; // i32
+typedef void t_1CD; // []
+typedef double t_2CD; // f64
+typedef bool t_3CD; // bool
+typedef char t_4CD; // char
 // typedef func t_5; // func - commented out as func is not a C type
 
-t_1 v_0s_0(t_0 i) { // print i32
+t_1CD v_0s_0CD(t_0CD i) { // print i32
     printf(\"%d\",i);
 }
 
-t_0 v_1s_0(t_0 n1, t_0 n2) { // add
+t_0CD v_1s_0CD(t_0CD n1, t_0CD n2) { // add
     return n1 + n2;
 }
 
-t_0 v_2s_0(t_0 n1, t_0 n2) { // less
+t_0CD v_2s_0CD(t_0CD n1, t_0CD n2) { // less
     return n1 < n2;
 }
 
-t_0 v_3s_0(t_0 n1, t_0 n2) { // sub
+t_0CD v_3s_0CD(t_0CD n1, t_0CD n2) { // sub
     return n1 - n2;
 }
 
@@ -57,7 +57,7 @@ t_0 v_3s_0(t_0 n1, t_0 n2) { // sub
             "
 int main() {\n    ",
         );
-        self.body.push_str(&cte.c_var_name("main", Span::empty()));
+        self.body.push_str(&cte.c_func_instance_name("main", &[], Span::empty()));
         self.body.push_str("();\n}");
 
         self.include.clone()

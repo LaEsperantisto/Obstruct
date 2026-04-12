@@ -12,12 +12,6 @@ mod transpiler {
     pub mod compiletime_env;
     pub mod expr_to_c;
 }
-mod englich {
-    pub mod englich_parser;
-    pub mod englich_scanner;
-    pub mod englich_token;
-    pub mod englich_token_type;
-}
 mod parser;
 mod scanner;
 mod span;
@@ -37,7 +31,6 @@ mod tests;
 // TODO Add references
 // TODO Add classes
 
-use crate::englich::{englich_parser, englich_scanner};
 use crate::error::ObstructError;
 use crate::expr::Expr;
 use crate::parser::Parser;
@@ -63,6 +56,7 @@ static SOURCES: Mutex<Vec<String>> = Mutex::new(vec![]);
 static ERROR: Mutex<Result<(), ObstructError>> = Mutex::new(Ok(()));
 static CALL_STACK: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static PROGRAM_NAME: Mutex<String> = Mutex::new(String::new());
+static RUNNING_TESTS: Mutex<bool> = Mutex::new(true);
 
 // Basic Colors
 const BLACK: &str = "\x1b[30m";
@@ -128,6 +122,8 @@ fn run_compiled_c_file(path: &str) {
 }
 
 fn main() -> Result<(), ObstructError> {
+    *RUNNING_TESTS.lock().unwrap() = false;
+
     let result = run();
 
     if result.is_err() {
@@ -170,13 +166,9 @@ fn run() -> Result<(), ObstructError> {
         "".to_string()
     };
     let mut debug = true;
-    let mut englich = false;
-
     for arg in &args {
         if arg == "--release" {
             debug = false;
-        } else if arg == "--englich" {
-            englich = true;
         } else {
             filepath = arg.clone();
         }
@@ -194,11 +186,7 @@ fn run() -> Result<(), ObstructError> {
     let source = file.unwrap();
     SOURCES.lock().unwrap().push(source.clone());
 
-    let ast = if !englich {
-        compile(source)
-    } else {
-        englich_compile(source)
-    };
+    let ast = parse(source);
 
     let mut ctx = CodeGenContext::new();
     let mut cte = CompileTimeEnv::new(&mut ctx);
@@ -217,9 +205,11 @@ fn run() -> Result<(), ObstructError> {
 }
 
 pub fn error(span: Span, message: &str) {
-    report(span.line, span.column, message);
+    if !RUNNING_TESTS.lock().unwrap().clone() {
+        report(span.line, span.column, message);
 
-    panic::set_hook(Box::new(|_| {}));
+        panic::set_hook(Box::new(|_| {}));
+    }
 }
 
 fn get_line(line: usize) -> String {
@@ -279,19 +269,10 @@ pub fn report(line: usize, column: usize, message: &str) {
     *err = Err(ObstructError::new(line, column, message));
 }
 
-pub fn compile(source: String) -> Expr {
+pub fn parse(source: String) -> Expr {
     let mut scanner = Scanner::new(source);
     let tokens = scanner.scan_tokens();
     let mut parser = Parser::new(tokens);
-    let expr = parser.parse();
-
-    expr
-}
-
-pub fn englich_compile(source: String) -> Expr {
-    let mut scanner = englich_scanner::Scanner::new(source);
-    let tokens = scanner.scan_tokens();
-    let mut parser = englich_parser::Parser::new(tokens);
     let expr = parser.parse();
 
     expr

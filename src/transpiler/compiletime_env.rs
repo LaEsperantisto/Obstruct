@@ -49,7 +49,11 @@ impl CompileTimeEnv {
             false,
             Type::with_generics(
                 "func",
-                vec![Type::simple("i32"), Type::simple("i32"), Type::simple("i32")],
+                vec![
+                    Type::simple("i32"),
+                    Type::simple("i32"),
+                    Type::simple("i32"),
+                ],
             ),
         );
         this.add_func_type(
@@ -65,7 +69,11 @@ impl CompileTimeEnv {
             false,
             Type::with_generics(
                 "func",
-                vec![Type::simple("i32"), Type::simple("i32"), Type::simple("i32")],
+                vec![
+                    Type::simple("i32"),
+                    Type::simple("i32"),
+                    Type::simple("i32"),
+                ],
             ),
         );
         this.add_func_type(
@@ -81,7 +89,11 @@ impl CompileTimeEnv {
             false,
             Type::with_generics(
                 "func",
-                vec![Type::simple("i32"), Type::simple("i32"), Type::simple("i32")],
+                vec![
+                    Type::simple("i32"),
+                    Type::simple("i32"),
+                    Type::simple("i32"),
+                ],
             ),
         );
         this.add_func_type(
@@ -150,7 +162,35 @@ impl CompileTimeEnv {
             error(span, format!("Could not find variable '{}'", name).as_str());
             (0, 0)
         });
-        format!("v_{}s_{}", id, scope,)
+        format!("v_{}s_{}", id, scope)
+    }
+
+    /// Returns the C variable name for a function instance with generics.
+    /// Format: v_{id}s_{scope}C{generic_types}D for generic functions, v_{id}s_{scope}CD for non-generic
+    pub fn c_func_instance_name(&mut self, name: &str, generics: &[Type], span: Span) -> String {
+        let (id, scope) = self.resolve_var(name).unwrap_or_else(|| {
+            error(span, format!("Could not find variable '{}'", name).as_str());
+            (0, 0)
+        });
+
+        let mut result = format!("v_{}s_{}", id, scope);
+
+        if generics.is_empty() {
+            // Non-generic function: add CD suffix
+            result.push_str("CD");
+        } else {
+            // Generic function: add C{generics}D
+            result.push('C');
+            for (i, g) in generics.iter().enumerate() {
+                result.push_str(&self.c_type_name_raw(g, span));
+                if i != generics.len() - 1 {
+                    result.push('_');
+                }
+            }
+            result.push('D');
+        }
+
+        result
     }
 
     // Type Handling
@@ -205,27 +245,23 @@ impl CompileTimeEnv {
         }
     }
 
-    pub fn c_type_name(&mut self, ty: &Type, span: Span) -> String {
+    /// Internal helper that generates the type name without the CD suffix
+   fn c_type_name_raw(&mut self, ty: &Type, span: Span) -> String {
         // Check if this is a function type (has "func" as its name)
         if ty.name() == "func" {
-            // For function types, use the mangled format: t_5C{args,ret}D
-            // t_5 is the func marker, C...D wraps all generics (args + return)
+            // For function types, use the mangled format: t_5C{param_types,return_type}D
             let gens = ty.generics();
-            if gens.is_empty() {
-                return "t_5".to_string();
-            }
-
             let mut name = String::from("t_5C");
 
             // Add all generics (args + return type) separated by underscore
             for (i, g) in gens.iter().enumerate() {
-                name.push_str(&self.c_type_name(g, span));
+                name.push_str(&self.c_type_name_raw(g, span));
                 if i != gens.len() - 1 {
                     name.push('_');
                 }
             }
 
-            // Close generics with D at the end
+            // Close with D
             name.push('D');
 
             name
@@ -236,25 +272,24 @@ impl CompileTimeEnv {
                 0
             });
 
-            let mut name = format!("t_{}", type_id);
+            format!("t_{}", type_id)
+        }
+    }
 
-            let gens = ty.generics();
+    /// Public API: returns type name with CD suffix for non-generic consistency
+    /// For function types, the mangling already ends with D, so no additional CD
+    /// For non-function types, add CD suffix
+    pub fn c_type_name(&mut self, ty: &Type, span: Span) -> String {
+        let name = self.c_type_name_raw(ty, span);
 
-            if !gens.is_empty() {
-                name.push('C');
-
-                for (i, g) in gens.iter().enumerate() {
-                    name.push_str(&self.c_type_name(g, span));
-
-                    if i != gens.len() - 1 {
-                        name.push('_');
-                    }
-                }
-
-                name.push('D');
-            }
-
+        // For function types, the raw name already ends with D, so don't add CD
+        if ty.name() == "func" {
             name
+        } else {
+            // For non-function types, add CD suffix for consistency
+            let mut result = name;
+            result.push_str("CD");
+            result
         }
     }
 
@@ -266,7 +301,7 @@ impl CompileTimeEnv {
         span: Span,
     ) {
         // Generate the function type name using the mangling scheme
-        // Format: t_4C{args}D{ret}
+        // Format: t_5C{args, ret}DC{gens}D
         let mut gens = arg_types.clone();
         gens.push(ret_type.clone());
         let func_type = Type::with_generics("func", gens);

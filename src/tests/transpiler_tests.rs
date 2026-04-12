@@ -491,3 +491,46 @@ fn add(a: i32, b: i32) i32 {
         }
     }
 }
+
+#[test]
+fn test_non_generic_function_mangling() {
+    // Test non-generic functions have CD suffix in instance names
+    let source = r#"fn add(a: i32, b: i32) i32 { ret a + b; }; fn main() i32 { ret add(1, 2); }"#;
+    let c = transpile_to_c(source);
+
+    // Non-generic functions should have CD suffix in instance names
+    assert!(c.contains("v_0s_0CD"), "_print should have CD suffix");
+    assert!(c.contains("v_1s_0CD"), "_add should have CD suffix");
+
+    // User functions should also have CD suffix
+    assert!(c.contains("v_4s_0CD"), "user add function should have CD suffix");
+    assert!(c.contains("v_7s_0CD"), "user main function should have CD suffix");
+
+    // Function calls should use CD suffix
+    assert!(c.contains("v_7s_0CD()"), "C main should call user main with CD suffix");
+    assert!(c.contains("v_4s_0CD("), "add should be called with CD suffix");
+}
+
+#[test]
+fn test_function_type_mangling_format() {
+    // Test that function type mangling follows t_5C{params,ret}D format
+    let source = r#"fn add(a: i32, b: i32) i32 { ret a + b; }"#;
+    let c = transpile_to_c(source);
+
+    // Function typedef should use t_5C{params,ret}D format
+    // For add(a:i32, b:i32) -> i32: typedef t_0CD(*t_5Ct_0_t_0_t_0D)(t_0CD,t_0CD);
+    assert!(c.contains("t_5Ct_0_t_0_t_0D"), "Function type should use correct mangling format");
+}
+
+#[test]
+fn test_print_function_call() {
+    // Test that print statements call _print correctly with CD suffix
+    let source = r#"fn main() i32 { $(42); ret 0; }"#;
+    let c = transpile_to_c(source);
+
+    // _print is v_0s_0CD, so print should call v_0s_0CD()
+    assert!(c.contains("v_0s_0CD("), "Print should call _print with CD suffix");
+
+    // Should NOT have calls without CD suffix
+    assert!(!c.contains("v_0s_0("), "Print should not call _print without CD suffix");
+}
