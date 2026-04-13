@@ -26,7 +26,6 @@ mod tests;
 
 // TODO
 //  Add generic functions:
-//      Call the right function
 //      Create function instances for each generic variant
 //  Add generic types
 //  Add "Vec"
