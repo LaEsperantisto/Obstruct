@@ -234,17 +234,14 @@ impl<'a> Parser<'a> {
     fn print(&mut self) -> Expr {
         if self.peek().token_type == TokenType::Dollar {
             self.advance();
-            Expr::Print(
-                Box::new(Expr::Add(
-                    Box::new({
-                        let Expr::Print(a, _) = self.print() else {
-                            return Expr::Nothing();
-                        };
-                        *a
-                    }),
-                    Box::new(Expr::Str("\n".to_string())),
-                    self.get_span(),
-                )),
+            Expr::StmtBlock(
+                vec![
+                    Box::new(self.print()),
+                    Box::new(Expr::Print(
+                        Box::new(Expr::Str("\n".to_string())),
+                        self.get_span(),
+                    )),
+                ],
                 self.get_span(),
             )
         } else if self.peek().token_type == TokenType::Semicolon {

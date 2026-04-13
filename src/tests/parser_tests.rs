@@ -3,6 +3,8 @@
 
 // ========== Statement Block ==========
 
+use crate::expr::Expr;
+
 fn parse_source(source: &str) -> crate::expr::Expr {
     crate::parse(source.to_string())
 }
@@ -220,16 +222,26 @@ fn test_parse_print() {
 fn test_parse_println() {
     let expr = parse_source(r#"$$"Hello";"#);
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => {
-            match statements[0].as_ref() {
-                crate::expr::Expr::Print(inner, _) => {
-                    // $$ should be parsed as print with newline
-                    if let crate::expr::Expr::Add(_, _, _) = inner.as_ref() {
-                    } else {
-                        panic!("Expected Add for println");
-                    }
+        Expr::StmtBlock(statements, _) => {
+            if let Expr::StmtBlock(statements, ..) = statements[0].as_ref() {
+                match statements[0].as_ref() {
+                    Expr::Print(..) => {}
+                    _ => panic!(
+                        "Expected Print in first statement, found: {:?}",
+                        statements[0].as_ref()
+                    ),
                 }
-                _ => panic!("Expected Print"),
+                match statements[1].as_ref() {
+                    Expr::Print(expr, ..) => {
+                        if let Expr::Str(_) = &**expr {
+                        } else {
+                            panic!("Expected Print(Str(_))");
+                        }
+                    }
+                    _ => panic!("Expected Print in second statement"),
+                }
+            } else {
+                panic!("Expected StmtBlock");
             }
         }
         _ => panic!("Expected StmtBlock"),
@@ -254,8 +266,8 @@ fn test_parse_return() {
 fn test_parse_return_value() {
     let expr = parse_source("ret 42;");
     match expr {
-        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
-            crate::expr::Expr::Return(inner, _) => {
+        Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            Expr::Return(inner, _) => {
                 if let crate::expr::Expr::Int(42) = inner.as_ref() {
                 } else {
                     panic!("Expected Int(42)");

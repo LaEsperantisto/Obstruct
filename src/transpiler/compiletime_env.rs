@@ -39,6 +39,7 @@ impl CompileTimeEnv {
         this.register_type(Type::simple("bool"));
         this.register_type(Type::simple("char"));
         this.register_type(Type::simple("func"));
+        this.register_type(Type::simple("str"));
 
         // Declare and register _print: func(i32) -> arr
         this.declare_var(

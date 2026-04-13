@@ -25,14 +25,15 @@ mod variable;
 mod tests;
 
 // TODO
-//  Add generic functions:
-//      Create function instances for each generic variant
+//  Add functionality to "use" keyword
 //  Add generic types
 //  Add "Vec"
 //  Add "str"
 //  Add references
-//  Add "&str"
+//  Add "&str" - Remember to change str literals to "&str" type!
 //  Add classes
+//  Add generic functions:
+//      Create function instances for each generic variant
 //  Add generic classes
 
 use crate::error::ObstructError;

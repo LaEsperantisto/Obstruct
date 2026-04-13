@@ -25,20 +25,25 @@ impl CodeGenContext {
     /// Combines all the parts of the variable into one single String.
     pub fn combine(&mut self, cte: &mut CompileTimeEnv) -> String {
         self.include.push_str(
-            "
+            r#"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
 
 typedef int32_t t_0CD; // i32
-typedef void t_1CD; // []
+typedef void t_1CD; // [] (arr)
 typedef double t_2CD; // f64
 typedef bool t_3CD; // bool
 typedef char t_4CD; // char
 // typedef func t_5; // func - commented out as func is not a C type
+typedef char t_6CD[]; // str (will be changed)
 
 t_1CD v_0s_0Ct_0CDD(t_0CD i) { // print i32
-    printf(\"%d\",i);
+    printf("%d",i);
+}
+
+t_1CD v_0s_0Ct_6CDD(t_6CD s) { // print str
+    printf("%s", s);
 }
 
 t_0CD v_1s_0CD(t_0CD n1, t_0CD n2) { // add
@@ -53,7 +58,7 @@ t_0CD v_3s_0CD(t_0CD n1, t_0CD n2) { // sub
     return n1 - n2;
 }
 
-",
+"#,
         );
         self.body.push_str(
             "

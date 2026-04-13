@@ -25,7 +25,12 @@ impl Expr {
             }
             Expr::Str(s) => {
                 ctx.body.push('"');
-                ctx.body.push_str(s);
+                for c in s.chars() {
+                    match c {
+                        '\n' => ctx.body.push_str("\\n"),
+                        _ => ctx.body.push(c),
+                    }
+                }
                 ctx.body.push('"');
                 false
             }
