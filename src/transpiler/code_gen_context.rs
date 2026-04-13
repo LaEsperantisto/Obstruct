@@ -10,6 +10,7 @@ pub struct CodeGenContext {
 }
 
 impl CodeGenContext {
+    /// The constructor for CodeGenContext
     pub fn new() -> CodeGenContext {
         let ctx = CodeGenContext {
             include: String::new(),
@@ -21,6 +22,7 @@ impl CodeGenContext {
         ctx
     }
 
+    /// Combines all the parts of the variable into one single String.
     pub fn combine(&mut self, cte: &mut CompileTimeEnv) -> String {
         self.include.push_str(
             "
@@ -35,7 +37,7 @@ typedef bool t_3CD; // bool
 typedef char t_4CD; // char
 // typedef func t_5; // func - commented out as func is not a C type
 
-t_1CD v_0s_0CD(t_0CD i) { // print i32
+t_1CD v_0s_0Ct_0CDD(t_0CD i) { // print i32
     printf(\"%d\",i);
 }
 
@@ -57,7 +59,8 @@ t_0CD v_3s_0CD(t_0CD n1, t_0CD n2) { // sub
             "
 int main() {\n    ",
         );
-        self.body.push_str(&cte.c_func_instance_name("main", &[], Span::empty()));
+        self.body
+            .push_str(&cte.c_func_instance_name("main", &[], Span::empty()));
         self.body.push_str("();\n}");
 
         self.include.clone()

@@ -109,7 +109,7 @@ impl Expr {
             Expr::Print(expr, span) => {
                 Expr::CallFunc(
                     "_print".into(),
-                    vec![],  // _print is non-generic, no type parameters
+                    vec![expr.get_type(cte)],
                     vec![expr.clone()],
                     *span,
                 )

@@ -69,9 +69,11 @@ pub enum Expr {
     This(Span),
 
     // Control Flow
-    If(Box<Expr>, Box<Expr>, Option<Box<Expr>>, bool), // if condition, if block, else block, is an expression (and not a statement)
+    /// if condition, if block, else block, is an expression (and not a statement)
+    If(Box<Expr>, Box<Expr>, Option<Box<Expr>>, bool),
     While(Box<Expr>, Box<Expr>),
-    For(String, Box<Expr>, Box<Expr>, Span), // loopee, looper, block
+    /// loopee, looper, block
+    For(String, Box<Expr>, Box<Expr>, Span),
 
     // Others
     Custom(fn(&mut RuntimeEnvironment) -> Value),

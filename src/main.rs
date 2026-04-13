@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 extern crate core;
-const DEBUG: bool = true;
+pub const DEBUG: bool = false;
 
 mod error;
 mod expr;
@@ -24,12 +24,17 @@ mod variable;
 #[cfg(test)]
 mod tests;
 
-// TODO Add generic functions
-// TODO Add generic types
-// TODO Add "Vec"
-// TODO Add "str"
-// TODO Add references
-// TODO Add classes
+// TODO
+//  Add generic functions:
+//      Call the right function
+//      Create function instances for each generic variant
+//  Add generic types
+//  Add "Vec"
+//  Add "str"
+//  Add references
+//  Add "&str"
+//  Add classes
+//  Add generic classes
 
 use crate::error::ObstructError;
 use crate::expr::Expr;

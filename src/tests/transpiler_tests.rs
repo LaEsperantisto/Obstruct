@@ -25,7 +25,10 @@ fn get_types_section(source: &str) -> String {
     let c = transpile_to_c(source);
     // Extract the typedef section
     if let Some(start) = c.find("typedef") {
-        return c[start..].lines().take_while(|line| line.contains("typedef") || line.trim().is_empty()).collect();
+        return c[start..]
+            .lines()
+            .take_while(|line| line.contains("typedef") || line.trim().is_empty())
+            .collect();
     }
     String::new()
 }
@@ -91,8 +94,8 @@ fn test_transpile_arithmetic_expression() {
 
 #[test]
 fn test_transpile_print() {
-    let _c = transpile_to_c("fn add(a: i32, b: i32) i32 { ret a + b; }");
-    // Just verify it compiles - print statements cause issues in current impl
+    let c = transpile_to_c("$10;");
+    assert!(c.contains("v_0s_0Ct_0CDD(10);"));
 }
 
 #[test]
@@ -112,8 +115,7 @@ fn test_transpile_print_variable() {
 #[test]
 fn test_transpile_function_definition() {
     let c = transpile_to_c("fn add(a: i32, b: i32) i32 { ret a + b; }");
-    assert!(c.contains("add"));
-    assert!(c.contains("main"));
+    assert!(c.contains("t_0CD v_4s_0CD(t_0CD v_5s_0, t_0CD v_6s_0){"));
 }
 
 #[test]
@@ -175,7 +177,9 @@ fn test_transpile_assignment() {
 
 #[test]
 fn test_transpile_variable_usage() {
-    let c = transpile_to_c("fn add(a: i32, b: i32) i32 { ret a + b; } fn main(args: vec<<str>>) { ret 0; }");
+    let c = transpile_to_c(
+        "fn add(a: i32, b: i32) i32 { ret a + b; } fn main(args: vec<<str>>) { ret 0; }",
+    );
     assert!(c.contains("v_")); // C variable names exist
 }
 
@@ -336,7 +340,10 @@ fn test_generated_c_type_mapping() {
     let c = transpile_to_c("fn add(a: i32, b: i32) i32 { ret a + b; }");
 
     // i32 should be mapped to a C type
-    assert!(c.contains("t_0") || c.contains("int32"), "Should have type mapping for i32");
+    assert!(
+        c.contains("t_0") || c.contains("int32"),
+        "Should have type mapping for i32"
+    );
 }
 
 // ========== Function Type Mangling ==========
@@ -355,7 +362,10 @@ fn test_function_signature_mangling() {
 
     // Function signature should have: t_5 (func type marker) + C + types + D
     // For fn(a: i32, b: i32) -> i32, mangling: t_5Ct_0_t_0_t_0D
-    assert!(c.contains("t_0"), "Function should reference t_0 (i32) type");
+    assert!(
+        c.contains("t_0"),
+        "Function should reference t_0 (i32) type"
+    );
     assert!(c.contains("t_5"), "Function should use t_5 (func) marker");
 }
 
@@ -369,7 +379,9 @@ fn test_function_type_definition_format() {
 
 #[test]
 fn test_multiple_functions_type_mangling() {
-    let c = transpile_to_c("fn add(a: i32, b: i32) i32 { ret a + b; } fn sub(a: i32, b: i32) i32 { ret a - b; }");
+    let c = transpile_to_c(
+        "fn add(a: i32, b: i32) i32 { ret a + b; } fn sub(a: i32, b: i32) i32 { ret a - b; }",
+    );
 
     // Both functions have same signature, should use same type mangling
     assert!(c.contains("add"));
@@ -379,7 +391,9 @@ fn test_multiple_functions_type_mangling() {
 #[test]
 fn test_function_with_different_return_type() {
     // Use a function with void return (arr = nil) vs i32 return
-    let c = transpile_to_c("fn add(a: i32, b: i32) i32 { ret a + b; } fn main(args: vec<<str>>) { ret 0; }");
+    let c = transpile_to_c(
+        "fn add(a: i32, b: i32) i32 { ret a + b; } fn main(args: vec<<str>>) { ret 0; }",
+    );
 
     // Both functions should exist
     assert!(c.contains("add"));
@@ -400,7 +414,10 @@ fn add(a: i32, b: i32) i32 {
     if c.contains("typedef") {
         // Verify typedef exists and has proper structure
         let has_func_type = c.contains("t_5") && c.contains("C") && c.contains("D");
-        assert!(has_func_type, "Function type should be defined with t_5C...D format");
+        assert!(
+            has_func_type,
+            "Function type should be defined with t_5C...D format"
+        );
     }
 }
 
@@ -421,12 +438,18 @@ fn add(a: i32, b: i32) i32 {
 
     // The typedef should contain the mangling pattern for function types
     // Expected format: typedef t_0(*t_5Ct_0_t_0_t_0D)(t_0,t_0);
-    assert!(c.contains("typedef"), "Should have typedef for function type");
+    assert!(
+        c.contains("typedef"),
+        "Should have typedef for function type"
+    );
 
     // Verify the mangling format: t_5C{args,ret}D
     // For i32 args and i32 return: t_5Ct_0_t_0_t_0D
     assert!(c.contains("t_5C"), "Function type should start with t_5C");
-    assert!(c.contains("t_5Ct_0_t_0_t_0D"), "Function mangling should be t_5Ct_0_t_0_t_0D");
+    assert!(
+        c.contains("t_5Ct_0_t_0_t_0D"),
+        "Function mangling should be t_5Ct_0_t_0_t_0D"
+    );
 }
 
 #[test]
@@ -441,7 +464,10 @@ fn add(a: i32, b: i32) i32 {
     let c = transpile_to_c(source);
 
     // The typedef for _print should use t_5Ct_0_t_1D format
-    assert!(c.contains("t_5Ct_0_t_1D"), "Print function should be mangled as t_5Ct_0_t_1D");
+    assert!(
+        c.contains("t_5Ct_0_t_1D"),
+        "Print function should be mangled as t_5Ct_0_t_1D"
+    );
 }
 
 #[test]
@@ -455,7 +481,10 @@ fn add(a: i32, b: i32) i32 {
 
     // The function declaration should use the mangled type name
     // Expected: t_0 v_Xs_0(t_0 v_Ys_0, t_0 v_Zs_0) with typedef t_0(*t_5Ct_0_t_0_t_0D)(t_0,t_0)
-    assert!(c.contains("t_5Ct_0_t_0_t_0D"), "Function declaration should use mangled type t_5Ct_0_t_0_t_0D");
+    assert!(
+        c.contains("t_5Ct_0_t_0_t_0D"),
+        "Function declaration should use mangled type t_5Ct_0_t_0_t_0D"
+    );
 }
 
 #[test]
@@ -473,7 +502,10 @@ fn add(a: i32, b: i32) i32 {
     // Not: t_5C{args}D{ret} which would be wrong
 
     // Verify D is at the end by checking the pattern
-    assert!(c.contains("t_5Ct_0_t_0_t_0D"), "D marker should be at the very end");
+    assert!(
+        c.contains("t_5Ct_0_t_0_t_0D"),
+        "D marker should be at the very end"
+    );
 
     // Make sure there's no pattern like t_5C...D... (D in the middle)
     let lines: Vec<&str> = c.lines().collect();
@@ -485,7 +517,11 @@ fn add(a: i32, b: i32) i32 {
                 // D should be the last character before the closing paren or semicolon
                 if let Some(end) = rest.find(")") {
                     let mangled = &rest[..end];
-                    assert!(mangled.ends_with('D'), "Mangled type '{}' should end with D", mangled);
+                    assert!(
+                        mangled.ends_with('D'),
+                        "Mangled type '{}' should end with D",
+                        mangled
+                    );
                 }
             }
         }
@@ -498,17 +534,25 @@ fn test_non_generic_function_mangling() {
     let source = r#"fn add(a: i32, b: i32) i32 { ret a + b; }; fn main() i32 { ret add(1, 2); }"#;
     let c = transpile_to_c(source);
 
-    // Non-generic functions should have CD suffix in instance names
-    assert!(c.contains("v_0s_0CD"), "_print should have CD suffix");
-    assert!(c.contains("v_1s_0CD"), "_add should have CD suffix");
-
     // User functions should also have CD suffix
-    assert!(c.contains("v_4s_0CD"), "user add function should have CD suffix");
-    assert!(c.contains("v_7s_0CD"), "user main function should have CD suffix");
+    assert!(
+        c.contains("v_4s_0CD"),
+        "user add function should have CD suffix"
+    );
+    assert!(
+        c.contains("v_7s_0CD"),
+        "user main function should have CD suffix"
+    );
 
     // Function calls should use CD suffix
-    assert!(c.contains("v_7s_0CD()"), "C main should call user main with CD suffix");
-    assert!(c.contains("v_4s_0CD("), "add should be called with CD suffix");
+    assert!(
+        c.contains("v_7s_0CD()"),
+        "C main should call user main with CD suffix"
+    );
+    assert!(
+        c.contains("v_4s_0CD("),
+        "add should be called with CD suffix"
+    );
 }
 
 #[test]
@@ -519,7 +563,10 @@ fn test_function_type_mangling_format() {
 
     // Function typedef should use t_5C{params,ret}D format
     // For add(a:i32, b:i32) -> i32: typedef t_0CD(*t_5Ct_0_t_0_t_0D)(t_0CD,t_0CD);
-    assert!(c.contains("t_5Ct_0_t_0_t_0D"), "Function type should use correct mangling format");
+    assert!(
+        c.contains("t_5Ct_0_t_0_t_0D"),
+        "Function type should use correct mangling format"
+    );
 }
 
 #[test]
@@ -529,8 +576,14 @@ fn test_print_function_call() {
     let c = transpile_to_c(source);
 
     // _print is v_0s_0CD, so print should call v_0s_0CD()
-    assert!(c.contains("v_0s_0CD("), "Print should call _print with CD suffix");
+    assert!(
+        c.contains("v_0s_0Ct_0CDD("),
+        "Print should call _print with CD suffix"
+    );
 
     // Should NOT have calls without CD suffix
-    assert!(!c.contains("v_0s_0("), "Print should not call _print without CD suffix");
+    assert!(
+        !c.contains("v_0s_0("),
+        "Print should not call _print without CD suffix"
+    );
 }

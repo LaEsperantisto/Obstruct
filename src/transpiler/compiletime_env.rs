@@ -1,7 +1,8 @@
-use crate::error;
+use crate::expr::Expr;
 use crate::span::Span;
 use crate::transpiler::code_gen_context::CodeGenContext;
 use crate::type_env::{nil_type, Type};
+use crate::{error, DEBUG};
 use std::collections::HashMap;
 
 pub struct CompileTimeEnv {
@@ -13,6 +14,8 @@ pub struct CompileTimeEnv {
 
     next_var_id: usize,
     next_type_id: usize,
+
+    generic_functions: Vec<(Type, Expr)>,
 }
 
 impl CompileTimeEnv {
@@ -26,6 +29,8 @@ impl CompileTimeEnv {
 
             next_var_id: 0,
             next_type_id: 0,
+
+            generic_functions: Vec::new(),
         };
 
         this.register_type(Type::simple("i32"));
@@ -35,7 +40,7 @@ impl CompileTimeEnv {
         this.register_type(Type::simple("char"));
         this.register_type(Type::simple("func"));
 
-        // Declare and register _print: func(i32) -> void(arr)
+        // Declare and register _print: func(i32) -> arr
         this.declare_var(
             "_print".to_string(),
             false,
@@ -157,6 +162,8 @@ impl CompileTimeEnv {
         false
     }
 
+    /// Returns the C variable name for variables.\
+    /// Format: v_{id}s_{scope}
     pub fn c_var_name(&self, name: &str, span: Span) -> String {
         let (id, scope) = self.resolve_var(name).unwrap_or_else(|| {
             error(span, format!("Could not find variable '{}'", name).as_str());
@@ -165,7 +172,7 @@ impl CompileTimeEnv {
         format!("v_{}s_{}", id, scope)
     }
 
-    /// Returns the C variable name for a function instance with generics.
+    /// Returns the C variable name for a function instance with generics.\
     /// Format: v_{id}s_{scope}C{generic_types}D for generic functions, v_{id}s_{scope}CD for non-generic
     pub fn c_func_instance_name(&mut self, name: &str, generics: &[Type], span: Span) -> String {
         let (id, scope) = self.resolve_var(name).unwrap_or_else(|| {
@@ -182,7 +189,7 @@ impl CompileTimeEnv {
             // Generic function: add C{generics}D
             result.push('C');
             for (i, g) in generics.iter().enumerate() {
-                result.push_str(&self.c_type_name_raw(g, span));
+                result.push_str(&self.c_type_name(g, span));
                 if i != generics.len() - 1 {
                     result.push('_');
                 }
@@ -209,12 +216,14 @@ impl CompileTimeEnv {
         let id = self.next_type_id;
         self.next_type_id += 1;
 
-        println!("register_type: {}, {}", canonical_ty, id);
-
+        if DEBUG {
+            println!("register_type: {}, {}", canonical_ty, id);
+        }
         self.all_types.push(canonical_ty);
         id
     }
 
+    /// Returns the position of a type. Does not check if the type is generic
     fn get_simple_type_id(&self, name: &str) -> usize {
         if let Some(index) = self.all_types.iter().position(|t| t.name() == name) {
             return index;
@@ -222,12 +231,13 @@ impl CompileTimeEnv {
 
         0
     }
-
+    /// Returns the ID of a type. If the type is generic, it registers its generic types
     fn get_type_id(&mut self, ty: &Type) -> Option<usize> {
         let canonical = self.canonicalize_type(ty.clone());
         self.all_types.iter().position(|t| t == &canonical)
     }
 
+    /// Registers the generic types in a generic type
     fn canonicalize_type(&mut self, ty: Type) -> Type {
         let canonical_generics: Vec<Type> = ty
             .generics()
@@ -246,7 +256,7 @@ impl CompileTimeEnv {
     }
 
     /// Internal helper that generates the type name without the CD suffix
-   fn c_type_name_raw(&mut self, ty: &Type, span: Span) -> String {
+    fn c_type_name_raw(&mut self, ty: &Type, span: Span) -> String {
         // Check if this is a function type (has "func" as its name)
         if ty.name() == "func" {
             // For function types, use the mangled format: t_5C{param_types,return_type}D
@@ -276,9 +286,14 @@ impl CompileTimeEnv {
         }
     }
 
-    /// Public API: returns type name with CD suffix for non-generic consistency
-    /// For function types, the mangling already ends with D, so no additional CD
-    /// For non-function types, add CD suffix
+    /// Public API: returns type name with CD suffix for non-generic consistency.\
+    /// For function types, the mangling already ends with D, so no additional CD.\
+    /// For non-function types, add CD suffix.\
+    /// \
+    /// Format for simple types: t_{id}\
+    /// Format for generic types and for simple functions: t_{id}C{generic types}D\
+    /// Format for generic functions: t_{id}C{argument types, return type}DC{generic types}D\
+    /// ^^^Note that generic types, argument types and return type are separated by "_".
     pub fn c_type_name(&mut self, ty: &Type, span: Span) -> String {
         let name = self.c_type_name_raw(ty, span);
 
@@ -339,5 +354,10 @@ impl CompileTimeEnv {
                 scope.remove(name);
             }
         }
+    }
+
+    pub fn complete(&mut self, _ctx: &mut CodeGenContext) {
+        todo!("This function is currently not implemented");
+        for generic_function in &mut self.generic_functions {}
     }
 }
