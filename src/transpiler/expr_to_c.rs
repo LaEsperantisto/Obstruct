@@ -15,7 +15,12 @@ impl Expr {
                 false
             }
             Expr::Float(n) => {
-                ctx.body.push_str(&n.to_string());
+                if n.fract() == 0.0 {
+                    ctx.body.push_str(&n.to_string());
+                    ctx.body.push_str(".0");
+                } else {
+                    ctx.body.push_str(&n.to_string());
+                }
                 false
             }
 
@@ -348,7 +353,7 @@ impl Expr {
                         output
                     }),
                 );
-                ctx.body.push_str(
+                ctx.declarations.push_str(
                     format!(
                         "{} {}(",
                         cte.c_type_name(&return_type, *span),

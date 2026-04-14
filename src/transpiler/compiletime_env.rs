@@ -362,6 +362,12 @@ impl CompileTimeEnv {
         gens.push(ret_type.clone());
         let func_type = Type::with_generics("func", gens);
 
+        if self.get_type_id(&func_type).is_some() {
+            return;
+        }
+
+        self.register_type(func_type.clone());
+
         let func_type_name = self.c_type_name(&func_type, span);
 
         // Generate the typedef for the function type

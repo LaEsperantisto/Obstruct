@@ -37,10 +37,14 @@ typedef double t_2CD; // f64
 typedef bool t_3CD; // bool
 typedef char t_4CD; // char
 // typedef func t_5; // func - commented out as func is not a C type
-typedef char t_6CD[]; // str (will be changed)
+typedef char* t_6CD; // str (will be changed)
 
 t_1CD v_0s_0Ct_0CDD(t_0CD i) { // print i32
-    printf("%d",i);
+    printf("%d", i);
+}
+
+t_2CD v_0s_0Ct_2CDD(t_2CD n) { // print f64
+    printf("%.6f", n);
 }
 
 t_1CD v_0s_0Ct_6CDD(t_6CD s) { // print str

@@ -113,6 +113,7 @@ fn compile_c_file(path: &str, output: &str) {
         .arg(path)
         .arg("-o")
         .arg(output)
+        .arg("-lm")
         .status()
         .expect("failed to compile C code");
 
