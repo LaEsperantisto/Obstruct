@@ -149,6 +149,30 @@ impl CompileTimeEnv {
             Span::empty(),
         );
 
+        // Declare and register intput: func() -> i32
+        this.declare_var(
+            "intput".to_string(),
+            false,
+            Type::with_generics("func", vec![Type::simple("i32")]),
+        );
+        this.add_func_type(Type::simple("i32"), vec![], ctx, Span::empty());
+
+        // Declare and register fput: func() -> f64
+        this.declare_var(
+            "fput".to_string(),
+            false,
+            Type::with_generics("func", vec![Type::simple("f64")]),
+        );
+        this.add_func_type(Type::simple("f64"), vec![], ctx, Span::empty());
+
+        // Declare and register strput: func() -> str
+        this.declare_var(
+            "strput".to_string(),
+            false,
+            Type::with_generics("func", vec![Type::simple("str")]),
+        );
+        this.add_func_type(Type::simple("str"), vec![], ctx, Span::empty());
+
         this
     }
 

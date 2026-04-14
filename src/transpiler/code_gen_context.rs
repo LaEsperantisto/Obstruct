@@ -29,6 +29,9 @@ impl CodeGenContext {
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdlib.h>
+
+#include <string.h>
 #include <math.h>
 
 typedef int32_t t_0CD; // i32
@@ -69,6 +72,32 @@ t_2CD v_4s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // pow f64
 
 t_2CD v_5s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // div f64
     return n1 / n2;
+}
+
+t_0CD v_6s_0CD() { // intput
+    t_0CD output;
+    scanf("%d", &output);
+    return output;
+}
+
+t_2CD v_7s_0CD() { // fput
+    t_2CD output;
+    scanf("%f", &output);
+    return output;
+}
+
+t_6CD v_8s_0CD() { // strput
+    char* buffer = malloc(256 * sizeof(char));
+    if (buffer == NULL) return NULL; // Handle allocation failure
+
+    if (fgets(buffer, 256, stdin)) {
+        // Optional: Remove trailing newline
+        buffer[strcspn(buffer, "\n")] = 0;
+        return buffer;
+    }
+
+    free(buffer);
+    return NULL;
 }
 
 "#,
