@@ -932,11 +932,11 @@ fn test_parse_use_statement() {
 
 #[test]
 fn test_parse_use_std() {
-    let expr = parse_source(r#"use std "math";"#);
+    let expr = parse_source(r#"use std "math.obs";"#);
     match expr {
         crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
             crate::expr::Expr::Use { kind, path, .. } => {
-                assert_eq!(path, "math");
+                assert_eq!(path, "math.obs");
                 assert!(matches!(kind, crate::expr::UseKind::Std));
             }
             _ => panic!("Expected Use"),

@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 extern crate core;
-pub const DEBUG: bool = false;
+pub const DEBUG: bool = true;
 
 mod error;
 mod expr;
@@ -24,6 +24,9 @@ mod variable;
 #[cfg(test)]
 mod tests;
 
+// FIXME
+//  The random character appearing in transpiled C code
+
 // TODO
 //  Add functionality to "use" keyword
 //  Add generic types
@@ -45,6 +48,7 @@ use crate::transpiler::code_gen_context::CodeGenContext;
 use crate::transpiler::compiletime_env::CompileTimeEnv;
 use colored::Colorize;
 use image::GenericImageView;
+use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
@@ -54,7 +58,7 @@ use std::process::Command;
 use std::sync::Mutex;
 
 // Paths
-const STD_PATH: &str = "/home/aster/dev/obstruct/std/"; // end in a "/" !!!
+pub const STD_PATH: &str = "/home/aster/dev/rust/Obstruct/std/"; // end in a "/" !!!
 
 // Global Variables
 static SOURCES: Mutex<Vec<String>> = Mutex::new(vec![]);
@@ -179,31 +183,65 @@ fn run() -> Result<(), ObstructError> {
         }
     }
 
-    let program_name = Path::new(&filepath)
+    let main_program_name = Path::new(&filepath)
         .file_stem()
         .and_then(|name| name.to_str())
         .unwrap_or(&filepath)
         .to_string();
 
-    *PROGRAM_NAME.lock().unwrap() = program_name;
-
-    let file = fs::read_to_string(&filepath);
-    let source = file.unwrap();
-    SOURCES.lock().unwrap().push(source.clone());
-
-    let ast = parse(source);
+    *PROGRAM_NAME.lock().unwrap() = main_program_name.clone();
 
     let mut ctx = CodeGenContext::new();
     let mut cte = CompileTimeEnv::new(&mut ctx);
-
     ctx.body.push_str(&format!("\nbool DEBUG = {};\n\n", debug));
 
-    ast.to_c(&mut cte, &mut ctx);
+    let mut programs_to_transpile = HashMap::new();
+    programs_to_transpile.insert(filepath, false);
 
+    loop {
+        let next_file = programs_to_transpile
+            .iter()
+            .find(|(_, transpiled)| !**transpiled)
+            .map(|(name, _)| name.clone());
+
+        if DEBUG {
+            println!("{:?}", next_file);
+        }
+
+        match next_file {
+            Some(name) => {
+                // Mark it as true immediately so we don't process it again
+                programs_to_transpile.insert(name.clone(), true);
+
+                let source = fs::read_to_string(&name)
+                    .map_err(|_| ObstructError::file_not_found(name.clone()))?;
+
+                SOURCES.lock().unwrap().push(source.clone());
+                let ast = parse(source);
+
+                ast.pre_transpile(&mut cte, &mut ctx, &mut programs_to_transpile);
+
+                SOURCES.lock().unwrap().pop();
+            }
+            None => break,
+        }
+    }
+
+    for programs in programs_to_transpile.keys() {
+        let source = fs::read_to_string(&programs)
+            .map_err(|_| ObstructError::file_not_found(programs.clone()))?;
+
+        SOURCES.lock().unwrap().push(source.clone());
+        let ast = parse(source);
+
+        ast.to_c(&mut cte, &mut ctx);
+
+        SOURCES.lock().unwrap().pop();
+    }
+
+    // Final combined C code
     let mut file = File::create(PROGRAM_NAME.lock().unwrap().clone() + ".c").unwrap();
     file.write_all(ctx.combine(&mut cte).as_bytes()).unwrap();
-
-    SOURCES.lock().unwrap().pop();
 
     let error = ERROR.lock().unwrap().clone();
     error

@@ -1,9 +1,10 @@
-use crate::error;
-use crate::expr::Expr;
+use crate::expr::{Expr, UseKind};
 use crate::span::Span;
 use crate::transpiler::code_gen_context::CodeGenContext;
 use crate::transpiler::compiletime_env::CompileTimeEnv;
 use crate::type_env::{nil_type, Type};
+use crate::{error, STD_PATH};
+use std::collections::HashMap;
 
 impl Expr {
     pub fn to_c(&self, cte: &mut CompileTimeEnv, ctx: &mut CodeGenContext) -> bool {
@@ -13,6 +14,11 @@ impl Expr {
                 ctx.body.push_str(&n.to_string());
                 false
             }
+            Expr::Float(n) => {
+                ctx.body.push_str(&n.to_string());
+                false
+            }
+
             Expr::Bool(b) => {
                 ctx.body.push_str(if *b { "1" } else { "0" });
                 false
@@ -36,14 +42,46 @@ impl Expr {
             }
 
             Expr::Add(l, r, span) => {
-                Expr::CallFunc("_add".into(), vec![], vec![l.clone(), r.clone()], *span)
-                    .to_c(cte, ctx);
+                Expr::CallFunc(
+                    "_add".into(),
+                    vec![l.get_type(cte)],
+                    vec![l.clone(), r.clone()],
+                    *span,
+                )
+                .to_c(cte, ctx);
+                false
+            }
+
+            Expr::Div(l, r, span) => {
+                Expr::CallFunc(
+                    "_div".into(),
+                    vec![l.get_type(cte)],
+                    vec![l.clone(), r.clone()],
+                    *span,
+                )
+                .to_c(cte, ctx);
                 false
             }
 
             Expr::Less(l, r, span) => {
-                Expr::CallFunc("_less".into(), vec![], vec![l.clone(), r.clone()], *span)
-                    .to_c(cte, ctx);
+                Expr::CallFunc(
+                    "_less".into(),
+                    vec![l.get_type(cte)],
+                    vec![l.clone(), r.clone()],
+                    *span,
+                )
+                .to_c(cte, ctx);
+                false
+            }
+
+            Expr::Power(l, r, span) => {
+                Expr::CallFunc(
+                    "_pow".into(),
+                    vec![l.get_type(cte)],
+                    vec![l.clone(), r.clone()],
+                    *span,
+                )
+                .to_c(cte, ctx);
                 false
             }
 
@@ -183,16 +221,6 @@ impl Expr {
             }
 
             Expr::DeclareFunction(name, block, return_type, args, _gens, span) => {
-                if cte.get_var(name).is_some() {
-                    error(
-                        *span,
-                        format!(
-                            "Variable '{}' already exists and is immutable, could not declare function",
-                            name
-                        )
-                        .as_str(),
-                    );
-                }
                 let mut arg_types = vec![];
                 for arg in args {
                     arg_types.push(arg.1.clone());
@@ -209,16 +237,6 @@ impl Expr {
                 };
 
                 cte.add_func_type(return_type.clone(), arg_types.clone(), ctx, *span);
-                // Declare the variable first so c_func_instance_name can find it
-                cte.declare_var(
-                    name.clone(),
-                    false,
-                    Type::with_generics("func", {
-                        arg_types.push(return_type.clone());
-                        let output = arg_types;
-                        output
-                    }),
-                );
                 ctx.body.push_str(
                     format!(
                         "{} {}(",
@@ -284,9 +302,103 @@ impl Expr {
                 true
             }
 
+            Expr::Use { .. } => false,
+
             _ => panic!("unexpected expression (for transpilation) '{:?}'", self),
         }
     }
+
+    pub fn pre_transpile(
+        &self,
+        cte: &mut CompileTimeEnv,
+        ctx: &mut CodeGenContext,
+        programs_to_transpile: &mut HashMap<String, bool>,
+    ) {
+        match self {
+            Expr::DeclareFunction(name, block, return_type, args, _gens, span) => {
+                if cte.get_var(name).is_some() {
+                    error(
+                    *span,
+                    format!(
+                        "Variable '{}' already exists and is immutable, could not declare function",
+                        name
+                    )
+                        .as_str(),
+                );
+                }
+                let mut arg_types = vec![];
+                for arg in args {
+                    arg_types.push(arg.1.clone());
+                }
+                let ret_type = block.returned_type(cte, *span);
+                let return_type = if return_type.is_some() {
+                    return_type.clone().unwrap()
+                } else {
+                    if let Some(ty) = ret_type.clone() {
+                        ty
+                    } else {
+                        nil_type()
+                    }
+                };
+
+                cte.add_func_type(return_type.clone(), arg_types.clone(), ctx, *span);
+                // Declare the variable first so c_func_instance_name can find it
+                cte.declare_var(
+                    name.clone(),
+                    false,
+                    Type::with_generics("func", {
+                        arg_types.push(return_type.clone());
+                        let output = arg_types;
+                        output
+                    }),
+                );
+                ctx.body.push_str(
+                    format!(
+                        "{} {}(",
+                        cte.c_type_name(&return_type, *span),
+                        cte.c_func_instance_name(&name, &[], *span),
+                    )
+                    .as_str(),
+                );
+
+                for arg in args {
+                    cte.declare_var(arg.0.clone(), false, arg.1.clone());
+                    ctx.declarations.push_str(&cte.c_type_name(&arg.1, *span));
+                    ctx.declarations.push(' ');
+                    ctx.declarations.push_str(&cte.c_var_name(&arg.0, *span));
+                    ctx.declarations.push_str(", ");
+                }
+                if ctx.declarations.ends_with(", ") {
+                    ctx.declarations.pop();
+                    ctx.declarations.pop();
+                }
+
+                ctx.declarations.push_str(");\n");
+
+                block.pre_transpile(cte, ctx, programs_to_transpile);
+            }
+            Expr::Use {
+                kind,
+                path,
+                span: _span,
+            } => {
+                let crate_path = match kind {
+                    UseKind::Std => STD_PATH,
+                    UseKind::Normal => "",
+                };
+                programs_to_transpile.insert(format!("{}{}", crate_path, path), false);
+            }
+
+            Expr::StmtBlock(exprs, _) | Expr::StmtBlockWithScope(exprs, _) => {
+                for expr in exprs {
+                    expr.pre_transpile(cte, ctx, programs_to_transpile);
+                }
+            }
+
+            _ => {}
+        }
+    }
+
     fn get_type(&self, cte: &CompileTimeEnv) -> Type {
         match self {
             Expr::Int(_) => "i32".into(),
@@ -297,13 +409,26 @@ impl Expr {
             Expr::Add(_, _, _) => "i32".into(),
             Expr::Sub(_, _, _) => "i32".into(),
             Expr::Return(expr, _span) => expr.get_type(cte),
-            Expr::CallFunc(name, _, _, _) => {
-                let variable = cte.get_var(name).unwrap().1;
+            Expr::CallFunc(name, _, _, span) => {
+                let variable = cte
+                    .get_var(name)
+                    .unwrap_or_else(|| {
+                        error(*span, "Variable not defined");
+                        (false, nil_type())
+                    })
+                    .1;
                 variable.generics()[0].clone()
             }
             Expr::StmtBlock(exprs, _span) => exprs.last().unwrap().get_type(cte),
             Expr::StmtBlockWithScope(exprs, _span) => exprs.last().unwrap().get_type(cte),
-            Expr::Variable(name, _) => cte.get_var(name).unwrap().1,
+            Expr::Variable(name, span) => {
+                cte.get_var(name)
+                    .unwrap_or_else(|| {
+                        error(*span, "Variable not defined");
+                        (false, nil_type())
+                    })
+                    .1
+            }
             Expr::Discard(expr) => expr.get_type(cte),
             Expr::Print(expr, _) => expr.get_type(cte),
             _ => panic!("unexpected expression (for type check) '{:?}'", self),

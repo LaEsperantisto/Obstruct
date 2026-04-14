@@ -109,6 +109,46 @@ impl CompileTimeEnv {
             Span::empty(),
         );
 
+        // Declare and register _pow: func(f64, f64) -> f64
+        this.declare_var(
+            "_pow".to_string(),
+            false,
+            Type::with_generics(
+                "func",
+                vec![
+                    Type::simple("f64"),
+                    Type::simple("f64"),
+                    Type::simple("f64"),
+                ],
+            ),
+        );
+        this.add_func_type(
+            Type::simple("f64"),
+            vec![Type::simple("f64"), Type::simple("f64")],
+            ctx,
+            Span::empty(),
+        );
+
+        // Declare and register _div: func(f64, f64) -> f64
+        this.declare_var(
+            "_div".to_string(),
+            false,
+            Type::with_generics(
+                "func",
+                vec![
+                    Type::simple("f64"),
+                    Type::simple("f64"),
+                    Type::simple("f64"),
+                ],
+            ),
+        );
+        this.add_func_type(
+            Type::simple("f64"),
+            vec![Type::simple("f64"), Type::simple("f64")],
+            ctx,
+            Span::empty(),
+        );
+
         this
     }
 
@@ -359,6 +399,5 @@ impl CompileTimeEnv {
 
     pub fn complete(&mut self, _ctx: &mut CodeGenContext) {
         todo!("This function is currently not implemented");
-        for generic_function in &mut self.generic_functions {}
     }
 }

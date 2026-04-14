@@ -29,6 +29,7 @@ impl CodeGenContext {
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <math.h>
 
 typedef int32_t t_0CD; // i32
 typedef void t_1CD; // [] (arr)
@@ -46,7 +47,7 @@ t_1CD v_0s_0Ct_6CDD(t_6CD s) { // print str
     printf("%s", s);
 }
 
-t_0CD v_1s_0CD(t_0CD n1, t_0CD n2) { // add
+t_0CD v_1s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // add i32
     return n1 + n2;
 }
 
@@ -56,6 +57,14 @@ t_0CD v_2s_0CD(t_0CD n1, t_0CD n2) { // less
 
 t_0CD v_3s_0CD(t_0CD n1, t_0CD n2) { // sub
     return n1 - n2;
+}
+
+t_2CD v_4s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // pow f64
+    return pow(n1, n2);
+}
+
+t_2CD v_5s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // div f64
+    return n1 / n2;
 }
 
 "#,

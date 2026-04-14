@@ -14,6 +14,10 @@ impl ObstructError {
             message: message.into(),
         }
     }
+
+    pub fn file_not_found(path: String) -> Self {
+        Self::new(0, 0, path)
+    }
 }
 
 impl fmt::Display for ObstructError {
