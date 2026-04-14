@@ -25,7 +25,6 @@ mod variable;
 mod tests;
 
 // FIXME
-//  The random character appearing in transpiled C code
 
 // TODO
 //  Add functionality to "use" keyword
