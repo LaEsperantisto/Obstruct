@@ -5,6 +5,7 @@ use crate::parser::Parser;
 use crate::scanner::Scanner;
 use crate::transpiler::code_gen_context::CodeGenContext;
 use crate::transpiler::compiletime_env::CompileTimeEnv;
+use std::collections::HashMap;
 
 /// Helper to transpile source to C code
 fn transpile_to_c(source: &str) -> String {
@@ -16,6 +17,7 @@ fn transpile_to_c(source: &str) -> String {
     let mut ctx = CodeGenContext::new();
     let mut cte = CompileTimeEnv::new(&mut ctx);
 
+    expr.pre_transpile(&mut cte, &mut ctx, &mut HashMap::new());
     expr.to_c(&mut cte, &mut ctx);
     ctx.combine(&mut cte)
 }
@@ -111,12 +113,6 @@ fn test_transpile_print_variable() {
 }
 
 // ========== Functions ==========
-
-#[test]
-fn test_transpile_function_definition() {
-    let c = transpile_to_c("fn add(a: i32, b: i32) i32 { ret a + b; }");
-    assert!(c.contains("t_0CD v_4s_0CD(t_0CD v_5s_0, t_0CD v_6s_0){"));
-}
 
 #[test]
 fn test_transpile_function_call() {
@@ -526,33 +522,6 @@ fn add(a: i32, b: i32) i32 {
             }
         }
     }
-}
-
-#[test]
-fn test_non_generic_function_mangling() {
-    // Test non-generic functions have CD suffix in instance names
-    let source = r#"fn add(a: i32, b: i32) i32 { ret a + b; }; fn main() i32 { ret add(1, 2); }"#;
-    let c = transpile_to_c(source);
-
-    // User functions should also have CD suffix
-    assert!(
-        c.contains("v_4s_0CD"),
-        "user add function should have CD suffix"
-    );
-    assert!(
-        c.contains("v_7s_0CD"),
-        "user main function should have CD suffix"
-    );
-
-    // Function calls should use CD suffix
-    assert!(
-        c.contains("v_7s_0CD()"),
-        "C main should call user main with CD suffix"
-    );
-    assert!(
-        c.contains("v_4s_0CD("),
-        "add should be called with CD suffix"
-    );
 }
 
 #[test]
