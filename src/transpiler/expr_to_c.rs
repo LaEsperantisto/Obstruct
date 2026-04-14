@@ -84,6 +84,25 @@ impl Expr {
                 .to_c(cte, ctx);
                 false
             }
+            Expr::Sub(l, r, span) => {
+                Expr::CallFunc("_sub".into(), vec![], vec![l.clone(), r.clone()], *span)
+                    .to_c(cte, ctx);
+                false
+            }
+            Expr::Mult(l, r, span) => {
+                Expr::CallFunc("_mult".into(), vec![], vec![l.clone(), r.clone()], *span)
+                    .to_c(cte, ctx);
+                false
+            }
+            Expr::StmtBlock(exprs, _span) => {
+                for expr in exprs {
+                    if expr.to_c(cte, ctx) {
+                        ctx.body.push(';');
+                    }
+                    ctx.body.push('\n');
+                }
+                false
+            }
 
             Expr::If(if_cond, if_block, else_block, is_expr) => {
                 if !is_expr {
@@ -116,30 +135,7 @@ impl Expr {
 
                 false
             }
-            Expr::Sub(l, r, span) => {
-                Expr::CallFunc("_sub".into(), vec![], vec![l.clone(), r.clone()], *span)
-                    .to_c(cte, ctx);
-                false
-            }
-            Expr::Mult(l, r, span) => {
-                Expr::CallFunc("_mult".into(), vec![], vec![l.clone(), r.clone()], *span)
-                    .to_c(cte, ctx);
-                false
-            }
-            Expr::Div(l, r, span) => {
-                Expr::CallFunc("_div".into(), vec![], vec![l.clone(), r.clone()], *span)
-                    .to_c(cte, ctx);
-                false
-            }
-            Expr::StmtBlock(exprs, _span) => {
-                for expr in exprs {
-                    if expr.to_c(cte, ctx) {
-                        ctx.body.push(';');
-                    }
-                    ctx.body.push('\n');
-                }
-                false
-            }
+
             Expr::StmtBlockWithScope(exprs, span) => {
                 cte.push_scope();
                 ctx.body.push_str("{\n");

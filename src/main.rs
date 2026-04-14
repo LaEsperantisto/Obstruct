@@ -56,6 +56,7 @@ use std::panic;
 use std::path::Path;
 use std::process::Command;
 use std::sync::Mutex;
+use std::time::Instant;
 
 // Paths
 pub const STD_PATH: &str = "/home/aster/dev/rust/Obstruct/std/"; // end in a "/" !!!
@@ -131,6 +132,8 @@ fn run_compiled_c_file(path: &str) {
 }
 
 fn main() -> Result<(), ObstructError> {
+    let start = Instant::now();
+
     *RUNNING_TESTS.lock().unwrap() = false;
 
     let result = run();
@@ -141,8 +144,13 @@ fn main() -> Result<(), ObstructError> {
 
     let program_name = PROGRAM_NAME.lock().unwrap().clone();
 
+    println!("Took {:?} seconds to transpile into C.", start.elapsed());
+
     compile_c_file(&(program_name.clone() + ".c"), &program_name);
+
+    println!("Took {:?} seconds to compile into C code.", start.elapsed());
     run_compiled_c_file(&program_name);
+
     println!();
 
     result
