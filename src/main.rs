@@ -148,7 +148,7 @@ fn main() -> Result<(), ObstructError> {
 
     compile_c_file(&(program_name.clone() + ".c"), &program_name);
 
-    println!("Took {:?} seconds to compile into C code.", start.elapsed());
+    println!("Took {:?} seconds to compile C code.", start.elapsed());
     run_compiled_c_file(&program_name);
 
     println!();
@@ -197,6 +197,11 @@ fn run() -> Result<(), ObstructError> {
         .unwrap_or(&filepath)
         .to_string();
 
+    if main_program_name.is_empty() {
+        eprintln!("Invalid program name");
+        std::process::exit(1);
+    }
+
     *PROGRAM_NAME.lock().unwrap() = main_program_name.clone();
 
     let mut ctx = CodeGenContext::new();
@@ -211,10 +216,6 @@ fn run() -> Result<(), ObstructError> {
             .iter()
             .find(|(_, transpiled)| !**transpiled)
             .map(|(name, _)| name.clone());
-
-        if DEBUG {
-            println!("{:?}", next_file);
-        }
 
         match next_file {
             Some(name) => {
