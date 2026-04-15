@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 extern crate core;
-pub const DEBUG: bool = true;
+pub const DEBUG: bool = false;
 
 mod error;
 mod expr;
@@ -144,11 +144,15 @@ fn main() -> Result<(), ObstructError> {
 
     let program_name = PROGRAM_NAME.lock().unwrap().clone();
 
-    println!("Took {:?} seconds to transpile into C.", start.elapsed());
+    let transpile_time = start.elapsed();
+    println!("Took {:?} seconds to transpile into C.", transpile_time);
 
     compile_c_file(&(program_name.clone() + ".c"), &program_name);
 
-    println!("Took {:?} seconds to compile C code.", start.elapsed());
+    let compile_time = start.elapsed();
+    println!("Took {:?} seconds to compile C code.", compile_time);
+    println!("Total: {:?}", compile_time + transpile_time);
+
     run_compiled_c_file(&program_name);
 
     println!();
