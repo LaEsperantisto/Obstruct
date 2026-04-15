@@ -192,6 +192,7 @@ impl Scanner {
                             column: self.column,
                         },
                         "Unexpected character.",
+                        "scanning",
                     );
                 }
             }
@@ -288,6 +289,7 @@ impl Scanner {
                                 column: self.column,
                             },
                             "Unterminated escape sequence in string.",
+                            "lexing",
                         );
                         return;
                     }
@@ -306,6 +308,7 @@ impl Scanner {
                                     column: self.column,
                                 },
                                 &format!("Invalid escape sequence: \\{}", esc),
+                                "lexing",
                             );
                             return;
                         }
@@ -321,6 +324,7 @@ impl Scanner {
                 column: self.column,
             },
             "Unterminated string literal.",
+            "lexing",
         );
     }
 
@@ -375,6 +379,7 @@ impl Scanner {
                     column: self.column,
                 },
                 "Unterminated character literal.",
+                "lexing",
             );
             return;
         }
@@ -388,6 +393,7 @@ impl Scanner {
                         column: self.column,
                     },
                     "Unterminated escape sequence.",
+                    "lexing",
                 );
                 return;
             }
@@ -405,6 +411,7 @@ impl Scanner {
                             column: self.column,
                         },
                         &format!("Invalid escape sequence: \\{}", esc),
+                        "lexing",
                     );
                     return;
                 }
@@ -420,6 +427,7 @@ impl Scanner {
                     column: self.column,
                 },
                 "Character literal too long or missing closing quote.",
+                "lexing",
             );
             return;
         }
@@ -436,6 +444,7 @@ impl Scanner {
                     column: self.column,
                 },
                 "Expected character after backtick (`)",
+                "lexing",
             );
             return;
         }
@@ -459,6 +468,7 @@ impl Scanner {
                         column: self.column,
                     },
                     "Invalid character after backtick (`)",
+                    "lexing",
                 );
                 return;
             }
@@ -471,6 +481,7 @@ impl Scanner {
                     column: self.column,
                 },
                 "Only a single character should be after a backtick (`)",
+                "lexing",
             );
         }
     }
@@ -494,6 +505,7 @@ impl Scanner {
                 column: self.column,
             },
             "Unterminated block comment.",
+            "lexing",
         );
     }
 }

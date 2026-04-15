@@ -1,4 +1,8 @@
 
 fn sqrt(n: f64) f64 {
-    n ** ( 1.0 / 2.0 )
+    ret n ** ( 1.0 / 2.0 );
+};
+
+fn pythagoras(a: f64, b: f64) f64 {
+    ret sqrt(a ** 2 + b ** 2);
 };

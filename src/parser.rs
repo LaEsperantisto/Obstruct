@@ -25,6 +25,7 @@ impl<'a> Parser<'a> {
                 error(
                     self.get_span(),
                     format!("Expected ';' after statement. Found '{}'", t.token_type).as_str(),
+                    "parsing",
                 );
                 self.advance();
             }
@@ -107,6 +108,7 @@ impl<'a> Parser<'a> {
                 error(
                     self.get_span(),
                     format!("Expected ';' after statement. Found '{}'", t.token_type).as_str(),
+                    "parsing",
                 );
                 self.advance();
             }
@@ -127,7 +129,11 @@ impl<'a> Parser<'a> {
         if self.match_any(&[TokenType::Ident]) {
             Expr::Delete(self.previous().lexeme)
         } else {
-            error(self.get_span(), "Expected variable name after 'del'.");
+            error(
+                self.get_span(),
+                "Expected variable name after 'del'.",
+                "parsing",
+            );
             Expr::Nothing()
         }
     }
@@ -148,6 +154,7 @@ impl<'a> Parser<'a> {
                     + self.previous().lexeme.as_str()
                     + "'")
                     .as_str(),
+                "parsing",
             );
             Expr::Nothing()
         };
@@ -188,7 +195,11 @@ impl<'a> Parser<'a> {
 
         if var_type.is_none() && expr.is_none() {
             let span = self.get_span();
-            error(span, "Expected type or expression or both, got neither");
+            error(
+                span,
+                "Expected type or expression or both, got neither",
+                "parsing",
+            );
         }
         Expr::Declare(name, var_type, expr, is_mutable, self.get_span())
     }
@@ -215,6 +226,7 @@ impl<'a> Parser<'a> {
                     + self.previous().lexeme.as_str()
                     + "'")
                     .as_str(),
+                "parsing",
             );
             Expr::Nothing()
         };
@@ -531,7 +543,7 @@ impl<'a> Parser<'a> {
                     self.get_span(),
                 )
             } else {
-                error(self.get_span(), "Expected identifier after '&'.");
+                error(self.get_span(), "Expected identifier after '&'.", "parsing");
                 Expr::Nothing()
             };
         }
@@ -759,6 +771,7 @@ impl<'a> Parser<'a> {
             error(
                 self.get_span(),
                 format!("{} Found: {}", message, t.token_type).as_str(),
+                "parsing",
             );
             self.advance();
             Token::nil()

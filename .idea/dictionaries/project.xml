@@ -7,6 +7,7 @@
       <w>intput</w>
       <w>loopee</w>
       <w>stdint</w>
+      <w>strlit</w>
       <w>strput</w>
       <w>tenv</w>
     </words>

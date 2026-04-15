@@ -39,7 +39,7 @@ impl CompileTimeEnv {
         this.register_type(Type::simple("bool"));
         this.register_type(Type::simple("char"));
         this.register_type(Type::simple("func"));
-        this.register_type(Type::simple("str"));
+        this.register_type(Type::simple("strlit"));
 
         // Declare and register _print: func(i32) -> arr
         this.declare_var(
@@ -165,13 +165,13 @@ impl CompileTimeEnv {
         );
         this.add_func_type(Type::simple("f64"), vec![], ctx, Span::empty());
 
-        // Declare and register strput: func() -> str
+        // Declare and register strput: func() -> strlit
         this.declare_var(
             "strput".to_string(),
             false,
             Type::with_generics("func", vec![Type::simple("str")]),
         );
-        this.add_func_type(Type::simple("str"), vec![], ctx, Span::empty());
+        this.add_func_type(Type::simple("strlit"), vec![], ctx, Span::empty());
 
         // Declare and register _equal: func(f64, f64) -> bool
         this.declare_var(
@@ -331,7 +331,11 @@ impl CompileTimeEnv {
     /// Format: v_{id}s_{scope}
     pub fn c_var_name(&self, name: &str, span: Span) -> String {
         let (id, scope) = self.resolve_var(name).unwrap_or_else(|| {
-            error(span, format!("Could not find variable '{}'", name).as_str());
+            error(
+                span,
+                format!("Could not find variable '{}'", name).as_str(),
+                "fetching variable name",
+            );
             (0, 0)
         });
         format!("v_{}s_{}", id, scope)
@@ -341,7 +345,11 @@ impl CompileTimeEnv {
     /// Format: v_{id}s_{scope}C{generic_types}D for generic functions, v_{id}s_{scope}CD for non-generic
     pub fn c_func_instance_name(&mut self, name: &str, generics: &[Type], span: Span) -> String {
         let (id, scope) = self.resolve_var(name).unwrap_or_else(|| {
-            error(span, format!("Could not find variable '{}'", name).as_str());
+            error(
+                span,
+                format!("Could not find variable '{}'", name).as_str(),
+                "fetching function name",
+            );
             (0, 0)
         });
 
@@ -440,7 +448,11 @@ impl CompileTimeEnv {
         } else {
             // For non-function types, use the standard ID-based naming
             let type_id = self.get_type_id(ty).unwrap_or_else(|| {
-                error(span, format!("Could not find type '{}'", ty).as_str());
+                error(
+                    span,
+                    format!("Could not find type '{}'", ty).as_str(),
+                    "transpiling",
+                );
                 0
             });
 

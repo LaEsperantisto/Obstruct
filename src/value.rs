@@ -22,6 +22,7 @@ impl Value {
             error(
                 Span::empty(),
                 format!("Expected 'bool' but got '{}'", self.value_type).as_str(),
+                "interpreting",
             );
         }
         self.value_type.has_tag("bool") && self.value == "`t"

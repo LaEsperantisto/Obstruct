@@ -40,7 +40,7 @@ typedef double t_2CD; // f64
 typedef bool t_3CD; // bool
 typedef char t_4CD; // char
 // typedef func t_5; // func - commented out as func is not a C type
-typedef char* t_6CD; // str (will be changed)
+typedef char* t_6CD; // strlit
 
 t_1CD v_0s_0Ct_0CDD(t_0CD i) { // print i32
     printf("%d", i);
@@ -54,7 +54,7 @@ t_1CD v_0s_0Ct_3CDD(t_3CD n) { // print bool
     printf("%s", n ? "true" : "false");
 }
 
-t_1CD v_0s_0Ct_6CDD(t_6CD s) { // print str
+t_1CD v_0s_0Ct_6CDD(t_6CD s) { // print strlit
     printf("%s", s);
 }
 
@@ -132,7 +132,7 @@ t_3CD v_9s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // equal f64
     return n1 == n2;
 }
 
-t_3CD v_9s_0Ct_6CDD(t_6CD s1, t_6CD s2) { // equal str
+t_3CD v_9s_0Ct_6CDD(t_6CD s1, t_6CD s2) { // equal strlit
     return strcmp(s1, s2) == 0;
 }
 
@@ -152,7 +152,7 @@ t_3CD v_11s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // bang_equal f64
     return n1 != n2;
 }
 
-t_3CD v_11s_0Ct_6CDD(t_6CD s1, t_6CD s2) { // bang_equal str
+t_3CD v_11s_0Ct_6CDD(t_6CD s1, t_6CD s2) { // bang_equal strlit
     return strcmp(s1, s2) != 0;
 }
 

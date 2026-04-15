@@ -187,6 +187,7 @@ impl Expr {
                     error(
                         if_cond.get_span(),
                         "EXPRESSION IF STATEMENTS NOT IMPLEMENTED",
+                        "transpiling",
                     );
                 }
 
@@ -199,6 +200,7 @@ impl Expr {
                     error(
                         if_block.get_span(),
                         "if and else blocks had different types",
+                        "transpiling",
                     );
                 }
 
@@ -264,7 +266,11 @@ impl Expr {
 
             Expr::CallFunc(name, gens, exprs, span) => {
                 if !cte.var_exists(name) {
-                    error(*span, &format!("Function '{}' does not exist", name));
+                    error(
+                        *span,
+                        &format!("Function '{}' does not exist", name),
+                        "transpiling",
+                    );
                 }
                 ctx.body
                     .push_str(format!("{}(", cte.c_func_instance_name(name, gens, *span)).as_str());
@@ -290,6 +296,7 @@ impl Expr {
                 for arg in args {
                     arg_types.push(arg.1.clone());
                 }
+
                 let ret_type = block.returned_type(cte, *span);
                 let return_type = if return_type.is_some() {
                     return_type.clone().unwrap()
@@ -311,6 +318,7 @@ impl Expr {
                     .as_str(),
                 );
 
+                cte.push_scope();
                 for arg in args {
                     cte.declare_var(arg.0.clone(), false, arg.1.clone());
                     ctx.body.push_str(&cte.c_type_name(&arg.1, *span));
@@ -326,6 +334,9 @@ impl Expr {
                 ctx.body.push(')');
 
                 block.to_c(cte, ctx);
+
+                cte.pop_scope();
+
                 false
             }
 
@@ -388,13 +399,29 @@ impl Expr {
                         "Variable '{}' already exists and is immutable, could not declare function",
                         name
                     )
-                        .as_str(),
+                        .as_str(),"pre-transpiling"
                 );
                 }
                 let mut arg_types = vec![];
                 for arg in args {
                     arg_types.push(arg.1.clone());
                 }
+
+                cte.push_scope();
+                for arg in args {
+                    cte.declare_var(arg.0.clone(), false, arg.1.clone());
+                    ctx.declarations.push_str(&cte.c_type_name(&arg.1, *span));
+                    ctx.declarations.push(' ');
+                    ctx.declarations.push_str(&cte.c_var_name(&arg.0, *span));
+                    ctx.declarations.push_str(", ");
+                }
+                if ctx.declarations.ends_with(", ") {
+                    ctx.declarations.pop();
+                    ctx.declarations.pop();
+                }
+
+                ctx.declarations.push_str(");\n");
+
                 let ret_type = block.returned_type(cte, *span);
                 let return_type = if return_type.is_some() {
                     return_type.clone().unwrap()
@@ -405,6 +432,10 @@ impl Expr {
                         nil_type()
                     }
                 };
+
+                block.pre_transpile(cte, ctx, programs_to_transpile);
+
+                cte.pop_scope();
 
                 cte.add_func_type(return_type.clone(), arg_types.clone(), ctx, *span);
                 // Declare the variable first so c_func_instance_name can find it
@@ -425,22 +456,6 @@ impl Expr {
                     )
                     .as_str(),
                 );
-
-                for arg in args {
-                    cte.declare_var(arg.0.clone(), false, arg.1.clone());
-                    ctx.declarations.push_str(&cte.c_type_name(&arg.1, *span));
-                    ctx.declarations.push(' ');
-                    ctx.declarations.push_str(&cte.c_var_name(&arg.0, *span));
-                    ctx.declarations.push_str(", ");
-                }
-                if ctx.declarations.ends_with(", ") {
-                    ctx.declarations.pop();
-                    ctx.declarations.pop();
-                }
-
-                ctx.declarations.push_str(");\n");
-
-                block.pre_transpile(cte, ctx, programs_to_transpile);
             }
             Expr::Use { kind, path, span } => {
                 let crate_path = match kind {
@@ -451,7 +466,7 @@ impl Expr {
                 let full_path = format!("{}{}", crate_path, path);
 
                 if !Path::new(&full_path).exists() {
-                    error(*span, "File does not exist!");
+                    error(*span, "File does not exist!", "pre-transpiling");
                 }
 
                 programs_to_transpile.insert(full_path, false);
@@ -471,7 +486,7 @@ impl Expr {
         match self {
             Expr::Int(_) => "i32".into(),
             Expr::Float(_) => "f64".into(),
-            Expr::Str(_) => "str".into(),
+            Expr::Str(_) => "strlit".into(),
             Expr::Bool(_)
             | Expr::EqualEqual(..)
             | Expr::BangEqual(..)
@@ -487,21 +502,29 @@ impl Expr {
             | Expr::Div(l, ..) => l.get_type(cte),
             Expr::Return(expr, _span) => expr.get_type(cte),
             Expr::CallFunc(name, _, _, span) => {
-                let variable = cte
+                let function = cte
                     .get_var(name)
                     .unwrap_or_else(|| {
-                        error(*span, "Variable not defined");
+                        error(
+                            *span,
+                            &format!("Variable not defined: {}", name),
+                            "type checker",
+                        );
                         (false, nil_type())
                     })
                     .1;
-                variable.generics()[0].clone()
+                function.generics()[0].clone()
             }
             Expr::StmtBlock(exprs, _span) => exprs.last().unwrap().get_type(cte),
             Expr::StmtBlockWithScope(exprs, _span) => exprs.last().unwrap().get_type(cte),
             Expr::Variable(name, span) => {
                 cte.get_var(name)
                     .unwrap_or_else(|| {
-                        error(*span, "Variable not defined");
+                        error(
+                            *span,
+                            &format!("Variable not defined: {}", name),
+                            "type checker",
+                        );
                         (false, nil_type())
                     })
                     .1
@@ -534,6 +557,7 @@ impl Expr {
                                         }
                                     },
                                     "Returned type was different to previous returned type",
+                                    "returned type checker",
                                 );
                             }
                         } else {

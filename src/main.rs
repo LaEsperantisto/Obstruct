@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 extern crate core;
-pub const DEBUG: bool = false;
+pub const DEBUG: bool = true;
 
 mod error;
 mod expr;
@@ -96,6 +96,7 @@ const BG_CYAN: &str = "\x1b[46m";
 // Extra Ansi
 const ERROR_COLOR: &str = BRIGHT_RED;
 const WARNING_COLOR: &str = BRIGHT_YELLOW;
+const HELP_COLOR: &str = BRIGHT_GREEN;
 
 // Text Styles
 const BOLD: &str = "\x1b[1m";
@@ -140,7 +141,7 @@ fn main() -> Result<(), ObstructError> {
 
     if result.is_err() {
         let err = result.unwrap_err();
-        error(err.span, &err.message);
+        error(err.span, &err.message, "somewhere");
         std::process::exit(1);
     }
 
@@ -262,9 +263,9 @@ fn run() -> Result<(), ObstructError> {
     error
 }
 
-pub fn error(span: Span, message: &str) {
+pub fn error(span: Span, message: &str, place: &str) {
     if !RUNNING_TESTS.lock().unwrap().clone() {
-        report(span.line, span.column, message);
+        report(span.line, span.column, message, place);
 
         panic::set_hook(Box::new(|_| {}));
     }
@@ -284,10 +285,12 @@ fn get_line(line: usize) -> String {
     }
 }
 
-pub fn report(line: usize, column: usize, message: &str) {
+pub fn report(line: usize, column: usize, message: &str, place: &str) {
     let mut err = ERROR.lock().unwrap();
 
-    println!("\n{BOLD}{ERROR_COLOR}error{RESET}{BOLD}: {message}{RESET}");
+    println!(
+        "\n{BOLD}{ERROR_COLOR}error{RESET} {HELP_COLOR}({place}){RESET}{BOLD}: {message}{RESET}"
+    );
 
     println!("--> line {} column {}\n", line, column);
 

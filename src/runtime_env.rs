@@ -64,7 +64,11 @@ impl RuntimeEnvironment {
         if let Some(slot) = self.storage.get_mut(id) {
             *slot = None;
         } else {
-            error(Span::empty(), "Invalid pointer ID, could not delete.");
+            error(
+                Span::empty(),
+                "Invalid pointer ID, could not delete.",
+                "interpreting",
+            );
         }
     }
 
@@ -75,11 +79,16 @@ impl RuntimeEnvironment {
                 error(
                     Span::empty(),
                     "Variable not mutable, could not set pointee value",
+                    "interpreting",
                 );
             }
             variable.value = val;
         } else {
-            error(Span::empty(), "Invalid pointer ID, could not set value.");
+            error(
+                Span::empty(),
+                "Invalid pointer ID, could not set value.",
+                "interpreting",
+            );
         }
     }
 
@@ -87,7 +96,11 @@ impl RuntimeEnvironment {
         match self.storage.get_mut(id) {
             Some(Some(var)) => var,
             _ => {
-                error(Span::empty(), "Invalid or freed pointer dereference.");
+                error(
+                    Span::empty(),
+                    "Invalid or freed pointer dereference.",
+                    "interpreting",
+                );
                 panic!("Invalid pointer dereference");
             }
         }
@@ -104,6 +117,7 @@ impl RuntimeEnvironment {
             error(
                 Span::empty(),
                 format!("Variable '{}' already defined", name).as_str(),
+                "interpreting",
             );
             return;
         }
@@ -116,7 +130,11 @@ impl RuntimeEnvironment {
             if let Some(&id) = scope.get(name) {
                 if let Some(Some(var)) = self.storage.get_mut(id) {
                     if !var.is_mutable {
-                        error(span, format!("Variable '{}' not mutable", name).as_str());
+                        error(
+                            span,
+                            format!("Variable '{}' not mutable", name).as_str(),
+                            "interpreting",
+                        );
                         return;
                     }
 
@@ -126,7 +144,11 @@ impl RuntimeEnvironment {
             }
         }
 
-        error(span, format!("Undefined variable '{}'.", name).as_str());
+        error(
+            span,
+            format!("Undefined variable '{}'.", name).as_str(),
+            "interpreting",
+        );
     }
 
     pub fn get(&self, name: &str, span: Span) -> Variable {
@@ -138,7 +160,11 @@ impl RuntimeEnvironment {
             }
         }
 
-        error(span, format!("Undefined variable '{}'.", name).as_str());
+        error(
+            span,
+            format!("Undefined variable '{}'.", name).as_str(),
+            "interpreting",
+        );
         Variable::new(nil(), false)
     }
 
@@ -155,6 +181,7 @@ impl RuntimeEnvironment {
         error(
             Span::empty(),
             format!("Undefined variable '{}'.", name).as_str(),
+            "interpreting",
         );
     }
 
@@ -173,7 +200,11 @@ impl RuntimeEnvironment {
         let scope = self.scopes.last_mut().unwrap();
 
         if scope.contains_key(name) {
-            error(span, format!("'{}' already defined", name).as_str());
+            error(
+                span,
+                format!("'{}' already defined", name).as_str(),
+                "interpreting",
+            );
             return;
         }
 
@@ -205,6 +236,7 @@ impl RuntimeEnvironment {
             error(
                 Span::empty(),
                 format!("Variable '{}' is not a function", name).as_str(),
+                "interpreting",
             );
             nil_func().value.body.unwrap()
         })
