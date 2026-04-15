@@ -508,6 +508,7 @@ impl Expr {
             }
             Expr::Discard(..) => nil_type(),
             Expr::Print(expr, _) => expr.get_type(cte),
+            Expr::If(_, block, ..) => block.get_type(cte),
             _ => panic!("unexpected expression (for type check) '{:?}'", self),
         }
     }
