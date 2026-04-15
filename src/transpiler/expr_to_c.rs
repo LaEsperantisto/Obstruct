@@ -90,15 +90,78 @@ impl Expr {
                 false
             }
             Expr::Sub(l, r, span) => {
-                Expr::CallFunc("_sub".into(), vec![], vec![l.clone(), r.clone()], *span)
-                    .to_c(cte, ctx);
+                Expr::CallFunc(
+                    "_sub".into(),
+                    vec![l.get_type(cte)],
+                    vec![l.clone(), r.clone()],
+                    *span,
+                )
+                .to_c(cte, ctx);
                 false
             }
             Expr::Mult(l, r, span) => {
-                Expr::CallFunc("_mult".into(), vec![], vec![l.clone(), r.clone()], *span)
-                    .to_c(cte, ctx);
+                Expr::CallFunc(
+                    "_mult".into(),
+                    vec![l.get_type(cte)],
+                    vec![l.clone(), r.clone()],
+                    *span,
+                )
+                .to_c(cte, ctx);
                 false
             }
+            Expr::EqualEqual(l, r, span) => {
+                Expr::CallFunc(
+                    "_equal".into(),
+                    vec![l.get_type(cte)],
+                    vec![l.clone(), r.clone()],
+                    *span,
+                )
+                .to_c(cte, ctx);
+                false
+            }
+            Expr::Greater(l, r, span) => {
+                Expr::CallFunc(
+                    "_greater".into(),
+                    vec![l.get_type(cte)],
+                    vec![l.clone(), r.clone()],
+                    *span,
+                )
+                .to_c(cte, ctx);
+                false
+            }
+            Expr::GreaterEqual(l, r, span) => {
+                Expr::CallFunc(
+                    "_greater_equal".into(),
+                    vec![l.get_type(cte)],
+                    vec![l.clone(), r.clone()],
+                    *span,
+                )
+                .to_c(cte, ctx);
+                false
+            }
+
+            Expr::LessEqual(l, r, span) => {
+                Expr::CallFunc(
+                    "_less_equal".into(),
+                    vec![l.get_type(cte)],
+                    vec![l.clone(), r.clone()],
+                    *span,
+                )
+                .to_c(cte, ctx);
+                false
+            }
+
+            Expr::BangEqual(l, r, span) => {
+                Expr::CallFunc(
+                    "_bang_equal".into(),
+                    vec![l.get_type(cte)],
+                    vec![l.clone(), r.clone()],
+                    *span,
+                )
+                .to_c(cte, ctx);
+                false
+            }
+
             Expr::StmtBlock(exprs, _span) => {
                 for expr in exprs {
                     if expr.to_c(cte, ctx) {
@@ -405,10 +468,19 @@ impl Expr {
             Expr::Int(_) => "i32".into(),
             Expr::Float(_) => "f64".into(),
             Expr::Str(_) => "str".into(),
-            Expr::Bool(_) => "bool".into(),
+            Expr::Bool(_)
+            | Expr::EqualEqual(..)
+            | Expr::BangEqual(..)
+            | Expr::Less(..)
+            | Expr::LessEqual(..)
+            | Expr::Greater(..)
+            | Expr::GreaterEqual(..) => "bool".into(),
             Expr::Char(_) => "char".into(),
-            Expr::Add(_, _, _) => "i32".into(),
-            Expr::Sub(_, _, _) => "i32".into(),
+            Expr::Add(l, _, _)
+            | Expr::Sub(l, ..)
+            | Expr::Mult(l, ..)
+            | Expr::Power(l, ..)
+            | Expr::Div(l, ..) => l.get_type(cte),
             Expr::Return(expr, _span) => expr.get_type(cte),
             Expr::CallFunc(name, _, _, span) => {
                 let variable = cte
@@ -430,7 +502,7 @@ impl Expr {
                     })
                     .1
             }
-            Expr::Discard(expr) => expr.get_type(cte),
+            Expr::Discard(..) => nil_type(),
             Expr::Print(expr, _) => expr.get_type(cte),
             _ => panic!("unexpected expression (for type check) '{:?}'", self),
         }

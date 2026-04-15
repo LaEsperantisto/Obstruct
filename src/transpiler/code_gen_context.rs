@@ -46,8 +46,12 @@ t_1CD v_0s_0Ct_0CDD(t_0CD i) { // print i32
     printf("%d", i);
 }
 
-t_2CD v_0s_0Ct_2CDD(t_2CD n) { // print f64
+t_1CD v_0s_0Ct_2CDD(t_2CD n) { // print f64
     printf("%.6f", n);
+}
+
+t_1CD v_0s_0Ct_3CDD(t_3CD n) { // print bool
+    printf("%s", n ? "true" : "false");
 }
 
 t_1CD v_0s_0Ct_6CDD(t_6CD s) { // print str
@@ -58,16 +62,36 @@ t_0CD v_1s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // add i32
     return n1 + n2;
 }
 
-t_0CD v_2s_0CD(t_0CD n1, t_0CD n2) { // less
+t_2CD v_1s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // add f64
+    return n1 + n2;
+}
+
+t_0CD v_2s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // less i32
     return n1 < n2;
 }
 
-t_0CD v_3s_0CD(t_0CD n1, t_0CD n2) { // sub
+t_2CD v_2s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // less f64
+    return n1 < n2;
+}
+
+t_0CD v_3s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // sub i32
     return n1 - n2;
+}
+
+t_2CD v_3s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // sub f64
+    return n1 - n2;
+}
+
+t_0CD v_4s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // pow i32
+    return pow(n1, n2);
 }
 
 t_2CD v_4s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // pow f64
     return pow(n1, n2);
+}
+
+t_0CD v_5s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // div i32
+    return n1 / n2;
 }
 
 t_2CD v_5s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // div f64
@@ -98,6 +122,54 @@ t_6CD v_8s_0CD() { // strput
 
     free(buffer);
     return NULL;
+}
+
+t_3CD v_9s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // equal i32
+    return n1 == n2;
+}
+
+t_3CD v_9s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // equal f64
+    return n1 == n2;
+}
+
+t_3CD v_9s_0Ct_6CDD(t_6CD s1, t_6CD s2) { // equal str
+    return strcmp(s1, s2) == 0;
+}
+
+t_3CD v_10s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // greater i32
+    return n1 > n2;
+}
+
+t_3CD v_10s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // greater f64
+    return n1 > n2;
+}
+
+t_3CD v_11s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // bang_equal i32
+    return n1 != n2;
+}
+
+t_3CD v_11s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // bang_equal f64
+    return n1 != n2;
+}
+
+t_3CD v_11s_0Ct_6CDD(t_6CD s1, t_6CD s2) { // bang_equal str
+    return strcmp(s1, s2) != 0;
+}
+
+t_3CD v_12s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // greater_equal i32
+    return n1 >= n2;
+}
+
+t_3CD v_12s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // greater_equal f64
+    return n1 >= n2;
+}
+
+t_3CD v_13s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // less_equal i32
+    return n1 <= n2;
+}
+
+t_3CD v_13s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // less_equal f64
+    return n1 <= n2;
 }
 
 "#,

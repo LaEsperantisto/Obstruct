@@ -1,8 +1,8 @@
+use crate::error;
 use crate::expr::Expr;
 use crate::span::Span;
 use crate::transpiler::code_gen_context::CodeGenContext;
 use crate::type_env::{nil_type, Type};
-use crate::{error, DEBUG};
 use std::collections::HashMap;
 
 pub struct CompileTimeEnv {
@@ -173,6 +173,106 @@ impl CompileTimeEnv {
         );
         this.add_func_type(Type::simple("str"), vec![], ctx, Span::empty());
 
+        // Declare and register _equal: func(f64, f64) -> bool
+        this.declare_var(
+            "_equal".to_string(),
+            false,
+            Type::with_generics(
+                "func",
+                vec![
+                    Type::simple("f64"),
+                    Type::simple("f64"),
+                    Type::simple("bool"),
+                ],
+            ),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("f64"), Type::simple("f64")],
+            ctx,
+            Span::empty(),
+        );
+
+        // Declare and register _greater: func(f64, f64) -> bool
+        this.declare_var(
+            "_greater".to_string(),
+            false,
+            Type::with_generics(
+                "func",
+                vec![
+                    Type::simple("f64"),
+                    Type::simple("f64"),
+                    Type::simple("bool"),
+                ],
+            ),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("f64"), Type::simple("f64")],
+            ctx,
+            Span::empty(),
+        );
+
+        // Declare and register _bang_equal: func(f64, f64) -> bool
+        this.declare_var(
+            "_bang_equal".to_string(),
+            false,
+            Type::with_generics(
+                "func",
+                vec![
+                    Type::simple("f64"),
+                    Type::simple("f64"),
+                    Type::simple("bool"),
+                ],
+            ),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("f64"), Type::simple("f64")],
+            ctx,
+            Span::empty(),
+        );
+
+        // Declare and register _greater_equal: func(f64, f64) -> bool
+        this.declare_var(
+            "_greater_equal".to_string(),
+            false,
+            Type::with_generics(
+                "func",
+                vec![
+                    Type::simple("f64"),
+                    Type::simple("f64"),
+                    Type::simple("bool"),
+                ],
+            ),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("f64"), Type::simple("f64")],
+            ctx,
+            Span::empty(),
+        );
+
+        // Declare and register _less_equal: func(f64, f64) -> bool
+        this.declare_var(
+            "_less_equal".to_string(),
+            false,
+            Type::with_generics(
+                "func",
+                vec![
+                    Type::simple("f64"),
+                    Type::simple("f64"),
+                    Type::simple("bool"),
+                ],
+            ),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("f64"), Type::simple("f64")],
+            ctx,
+            Span::empty(),
+        );
+
         this
     }
 
@@ -281,9 +381,6 @@ impl CompileTimeEnv {
         let id = self.next_type_id;
         self.next_type_id += 1;
 
-        if DEBUG {
-            println!("register_type: {}, {}", canonical_ty, id);
-        }
         self.all_types.push(canonical_ty);
         id
     }
