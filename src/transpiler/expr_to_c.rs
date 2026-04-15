@@ -5,6 +5,7 @@ use crate::transpiler::compiletime_env::CompileTimeEnv;
 use crate::type_env::{nil_type, Type};
 use crate::{error, STD_PATH};
 use std::collections::HashMap;
+use std::path::Path;
 
 impl Expr {
     pub fn to_c(&self, cte: &mut CompileTimeEnv, ctx: &mut CodeGenContext) -> bool {
@@ -441,16 +442,19 @@ impl Expr {
 
                 block.pre_transpile(cte, ctx, programs_to_transpile);
             }
-            Expr::Use {
-                kind,
-                path,
-                span: _span,
-            } => {
+            Expr::Use { kind, path, span } => {
                 let crate_path = match kind {
                     UseKind::Std => STD_PATH,
                     UseKind::Normal => "",
                 };
-                programs_to_transpile.insert(format!("{}{}", crate_path, path), false);
+
+                let full_path = format!("{}{}", crate_path, path);
+
+                if !Path::new(&full_path).exists() {
+                    error(*span, "File does not exist!");
+                }
+
+                programs_to_transpile.insert(full_path, false);
             }
 
             Expr::StmtBlock(exprs, _) | Expr::StmtBlockWithScope(exprs, _) => {

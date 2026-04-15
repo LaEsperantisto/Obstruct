@@ -139,6 +139,8 @@ fn main() -> Result<(), ObstructError> {
     let result = run();
 
     if result.is_err() {
+        let err = result.unwrap_err();
+        error(err.span, &err.message);
         std::process::exit(1);
     }
 
