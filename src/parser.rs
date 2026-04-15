@@ -245,7 +245,7 @@ impl<'a> Parser<'a> {
                 self.get_span(),
             )
         } else if self.peek().token_type == TokenType::Semicolon {
-            Expr::Str(String::new())
+            Expr::Nothing()
         } else {
             Expr::Print(Box::new(self.expression()), self.get_span())
         }

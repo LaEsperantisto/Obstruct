@@ -288,6 +288,11 @@ pub fn report(line: usize, column: usize, message: &str) {
     let source_line = get_line(line);
 
     println!("    |");
+    if line as isize - 3 > 0 {
+        let prev_line = get_line(line - 3);
+        println!("{CYAN}{:>3}{RESET} | {}", line - 3, prev_line);
+    }
+
     if line as isize - 2 > 0 {
         let prev_line = get_line(line - 2);
         println!("{CYAN}{:>3}{RESET} | {}", line - 2, prev_line);
