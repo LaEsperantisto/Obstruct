@@ -26,7 +26,7 @@ impl Expr {
             }
 
             Expr::Bool(b) => {
-                ctx.body.push_str(if *b { "1" } else { "0" });
+                ctx.body.push_str(if *b { "true" } else { "false" });
                 false
             }
             Expr::Char(c) => {
@@ -40,6 +40,7 @@ impl Expr {
                 for c in s.chars() {
                     match c {
                         '\n' => ctx.body.push_str("\\n"),
+                        '\t' => ctx.body.push_str("\\t"),
                         _ => ctx.body.push(c),
                     }
                 }
@@ -407,6 +408,26 @@ impl Expr {
                     arg_types.push(arg.1.clone());
                 }
 
+                let ret_type = block.returned_type(cte, *span);
+                let return_type = if return_type.is_some() {
+                    return_type.clone().unwrap()
+                } else {
+                    if let Some(ty) = ret_type.clone() {
+                        ty
+                    } else {
+                        nil_type()
+                    }
+                };
+
+                ctx.declarations.push_str(
+                    format!(
+                        "{} {}(",
+                        cte.c_type_name(&return_type, *span),
+                        cte.c_func_instance_name(&name, &[], *span),
+                    )
+                    .as_str(),
+                );
+
                 cte.push_scope();
                 for arg in args {
                     cte.declare_var(arg.0.clone(), false, arg.1.clone());
@@ -422,24 +443,11 @@ impl Expr {
 
                 ctx.declarations.push_str(");\n");
 
-                let ret_type = block.returned_type(cte, *span);
-                let return_type = if return_type.is_some() {
-                    return_type.clone().unwrap()
-                } else {
-                    if let Some(ty) = ret_type.clone() {
-                        ty
-                    } else {
-                        nil_type()
-                    }
-                };
-
                 block.pre_transpile(cte, ctx, programs_to_transpile);
-
-                cte.pop_scope();
 
                 cte.add_func_type(return_type.clone(), arg_types.clone(), ctx, *span);
                 // Declare the variable first so c_func_instance_name can find it
-                cte.declare_var(
+                cte.declare_global_var(
                     name.clone(),
                     false,
                     Type::with_generics("func", {
@@ -448,14 +456,7 @@ impl Expr {
                         output
                     }),
                 );
-                ctx.declarations.push_str(
-                    format!(
-                        "{} {}(",
-                        cte.c_type_name(&return_type, *span),
-                        cte.c_func_instance_name(&name, &[], *span),
-                    )
-                    .as_str(),
-                );
+                cte.pop_scope();
             }
             Expr::Use { kind, path, span } => {
                 let crate_path = match kind {
@@ -477,6 +478,8 @@ impl Expr {
                     expr.pre_transpile(cte, ctx, programs_to_transpile);
                 }
             }
+
+            Expr::Discard(expr) => expr.pre_transpile(cte, ctx, programs_to_transpile),
 
             _ => {}
         }

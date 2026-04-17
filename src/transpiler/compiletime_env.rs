@@ -42,7 +42,7 @@ impl CompileTimeEnv {
         this.register_type(Type::simple("strlit"));
 
         // Declare and register _print: func(i32) -> arr
-        this.declare_var(
+        this.declare_global_var(
             "_print".to_string(),
             false,
             Type::with_generics("func", vec![Type::simple("i32"), nil_type()]),
@@ -50,7 +50,7 @@ impl CompileTimeEnv {
         this.add_func_type(nil_type(), vec![Type::simple("i32")], ctx, Span::empty());
 
         // Declare and register _add: func(i32, i32) -> i32
-        this.declare_var(
+        this.declare_global_var(
             "_add".to_string(),
             false,
             Type::with_generics(
@@ -70,7 +70,7 @@ impl CompileTimeEnv {
         );
 
         // Declare and register _less: func(i32, i32) -> i32
-        this.declare_var(
+        this.declare_global_var(
             "_less".to_string(),
             false,
             Type::with_generics(
@@ -90,7 +90,7 @@ impl CompileTimeEnv {
         );
 
         // Declare and register _sub: func(i32, i32) -> i32
-        this.declare_var(
+        this.declare_global_var(
             "_sub".to_string(),
             false,
             Type::with_generics(
@@ -110,7 +110,7 @@ impl CompileTimeEnv {
         );
 
         // Declare and register _pow: func(f64, f64) -> f64
-        this.declare_var(
+        this.declare_global_var(
             "_pow".to_string(),
             false,
             Type::with_generics(
@@ -130,7 +130,7 @@ impl CompileTimeEnv {
         );
 
         // Declare and register _div: func(f64, f64) -> f64
-        this.declare_var(
+        this.declare_global_var(
             "_div".to_string(),
             false,
             Type::with_generics(
@@ -150,7 +150,7 @@ impl CompileTimeEnv {
         );
 
         // Declare and register intput: func() -> i32
-        this.declare_var(
+        this.declare_global_var(
             "intput".to_string(),
             false,
             Type::with_generics("func", vec![Type::simple("i32")]),
@@ -158,7 +158,7 @@ impl CompileTimeEnv {
         this.add_func_type(Type::simple("i32"), vec![], ctx, Span::empty());
 
         // Declare and register fput: func() -> f64
-        this.declare_var(
+        this.declare_global_var(
             "fput".to_string(),
             false,
             Type::with_generics("func", vec![Type::simple("f64")]),
@@ -166,7 +166,7 @@ impl CompileTimeEnv {
         this.add_func_type(Type::simple("f64"), vec![], ctx, Span::empty());
 
         // Declare and register strput: func() -> strlit
-        this.declare_var(
+        this.declare_global_var(
             "strput".to_string(),
             false,
             Type::with_generics("func", vec![Type::simple("str")]),
@@ -174,7 +174,7 @@ impl CompileTimeEnv {
         this.add_func_type(Type::simple("strlit"), vec![], ctx, Span::empty());
 
         // Declare and register _equal: func(f64, f64) -> bool
-        this.declare_var(
+        this.declare_global_var(
             "_equal".to_string(),
             false,
             Type::with_generics(
@@ -194,7 +194,7 @@ impl CompileTimeEnv {
         );
 
         // Declare and register _greater: func(f64, f64) -> bool
-        this.declare_var(
+        this.declare_global_var(
             "_greater".to_string(),
             false,
             Type::with_generics(
@@ -214,7 +214,7 @@ impl CompileTimeEnv {
         );
 
         // Declare and register _bang_equal: func(f64, f64) -> bool
-        this.declare_var(
+        this.declare_global_var(
             "_bang_equal".to_string(),
             false,
             Type::with_generics(
@@ -234,7 +234,7 @@ impl CompileTimeEnv {
         );
 
         // Declare and register _greater_equal: func(f64, f64) -> bool
-        this.declare_var(
+        this.declare_global_var(
             "_greater_equal".to_string(),
             false,
             Type::with_generics(
@@ -254,7 +254,7 @@ impl CompileTimeEnv {
         );
 
         // Declare and register _less_equal: func(f64, f64) -> bool
-        this.declare_var(
+        this.declare_global_var(
             "_less_equal".to_string(),
             false,
             Type::with_generics(
@@ -296,6 +296,18 @@ impl CompileTimeEnv {
 
         let scope = self.scopes.last_mut().unwrap();
         scope.insert(name, (id, is_mutable, var_type));
+
+        id
+    }
+
+    pub fn declare_global_var(&mut self, name: String, is_mutable: bool, var_type: Type) -> usize {
+        let id = self.next_var_id;
+        self.next_var_id += 1;
+
+        let scope = self.scopes.first_mut().unwrap();
+        scope.insert(name, (id, is_mutable, var_type));
+
+        println!();
 
         id
     }
