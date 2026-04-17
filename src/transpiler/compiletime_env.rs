@@ -307,8 +307,6 @@ impl CompileTimeEnv {
         let scope = self.scopes.first_mut().unwrap();
         scope.insert(name, (id, is_mutable, var_type));
 
-        println!();
-
         id
     }
 
