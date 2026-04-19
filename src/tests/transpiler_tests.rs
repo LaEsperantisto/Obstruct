@@ -556,3 +556,134 @@ fn test_print_function_call() {
         "Print should not call _print without CD suffix"
     );
 }
+
+// ========== Function Parameter Scope Fixes ==========
+// Regression tests: parameters must be visible during returned_type() inference.
+// Previously, returned_type() was called BEFORE the function scope was pushed,
+// causing "Variable not defined" errors for parameters from use-d files.
+
+#[test]
+fn test_function_param_visible_in_body() {
+    // Parameters must be visible during returned_type inference
+    let source = r#"
+fn sqrt(n: f64) f64 {
+    ret n ** (1.0 / 2.0);
+}
+fn main() {
+    ret;
+}
+"#;
+    let c = transpile_to_c(source);
+    assert!(c.contains("return"), "Should have return statement");
+    // Parameter 'n' should be resolved (no "variable not defined" error)
+    assert!(c.contains("v_"), "Should have C variable references");
+}
+
+#[test]
+fn test_function_param_used_in_binary_op() {
+    let source = r#"
+fn add_xy(x: i32, y: i32) i32 {
+    ret x + y;
+}
+fn main() {
+    ret 0;
+}
+"#;
+    let c = transpile_to_c(source);
+    assert!(c.contains("return"));
+    assert!(c.contains("v_"), "Should have C variable references");
+}
+
+#[test]
+fn test_function_param_used_in_nested_expr() {
+    let source = r#"
+fn calc(n: f64) f64 {
+    ret n * n + 1.0;
+}
+fn main() {
+    ret 0;
+}
+"#;
+    let c = transpile_to_c(source);
+    assert!(c.contains("return"));
+    assert!(c.contains("v_"), "Should have C variable references");
+}
+
+#[test]
+fn test_function_param_used_in_comparison() {
+    let source = r#"
+fn gt(x: i32, y: i32) bool {
+    ret x > y;
+}
+fn main() {
+    ret 0;
+}
+"#;
+    let c = transpile_to_c(source);
+    assert!(c.contains("return"));
+    assert!(c.contains("v_"), "Should have C variable references");
+}
+
+#[test]
+fn test_function_param_used_in_nested_block() {
+    let source = r#"
+fn nested(x: i32) i32 {
+    {
+        ret x + 1;
+    }
+}
+fn main() {
+    ret 0;
+}
+"#;
+    let c = transpile_to_c(source);
+    assert!(c.contains("return"));
+    assert!(c.contains("v_"), "Should have C variable references");
+}
+
+#[test]
+fn test_function_param_with_no_return_type() {
+    // Function without explicit return type should still resolve params
+    let source = r#"
+fn print_vals(a: i32, b: i32) {
+    $a;
+    $b;
+}
+fn main() {
+    ret 0;
+}
+"#;
+    let c = transpile_to_c(source);
+    assert!(c.contains("return"));
+}
+
+#[test]
+fn test_function_with_empty_params() {
+    let source = r#"
+fn count() i32 {
+    ret 42;
+}
+fn main() {
+    ret 0;
+}
+"#;
+    let c = transpile_to_c(source);
+    assert!(c.contains("return"));
+    assert!(c.contains("42"));
+}
+
+#[test]
+fn test_function_param_in_multiple_ops() {
+    // Complex expression with multiple uses of the same param
+    let source = r#"
+fn multi(a: i32, b: i32) i32 {
+    ret (a + b) * (a - b);
+}
+fn main() {
+    ret 0;
+}
+"#;
+    let c = transpile_to_c(source);
+    assert!(c.contains("return"));
+    assert!(c.contains("v_"), "Should have C variable references");
+}

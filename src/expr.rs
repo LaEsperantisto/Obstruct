@@ -75,6 +75,10 @@ pub enum Expr {
     /// loopee, looper, block
     For(String, Box<Expr>, Box<Expr>, Span),
 
+    // Data Structures
+    /// new class, Vec<(member name, type)>, span
+    Class(Type, Vec<(String, Type)>, Span),
+
     // Others
     Custom(fn(&mut RuntimeEnvironment) -> Value),
     Custom2(fn(&mut RuntimeEnvironment, Vec<Value>) -> Value),

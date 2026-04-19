@@ -77,6 +77,10 @@ impl<'a> Parser<'a> {
             return self.for_loop();
         }
 
+        if self.match_any(&[TokenType::Cls]) {
+            return self.class();
+        }
+
         Expr::Stmt(Box::new(self.expression()))
     }
 
@@ -139,6 +143,30 @@ impl<'a> Parser<'a> {
     }
 
     // ---------- NEW CLASS -----------
+
+    fn class(&mut self) -> Expr {
+        self.consume(TokenType::Ident, "Expected class name after 'cls'.");
+        let name = self.previous().lexeme;
+        self.consume(TokenType::LeftBrace, "Expected '{' after class name");
+
+        let mut members = Vec::new();
+
+        while !self.match_any(&[TokenType::RightBrace]) {
+            self.consume(
+                TokenType::Ident,
+                "Expected an identifier at start of line (in class declaration)",
+            );
+            let name = self.previous().lexeme;
+            self.consume(
+                TokenType::Colon,
+                "Expected colon after identifier in class declaration",
+            );
+
+            members.push((name, self.get_type()));
+        }
+
+        Expr::Class(Type::simple(&name), members, self.get_span())
+    }
 
     // ---------- WHILE LOOP -----------
 

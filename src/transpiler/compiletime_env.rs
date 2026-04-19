@@ -12,6 +12,9 @@ pub struct CompileTimeEnv {
 
     these: Vec<String>,
 
+    /// HashMap<class name, (Vec<(member name, type)>, next member id)>
+    members: HashMap<Type, (Vec<(String, Type)>, usize)>,
+
     next_var_id: usize,
     next_type_id: usize,
 
@@ -26,6 +29,8 @@ impl CompileTimeEnv {
             current_scope: 0,
 
             these: Vec::new(),
+
+            members: HashMap::new(),
 
             next_var_id: 0,
             next_type_id: 0,
@@ -286,6 +291,43 @@ impl CompileTimeEnv {
     pub fn pop_scope(&mut self) {
         self.scopes.pop();
         self.current_scope -= 1;
+    }
+
+    // Class handling
+
+    pub fn declare_member(&mut self, name: String, t: Type, class_type: Type) -> usize {
+        let class = self.members.get_mut(&class_type).unwrap();
+        let id = class.1;
+
+        class.0.push((name, t));
+
+        id
+    }
+
+    pub fn c_member_name(&mut self, ty: &Type, name: &str, span: Span) -> String {
+        let class = self.members.get(ty);
+
+        match class {
+            Some(class) => {
+                format!("m_{}", class.1)
+            }
+            None => {
+                error(
+                    span,
+                    &format!(
+                        "Could not find type '{}' when fetching member '{}'.",
+                        ty, name
+                    ),
+                    "fetching mangled member name",
+                );
+                String::new()
+            }
+        }
+    }
+
+    pub fn register_class(&mut self, ty: Type) -> usize {
+        self.members.insert(ty.clone(), (vec![], 0));
+        self.register_type(ty.clone())
     }
 
     // Variable Handling

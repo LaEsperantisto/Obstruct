@@ -298,6 +298,13 @@ impl Expr {
                     arg_types.push(arg.1.clone());
                 }
 
+                // Push scope and declare parameters BEFORE computing returned_type,
+                // so that parameter variables are visible during type inference.
+                cte.push_scope();
+                for arg in args {
+                    cte.declare_var(arg.0.clone(), false, arg.1.clone());
+                }
+
                 let ret_type = block.returned_type(cte, *span);
                 let return_type = if return_type.is_some() {
                     return_type.clone().unwrap()
@@ -309,7 +316,6 @@ impl Expr {
                     }
                 };
 
-                cte.add_func_type(return_type.clone(), arg_types.clone(), ctx, *span);
                 ctx.body.push_str(
                     format!(
                         "{} {}(",
@@ -319,9 +325,7 @@ impl Expr {
                     .as_str(),
                 );
 
-                cte.push_scope();
                 for arg in args {
-                    cte.declare_var(arg.0.clone(), false, arg.1.clone());
                     ctx.body.push_str(&cte.c_type_name(&arg.1, *span));
                     ctx.body.push(' ');
                     ctx.body.push_str(&cte.c_var_name(&arg.0, *span));
@@ -381,6 +385,29 @@ impl Expr {
 
             Expr::Use { .. } => false,
 
+            Expr::Class(ty, members, span) => {
+                ctx.declarations.push_str("struct ");
+                ctx.declarations.push_str(&cte.c_type_name(ty, *span));
+                ctx.declarations.push_str(" {\n");
+                for member in members {
+                    cte.declare_member(member.0.clone(), member.1.clone(), ty.clone());
+                    ctx.declarations
+                        .push_str(&cte.c_type_name(&member.1, *span));
+                    ctx.declarations.push(' ');
+                    ctx.declarations
+                        .push_str(&cte.c_member_name(ty, &member.0, *span));
+                    ctx.declarations.push_str(", \n");
+                }
+                if ctx.declarations.ends_with(", \n") {
+                    ctx.declarations.pop();
+                    ctx.declarations.pop();
+                    ctx.declarations.pop();
+                    ctx.declarations.push('\n');
+                }
+                ctx.declarations.push_str("};");
+                true
+            }
+
             _ => panic!("unexpected expression (for transpilation) '{:?}'", self),
         }
     }
@@ -408,6 +435,13 @@ impl Expr {
                     arg_types.push(arg.1.clone());
                 }
 
+                // Push scope and declare parameters BEFORE computing returned_type,
+                // so that parameter variables are visible during type inference.
+                cte.push_scope();
+                for arg in args {
+                    cte.declare_var(arg.0.clone(), false, arg.1.clone());
+                }
+
                 let ret_type = block.returned_type(cte, *span);
                 let return_type = if return_type.is_some() {
                     return_type.clone().unwrap()
@@ -419,6 +453,18 @@ impl Expr {
                     }
                 };
 
+                cte.add_func_type(return_type.clone(), arg_types.clone(), ctx, *span);
+                // Declare the variable first so c_func_instance_name can find it
+                cte.declare_global_var(
+                    name.clone(),
+                    false,
+                    Type::with_generics("func", {
+                        arg_types.push(return_type.clone());
+                        let output = arg_types;
+                        output
+                    }),
+                );
+
                 ctx.declarations.push_str(
                     format!(
                         "{} {}(",
@@ -428,9 +474,7 @@ impl Expr {
                     .as_str(),
                 );
 
-                cte.push_scope();
                 for arg in args {
-                    cte.declare_var(arg.0.clone(), false, arg.1.clone());
                     ctx.declarations.push_str(&cte.c_type_name(&arg.1, *span));
                     ctx.declarations.push(' ');
                     ctx.declarations.push_str(&cte.c_var_name(&arg.0, *span));
@@ -445,17 +489,6 @@ impl Expr {
 
                 block.pre_transpile(cte, ctx, programs_to_transpile);
 
-                cte.add_func_type(return_type.clone(), arg_types.clone(), ctx, *span);
-                // Declare the variable first so c_func_instance_name can find it
-                cte.declare_global_var(
-                    name.clone(),
-                    false,
-                    Type::with_generics("func", {
-                        arg_types.push(return_type.clone());
-                        let output = arg_types;
-                        output
-                    }),
-                );
                 cte.pop_scope();
             }
             Expr::Use { kind, path, span } => {
@@ -480,6 +513,10 @@ impl Expr {
             }
 
             Expr::Discard(expr) => expr.pre_transpile(cte, ctx, programs_to_transpile),
+
+            Expr::Class(ty, _, _span) => {
+                cte.register_class(ty.clone());
+            }
 
             _ => {}
         }
