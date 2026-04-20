@@ -33,10 +33,10 @@ mod tests;
 //  Add "str"
 //  Add references
 //  Add "&str" - Remember to change str literals to "&str" type!
-//  Add classes
 //  Add generic functions:
 //      Create function instances for each generic variant
 //  Add generic classes
+//  Add checks for "\x"
 
 use crate::error::ObstructError;
 use crate::expr::Expr;

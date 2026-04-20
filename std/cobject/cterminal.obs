@@ -3,5 +3,15 @@ cls CTerminal {
 };
 
 fn show(terminal: CTerminal) {
+    $"\x1B[2J\x1B[1;1H";
     $terminal.buffer;
+};
+
+fn print(terminal: CTerminal, s: strlit) {
+    terminal.buffer = terminal.buffer + s;
+};
+
+fn new() CTerminal {
+    #terminal: CTerminal;
+    ret terminal;
 };

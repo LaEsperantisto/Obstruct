@@ -261,7 +261,9 @@ impl Expr {
                     cte.c_var_name(&name, *span),
                 )
                 .as_str();
-                expr.clone().unwrap().to_c(cte, ctx);
+                if expr.is_some() {
+                    expr.clone().unwrap().to_c(cte, ctx);
+                }
                 true
             }
 

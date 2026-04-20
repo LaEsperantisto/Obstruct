@@ -64,11 +64,6 @@ impl<'a> Parser<'a> {
             return self.if_statement(false);
         }
 
-        if self.check(TokenType::Ident) && self.peek_next(TokenType::Equal) {
-            self.advance();
-            return self.assignment();
-        }
-
         if self.match_any(&[TokenType::Use]) {
             return self.use_file();
         }
@@ -242,8 +237,7 @@ impl<'a> Parser<'a> {
     }
 
     // ---------- ASSIGNMENT ----------
-    fn assignment(&mut self) -> Expr {
-        let name = self.previous().lexeme.clone();
+    fn assignment(&mut self, name: String) -> Expr {
         self.consume(TokenType::Equal, "Expected '=' after identifier.");
         let span = self.get_span();
         Expr::Assign(name, Box::new(self.expression()), span)
@@ -663,8 +657,11 @@ impl<'a> Parser<'a> {
             if self.check(TokenType::LeftParen) {
                 return self.call_function(item);
             }
-            if self.check(TokenType::Dot) {
+            if self.match_any(&[TokenType::Dot]) {
                 return self.member(item);
+            }
+            if self.match_any(&[TokenType::Equal]) {
+                return self.assignment(item);
             }
             return Expr::Variable(item, self.get_span());
         }
