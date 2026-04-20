@@ -27,16 +27,17 @@ mod tests;
 // FIXME
 
 // TODO
-//  Add functionality to "use" keyword
 //  Add generic types
 //  Add "Vec"
 //  Add "str"
 //  Add references
-//  Add "&str" - Remember to change str literals to "&str" type!
+//  Add "&str"
+//  Add conversion (a function) from "strlit" to "&str"
 //  Add generic functions:
 //      Create function instances for each generic variant
 //  Add generic classes
 //  Add checks for "\x"
+//  Let function calls accept any expression as left hand expression, not just directly calling a variable
 
 use crate::error::ObstructError;
 use crate::expr::Expr;
@@ -235,7 +236,11 @@ fn run() -> Result<(), ObstructError> {
                 SOURCES.lock().unwrap().push(source.clone());
                 let ast = parse(source);
 
-                ast.pre_transpile(&mut cte, &mut ctx, &mut programs_to_transpile);
+                let current_dir = std::path::Path::new(&name)
+                    .parent()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                ast.pre_transpile(&mut cte, &mut ctx, &mut programs_to_transpile, &current_dir);
 
                 SOURCES.lock().unwrap().pop();
             }

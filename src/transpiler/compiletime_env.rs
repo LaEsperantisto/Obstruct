@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 pub struct CompileTimeEnv {
     all_types: Vec<Type>,
-    scopes: Vec<HashMap<String, (usize, bool, Type)>>, // variable: id, is_mutable, type
+    scopes: Vec<HashMap<String, (usize, bool, Type, bool)>>, // variable: id, is_mutable, type, is_pointer
     current_scope: usize,
 
     these: Vec<String>,
@@ -350,11 +350,20 @@ impl CompileTimeEnv {
     // Variable Handling
 
     pub fn declare_var(&mut self, name: String, is_mutable: bool, var_type: Type) -> usize {
+        self.declare_var_inner(name, is_mutable, var_type, false)
+    }
+
+    /// Declare a variable with pointer flag. Struct params are passed by pointer in C.
+    pub fn declare_var_with_pointer(&mut self, name: String, is_mutable: bool, var_type: Type) -> usize {
+        self.declare_var_inner(name, is_mutable, var_type, true)
+    }
+
+    fn declare_var_inner(&mut self, name: String, is_mutable: bool, var_type: Type, is_pointer: bool) -> usize {
         let id = self.next_var_id;
         self.next_var_id += 1;
 
         let scope = self.scopes.last_mut().unwrap();
-        scope.insert(name, (id, is_mutable, var_type));
+        scope.insert(name, (id, is_mutable, var_type, is_pointer));
 
         id
     }
@@ -364,7 +373,7 @@ impl CompileTimeEnv {
         self.next_var_id += 1;
 
         let scope = self.scopes.first_mut().unwrap();
-        scope.insert(name, (id, is_mutable, var_type));
+        scope.insert(name, (id, is_mutable, var_type, false));
 
         id
     }
@@ -378,9 +387,19 @@ impl CompileTimeEnv {
         None
     }
 
+    /// Check if a variable is a pointer (e.g., struct param)
+    pub fn is_var_pointer(&self, name: &str) -> bool {
+        for scope in self.scopes.iter().rev() {
+            if let Some(entry) = scope.get(name) {
+                return entry.3;
+            }
+        }
+        false
+    }
+
     pub fn get_var(&self, name: &str) -> Option<(bool, Type)> {
         for scope in self.scopes.iter().rev() {
-            if let Some((_id, is_mutable, var_type)) = scope.get(name) {
+            if let Some((_id, is_mutable, var_type, _ptr)) = scope.get(name) {
                 return Some((*is_mutable, var_type.clone()));
             }
         }
@@ -602,6 +621,20 @@ impl CompileTimeEnv {
             if let Some(_id) = scope.get(name) {
                 scope.remove(name);
             }
+        }
+    }
+
+    /// Returns true if the type is a registered class (struct type)
+    pub fn is_class(&self, ty: &Type) -> bool {
+        self.members.contains_key(ty)
+    }
+
+    /// Returns the C type name for a parameter, using pointer for structs
+    pub fn c_param_type(&mut self, ty: &Type, span: Span) -> String {
+        if self.is_class(ty) {
+            format!("{}*", self.c_type_name(ty, span))
+        } else {
+            self.c_type_name(ty, span)
         }
     }
 

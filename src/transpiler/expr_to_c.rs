@@ -7,6 +7,48 @@ use crate::{error, STD_PATH};
 use std::collections::HashMap;
 use std::path::Path;
 
+/// Register local variable declarations from a block so they are visible to
+/// returned_type() / get_type() lookups. This only declares variables (no
+/// C code is generated).
+fn declare_locals_from_block(cte: &mut CompileTimeEnv, block: &Expr) {
+    match block {
+        Expr::StmtBlock(exprs, _) | Expr::StmtBlockWithScope(exprs, _) => {
+            for expr in exprs {
+                // Handle both bare Declare and Declare wrapped in Discard
+                match expr.as_ref() {
+                    Expr::Declare(name, var_type, expr_opt, is_mutable, _) => {
+                        let ty = if let Some(vt) = var_type {
+                            vt.clone()
+                        } else if let Some(e) = expr_opt {
+                            e.get_type(cte)
+                        } else {
+                            nil_type()
+                        };
+                        cte.declare_var(name.clone(), *is_mutable, ty);
+                    }
+                    Expr::Discard(inner) => {
+                        if let Expr::Declare(name, var_type, expr_opt, is_mutable, _) = inner.as_ref() {
+                            let ty = if let Some(vt) = var_type {
+                                vt.clone()
+                            } else if let Some(e) = expr_opt {
+                                e.get_type(cte)
+                            } else {
+                                nil_type()
+                            };
+                            cte.declare_var(name.clone(), *is_mutable, ty);
+                        }
+                    }
+                    _ => {}
+                }
+                // Recurse into nested blocks and function bodies
+                declare_locals_from_block(cte, expr);
+            }
+        }
+        Expr::Discard(inner) => declare_locals_from_block(cte, inner),
+        _ => {}
+    }
+}
+
 impl Expr {
     pub fn to_c(&self, cte: &mut CompileTimeEnv, ctx: &mut CodeGenContext) -> bool {
         // if true - requires a semicolon at end of statement
@@ -279,8 +321,15 @@ impl Expr {
                 }
                 ctx.body
                     .push_str(format!("{}(", cte.c_func_instance_name(name, gens, *span)).as_str());
-                for expr in exprs {
-                    expr.to_c(cte, ctx);
+                for expr in exprs.iter() {
+                    // Check if this argument is a struct — if so, pass by pointer
+                    let arg_type = expr.get_type(cte);
+                    if cte.is_class(&arg_type) {
+                        ctx.body.push_str("&");
+                        expr.to_c(cte, ctx);
+                    } else {
+                        expr.to_c(cte, ctx);
+                    }
                     ctx.body.push(',');
                 }
                 if exprs.len() >= 1 {
@@ -302,13 +351,20 @@ impl Expr {
                     arg_types.push(arg.1.clone());
                 }
 
-                // Push scope and declare parameters BEFORE computing returned_type,
-                // so that parameter variables are visible during type inference.
+                // Push scope and declare parameters. Struct params use pointers in C.
                 cte.push_scope();
                 for arg in args {
-                    cte.declare_var(arg.0.clone(), false, arg.1.clone());
+                    if cte.is_class(&arg.1) {
+                        cte.declare_var_with_pointer(arg.0.clone(), false, arg.1.clone());
+                    } else {
+                        cte.declare_var(arg.0.clone(), false, arg.1.clone());
+                    }
                 }
 
+                // Infer return type from return statements in the body.
+                // Parameters are already declared in scope. We also need to declare
+                // local variables from the body so they're resolvable.
+                declare_locals_from_block(cte, block);
                 let ret_type = block.returned_type(cte, *span);
                 let return_type = if return_type.is_some() {
                     return_type.clone().unwrap()
@@ -330,7 +386,7 @@ impl Expr {
                 );
 
                 for arg in args {
-                    ctx.body.push_str(&cte.c_type_name(&arg.1, *span));
+                    ctx.body.push_str(&cte.c_param_type(&arg.1, *span));
                     ctx.body.push(' ');
                     ctx.body.push_str(&cte.c_var_name(&arg.0, *span));
                     ctx.body.push_str(", ");
@@ -359,23 +415,23 @@ impl Expr {
                         cte.pop_this();
                     }
                     Expr::Member(var, member, span) => {
+                        let var_type = cte.get_var(var)
+                            .unwrap_or_else(|| {
+                                error(
+                                    *span,
+                                    &format!("Could not find variable '{}'", var),
+                                    "transpiling",
+                                );
+                                (false, nil_type())
+                            });
                         ctx.body.push_str(&cte.c_var_name(var, *span));
-                        ctx.body.push('.');
+                        if cte.is_var_pointer(var) {
+                            ctx.body.push_str("->");
+                        } else {
+                            ctx.body.push('.');
+                        }
                         ctx.body.push_str(
-                            &cte.c_member_name(
-                                &cte.get_var(var)
-                                    .unwrap_or_else(|| {
-                                        error(
-                                            *span,
-                                            &format!("Could not find variable '{}'", var),
-                                            "transpiling",
-                                        );
-                                        (false, nil_type())
-                                    })
-                                    .1,
-                                member,
-                                *span,
-                            ),
+                            &cte.c_member_name(&var_type.1, member, *span),
                         );
                         ctx.body.push('=');
                         right.to_c(cte, ctx);
@@ -439,21 +495,26 @@ impl Expr {
                 true
             }
 
-            Expr::Member(variable, member, span) => {
-                ctx.body.push_str(&cte.c_var_name(variable, *span));
-                ctx.body.push('.');
-
-                let var = cte.get_var(variable);
+            Expr::Member(var_name, member, span) => {
+                let var = cte.get_var(var_name);
                 if var.is_none() {
                     error(
                         *span,
-                        &format!("Variable '{}' not defined", variable),
+                        &format!("Variable '{}' not defined", var_name),
                         "type checker",
                     );
                 }
-                let variable = var.unwrap();
+                let var_info = var.unwrap();
+                ctx.body.push_str(&cte.c_var_name(var_name, *span));
+
+                if cte.is_var_pointer(var_name) {
+                    ctx.body.push_str("->");
+                } else {
+                    ctx.body.push('.');
+                }
+
                 ctx.body
-                    .push_str(&cte.c_member_name(&variable.1, member, *span));
+                    .push_str(&cte.c_member_name(&var_info.1, member, *span));
                 false
             }
 
@@ -466,6 +527,7 @@ impl Expr {
         cte: &mut CompileTimeEnv,
         ctx: &mut CodeGenContext,
         programs_to_transpile: &mut HashMap<String, bool>,
+        current_file_dir: &str,
     ) {
         match self {
             Expr::DeclareFunction(name, block, return_type, args, _gens, span) => {
@@ -484,12 +546,16 @@ impl Expr {
                     arg_types.push(arg.1.clone());
                 }
 
-                // Push scope and declare parameters BEFORE computing returned_type,
-                // so that parameter variables are visible during type inference.
+                // Push scope and declare parameters.
                 cte.push_scope();
                 for arg in args {
                     cte.declare_var(arg.0.clone(), false, arg.1.clone());
                 }
+
+                // Process the body first so local variable declarations (like #x = ...)
+                // are registered in the scope. This makes them visible to returned_type()
+                // and get_type() calls that resolve variable names.
+                block.pre_transpile(cte, ctx, programs_to_transpile, current_file_dir);
 
                 let ret_type = block.returned_type(cte, *span);
                 let return_type = if return_type.is_some() {
@@ -524,7 +590,7 @@ impl Expr {
                 );
 
                 for arg in args {
-                    ctx.declarations.push_str(&cte.c_type_name(&arg.1, *span));
+                    ctx.declarations.push_str(&cte.c_param_type(&arg.1, *span));
                     ctx.declarations.push(' ');
                     ctx.declarations.push_str(&cte.c_var_name(&arg.0, *span));
                     ctx.declarations.push_str(", ");
@@ -536,32 +602,52 @@ impl Expr {
 
                 ctx.declarations.push_str(");\n");
 
-                block.pre_transpile(cte, ctx, programs_to_transpile);
-
                 cte.pop_scope();
             }
             Expr::Use { kind, path, span } => {
-                let crate_path = match kind {
-                    UseKind::Std => STD_PATH,
-                    UseKind::Normal => "",
+                let full_path = match kind {
+                    UseKind::Std => format!("{}{}", STD_PATH, path),
+                    UseKind::Normal => {
+                        if current_file_dir.is_empty() {
+                            path.to_string()
+                        } else {
+                            format!("{}/{}", current_file_dir, path)
+                        }
+                    }
                 };
-
-                let full_path = format!("{}{}", crate_path, path);
 
                 if !Path::new(&full_path).exists() {
                     error(*span, "File does not exist!", "pre-transpiling");
+                    return;
                 }
 
-                programs_to_transpile.insert(full_path, false);
+                if !programs_to_transpile.contains_key(&full_path) {
+                    programs_to_transpile.insert(full_path.clone(), true);
+                    // Process this file immediately so its functions are available to subsequent
+                    // declarations in the current file
+                    let source = std::fs::read_to_string(&full_path)
+                        .unwrap_or_else(|_| panic!("Failed to read {}", full_path));
+                    let imported_ast = {
+                        let mut scanner = crate::scanner::Scanner::new(source.clone());
+                        let tokens = scanner.scan_tokens();
+                        let mut parser = crate::parser::Parser::new(tokens);
+                        parser.parse()
+                    };
+                    let imported_dir = std::path::Path::new(&full_path)
+                        .parent()
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    imported_ast.pre_transpile(cte, ctx, programs_to_transpile, &imported_dir);
+                }
             }
 
             Expr::StmtBlock(exprs, _) | Expr::StmtBlockWithScope(exprs, _) => {
                 for expr in exprs {
-                    expr.pre_transpile(cte, ctx, programs_to_transpile);
+                    expr.pre_transpile(cte, ctx, programs_to_transpile, current_file_dir);
                 }
             }
 
-            Expr::Discard(expr) => expr.pre_transpile(cte, ctx, programs_to_transpile),
+            Expr::Discard(expr) => expr.pre_transpile(cte, ctx, programs_to_transpile, current_file_dir),
 
             Expr::Class(ty, members, span) => {
                 cte.register_class(ty.clone());
@@ -580,6 +666,18 @@ impl Expr {
                 ctx.types.push(' ');
                 ctx.types.push_str(&c_type_name);
                 ctx.types.push_str(";\n");
+            }
+
+            Expr::Declare(name, var_type, expr, is_mutable, _span) => {
+                if let Some(var_type) = var_type {
+                    cte.declare_var(name.clone(), *is_mutable, var_type.clone());
+                } else if let Some(expr_box) = expr {
+                    let t = expr_box.get_type(cte);
+                    cte.declare_var(name.clone(), *is_mutable, t);
+                }
+                if let Some(expr_box) = expr {
+                    expr_box.pre_transpile(cte, ctx, programs_to_transpile, current_file_dir);
+                }
             }
 
             _ => {}
@@ -611,7 +709,7 @@ impl Expr {
                     .unwrap_or_else(|| {
                         error(
                             *span,
-                            &format!("Variable not defined: {}", name),
+                            &format!("Function not defined: {}", name),
                             "type checker",
                         );
                         (false, nil_type())

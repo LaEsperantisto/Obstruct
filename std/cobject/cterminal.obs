@@ -7,11 +7,12 @@ fn show(terminal: CTerminal) {
     $terminal.buffer;
 };
 
-fn print(terminal: CTerminal, s: strlit) {
+fn add_str(terminal: CTerminal, s: strlit) {
     terminal.buffer = terminal.buffer + s;
 };
 
 fn new() CTerminal {
     #terminal: CTerminal;
+    terminal.buffer = `s;
     ret terminal;
 };

@@ -12,14 +12,17 @@ pub struct CodeGenContext {
 impl CodeGenContext {
     /// The constructor for CodeGenContext
     pub fn new() -> CodeGenContext {
-        let ctx = CodeGenContext {
+        Self::new_empty()
+    }
+
+    pub fn new_empty() -> CodeGenContext {
+        CodeGenContext {
             include: String::new(),
             types: String::new(),
             body: String::new(),
             declarations: String::new(),
             unnamed: String::new(),
-        };
-        ctx
+        }
     }
 
     /// Combines all the parts of the variable into one single String.

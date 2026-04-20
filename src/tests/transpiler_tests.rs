@@ -17,7 +17,7 @@ fn transpile_to_c(source: &str) -> String {
     let mut ctx = CodeGenContext::new();
     let mut cte = CompileTimeEnv::new(&mut ctx);
 
-    expr.pre_transpile(&mut cte, &mut ctx, &mut HashMap::new());
+    expr.pre_transpile(&mut cte, &mut ctx, &mut HashMap::new(), "");
     expr.to_c(&mut cte, &mut ctx);
     ctx.combine(&mut cte)
 }
