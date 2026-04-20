@@ -8,7 +8,7 @@ fn show(terminal: CTerminal) {
 };
 
 fn print(terminal: CTerminal, s: strlit) {
-    // terminal.buffer = terminal.buffer + s;
+    terminal.buffer = terminal.buffer + s;
 };
 
 fn new() CTerminal {

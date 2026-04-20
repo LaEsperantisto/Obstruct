@@ -349,12 +349,41 @@ impl Expr {
                 false
             }
 
-            Expr::Assign(name, expr, span) => {
-                cte.push_this(name);
-                ctx.body.push_str(&cte.c_var_name(&name, *span));
-                ctx.body.push('=');
-                expr.to_c(cte, ctx);
-                cte.pop_this();
+            Expr::Assign(left, right, span) => {
+                match left.as_ref() {
+                    Expr::Variable(name, _) => {
+                        cte.push_this(name);
+                        ctx.body.push_str(&cte.c_var_name(name, *span));
+                        ctx.body.push('=');
+                        right.to_c(cte, ctx);
+                        cte.pop_this();
+                    }
+                    Expr::Member(var, member, span) => {
+                        ctx.body.push_str(&cte.c_var_name(var, *span));
+                        ctx.body.push('.');
+                        ctx.body.push_str(
+                            &cte.c_member_name(
+                                &cte.get_var(var)
+                                    .unwrap_or_else(|| {
+                                        error(
+                                            *span,
+                                            &format!("Could not find variable '{}'", var),
+                                            "transpiling",
+                                        );
+                                        (false, nil_type())
+                                    })
+                                    .1,
+                                member,
+                                *span,
+                            ),
+                        );
+                        ctx.body.push('=');
+                        right.to_c(cte, ctx);
+                    }
+                    _ => {
+                        error(*span, "Invalid assignment target", "transpiler");
+                    }
+                }
                 true
             }
 

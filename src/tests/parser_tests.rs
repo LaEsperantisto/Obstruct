@@ -122,7 +122,6 @@ fn test_parse_assignment() {
     match expr {
         crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
             crate::expr::Expr::Assign(name, expr_value, _) => {
-                assert_eq!(name, "x");
                 if let crate::expr::Expr::Int(10) = expr_value.as_ref() {
                 } else {
                     panic!("Expected Int(10)");

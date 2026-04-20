@@ -236,13 +236,6 @@ impl<'a> Parser<'a> {
         Expr::Declare(name, var_type, expr, is_mutable, self.get_span())
     }
 
-    // ---------- ASSIGNMENT ----------
-    fn assignment(&mut self, name: String) -> Expr {
-        self.consume(TokenType::Equal, "Expected '=' after identifier.");
-        let span = self.get_span();
-        Expr::Assign(name, Box::new(self.expression()), span)
-    }
-
     // ------- IF / ELSE IF / ELSE ----
 
     fn if_statement(&mut self, is_expr: bool) -> Expr {
@@ -658,10 +651,21 @@ impl<'a> Parser<'a> {
                 return self.call_function(item);
             }
             if self.match_any(&[TokenType::Dot]) {
-                return self.member(item);
+                let member_expr = self.member(item);
+                // NEW: Check for assignment after member access
+                if self.match_any(&[TokenType::Equal]) {
+                    let span = self.get_span();
+                    return Expr::Assign(Box::new(member_expr), Box::new(self.expression()), span);
+                }
+                return member_expr;
             }
             if self.match_any(&[TokenType::Equal]) {
-                return self.assignment(item);
+                let span = self.get_span();
+                return Expr::Assign(
+                    Box::new(Expr::Variable(item, self.get_span())),
+                    Box::new(self.expression()),
+                    span,
+                );
             }
             return Expr::Variable(item, self.get_span());
         }

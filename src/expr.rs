@@ -65,7 +65,7 @@ pub enum Expr {
     // Variables
     Variable(String, Span),
     Declare(String, Option<Type>, Option<Box<Expr>>, bool, Span),
-    Assign(String, Box<Expr>, Span),
+    Assign(Box<Expr>, Box<Expr>, Span),
     Delete(String),
     This(Span),
 
