@@ -174,7 +174,7 @@ impl CompileTimeEnv {
         this.declare_global_var(
             "strput".to_string(),
             false,
-            Type::with_generics("func", vec![Type::simple("str")]),
+            Type::with_generics("func", vec![Type::simple("strlit")]),
         );
         this.add_func_type(Type::simple("strlit"), vec![], ctx, Span::empty());
 

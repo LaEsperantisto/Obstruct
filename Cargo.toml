@@ -1,6 +1,6 @@
 [package]
 name = "obstruct"
-version = "0.0.1"
+version = "0.2.0"
 edition = "2024"
 description = "A programming language that is heavily tersed / golfed and is statically typed."
 license = "MIT OR Apache-2.0"
@@ -9,4 +9,3 @@ license = "MIT OR Apache-2.0"
 cobject = "0.1.1"
 image = "0.25.10"
 colored = "3.1.1"
-terminal_size = "0.4.4"

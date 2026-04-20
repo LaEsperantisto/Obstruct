@@ -660,16 +660,13 @@ impl<'a> Parser<'a> {
         if self.check(TokenType::Ident) {
             let item = self.item();
 
-            if self.match_any(&[TokenType::LeftParen]) {
+            if self.check(TokenType::LeftParen) {
                 return self.call_function(item);
             }
-            if self.match_any(&[TokenType::Dot]) {
+            if self.check(TokenType::Dot) {
                 return self.member(item);
             }
-        }
-
-        if self.match_any(&[TokenType::Ident]) {
-            return Expr::Variable(self.previous().lexeme.clone(), self.get_span());
+            return Expr::Variable(item, self.get_span());
         }
 
         if self.match_any(&[TokenType::Float]) {

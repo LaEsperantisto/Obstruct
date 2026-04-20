@@ -687,7 +687,7 @@ fn test_parse_generic_function_call() {
 
 #[test]
 fn test_parse_array_indexing() {
-    let expr = parse_source("arr[0];");
+    let expr = parse_source("my_arr[0];");
     match expr {
         crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
             crate::expr::Expr::Stmt(inner) => {
