@@ -66,6 +66,22 @@ t_2CD v_1s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // add f64
     return n1 + n2;
 }
 
+t_6CD v_1s_0Ct_6CDD(t_6CD a, t_6CD b) { // add str
+    size_t len_a = strlen(a);
+    size_t len_b = strlen(b);
+
+    char* result = malloc(len_a + len_b + 1);
+    if (!result) return NULL;
+
+    memcpy(result, a, len_a);
+
+    memcpy(result + len_a, b, len_b);
+
+    result[len_a + len_b] = '\0';
+
+    return result;
+}
+
 t_0CD v_2s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // less i32
     return n1 < n2;
 }

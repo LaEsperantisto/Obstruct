@@ -256,15 +256,15 @@ impl Expr {
                 };
 
                 ctx.body += format!(
-                    "{} {}=",
+                    "{} {}",
                     cte.c_type_name(&var_type, *span),
                     cte.c_var_name(&name, *span),
                 )
                 .as_str();
+
                 if expr.is_some() {
+                    ctx.body.push('=');
                     expr.clone().unwrap().to_c(cte, ctx);
-                } else {
-                    ctx.body.pop();
                 }
                 true
             }
@@ -424,23 +424,17 @@ impl Expr {
                 ctx.types.push_str(&c_type_name);
                 ctx.types.push_str(" {\n");
                 for member in members {
-                    cte.declare_member(member.0.clone(), member.1.clone(), ty.clone());
                     ctx.types.push_str(&cte.c_type_name(&member.1, *span));
                     ctx.types.push(' ');
                     ctx.types.push_str(&cte.c_member_name(ty, &member.0, *span));
-                    ctx.types.push_str(", \n");
+                    ctx.types.push_str("; \n");
                 }
-                if ctx.types.ends_with(", \n") {
-                    ctx.types.pop();
+                if ctx.types.ends_with("; \n") {
                     ctx.types.pop();
                     ctx.types.pop();
                     ctx.types.push('\n');
                 }
-                ctx.types.push_str("};\ntypedef struct ");
-                ctx.types.push_str(&c_type_name);
-                ctx.types.push(' ');
-                ctx.types.push_str(&c_type_name);
-                ctx.types.push_str(";\n");
+                ctx.types.push_str("};\n");
 
                 true
             }
@@ -569,8 +563,23 @@ impl Expr {
 
             Expr::Discard(expr) => expr.pre_transpile(cte, ctx, programs_to_transpile),
 
-            Expr::Class(ty, _, _span) => {
+            Expr::Class(ty, members, span) => {
                 cte.register_class(ty.clone());
+
+                for member in members {
+                    cte.declare_member(member.0.clone(), member.1.clone(), ty.clone());
+                }
+
+                let c_type_name = cte.c_type_name(ty, *span);
+                ctx.include.push_str("struct ");
+                ctx.include.push_str(&c_type_name);
+                ctx.include.push_str(";\n");
+
+                ctx.types.push_str("\ntypedef struct ");
+                ctx.types.push_str(&c_type_name);
+                ctx.types.push(' ');
+                ctx.types.push_str(&c_type_name);
+                ctx.types.push_str(";\n");
             }
 
             _ => {}
@@ -595,7 +604,7 @@ impl Expr {
             | Expr::Mult(l, ..)
             | Expr::Power(l, ..)
             | Expr::Div(l, ..) => l.get_type(cte),
-            Expr::Return(expr, _span) => expr.get_type(cte),
+            Expr::Return(_, _span) => nil_type(),
             Expr::CallFunc(name, _, _, span) => {
                 let function = cte
                     .get_var(name)
