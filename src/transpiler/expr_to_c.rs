@@ -386,26 +386,48 @@ impl Expr {
             Expr::Use { .. } => false,
 
             Expr::Class(ty, members, span) => {
-                ctx.declarations.push_str("struct ");
-                ctx.declarations.push_str(&cte.c_type_name(ty, *span));
-                ctx.declarations.push_str(" {\n");
+                let c_type_name = cte.c_type_name(ty, *span);
+                ctx.types.push_str("struct ");
+                ctx.types.push_str(&c_type_name);
+                ctx.types.push_str(" {\n");
                 for member in members {
                     cte.declare_member(member.0.clone(), member.1.clone(), ty.clone());
-                    ctx.declarations
-                        .push_str(&cte.c_type_name(&member.1, *span));
-                    ctx.declarations.push(' ');
-                    ctx.declarations
-                        .push_str(&cte.c_member_name(ty, &member.0, *span));
-                    ctx.declarations.push_str(", \n");
+                    ctx.types.push_str(&cte.c_type_name(&member.1, *span));
+                    ctx.types.push(' ');
+                    ctx.types.push_str(&cte.c_member_name(ty, &member.0, *span));
+                    ctx.types.push_str(", \n");
                 }
-                if ctx.declarations.ends_with(", \n") {
-                    ctx.declarations.pop();
-                    ctx.declarations.pop();
-                    ctx.declarations.pop();
-                    ctx.declarations.push('\n');
+                if ctx.types.ends_with(", \n") {
+                    ctx.types.pop();
+                    ctx.types.pop();
+                    ctx.types.pop();
+                    ctx.types.push('\n');
                 }
-                ctx.declarations.push_str("};");
+                ctx.types.push_str("};\ntypedef struct ");
+                ctx.types.push_str(&c_type_name);
+                ctx.types.push(' ');
+                ctx.types.push_str(&c_type_name);
+                ctx.types.push_str(";\n");
+
                 true
+            }
+
+            Expr::Member(variable, member, span) => {
+                ctx.body.push_str(&cte.c_var_name(variable, *span));
+                ctx.body.push('.');
+
+                let var = cte.get_var(variable);
+                if var.is_none() {
+                    error(
+                        *span,
+                        &format!("Variable '{}' not defined", variable),
+                        "type checker",
+                    );
+                }
+                let variable = var.unwrap();
+                ctx.body
+                    .push_str(&cte.c_member_name(&variable.1, member, *span));
+                false
             }
 
             _ => panic!("unexpected expression (for transpilation) '{:?}'", self),
@@ -572,6 +594,36 @@ impl Expr {
             Expr::Discard(..) => nil_type(),
             Expr::Print(expr, _) => expr.get_type(cte),
             Expr::If(_, block, ..) => block.get_type(cte),
+            Expr::Member(variable, member_name, span) => {
+                let var = cte.get_var(variable);
+                if var.is_none() {
+                    error(
+                        *span,
+                        &format!("Variable '{}' not defined", variable),
+                        "type checker",
+                    );
+                }
+                let variable = var.unwrap();
+                let var_type = variable.1;
+
+                let member = cte.get_member_type(&var_type, member_name);
+
+                let member_type = if member.is_none() {
+                    error(
+                        *span,
+                        &format!(
+                            "Member '{}' not defined for type '{}'",
+                            member_name, var_type
+                        ),
+                        "type checker",
+                    );
+                    nil_type()
+                } else {
+                    member.unwrap()
+                };
+
+                member_type
+            }
             _ => panic!("unexpected expression (for type check) '{:?}'", self),
         }
     }

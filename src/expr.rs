@@ -58,6 +58,7 @@ pub enum Expr {
         Span,
     ),
     Function(Box<Expr>, Type, Vec<(String, Type)>, Vec<String>),
+    /// function, generics, args, span
     CallFunc(String, Vec<Type>, Vec<Box<Expr>>, Span),
     Return(Box<Expr>, Span),
 
@@ -78,6 +79,8 @@ pub enum Expr {
     // Data Structures
     /// new class, Vec<(member name, type)>, span
     Class(Type, Vec<(String, Type)>, Span),
+    /// variable, member, span
+    Member(String, String, Span),
 
     // Others
     Custom(fn(&mut RuntimeEnvironment) -> Value),

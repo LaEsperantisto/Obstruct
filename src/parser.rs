@@ -165,7 +165,16 @@ impl<'a> Parser<'a> {
             members.push((name, self.get_type()));
         }
 
-        Expr::Class(Type::simple(&name), members, self.get_span())
+        let class_type = Type::simple(&name);
+
+        Expr::Class(class_type, members, self.get_span())
+    }
+    // ---------- MEMBER VARIABLE -----------
+
+    fn member(&mut self, variable: String) -> Expr {
+        let member = self.ident();
+
+        Expr::Member(variable, member, self.get_span())
     }
 
     // ---------- WHILE LOOP -----------
@@ -413,9 +422,7 @@ impl<'a> Parser<'a> {
         Expr::Return(Box::new(value), self.get_span())
     }
 
-    fn call_function(&mut self) -> Expr {
-        let name = self.previous().lexeme;
-
+    fn call_function(&mut self, name: String) -> Expr {
         let mut generics = vec![];
 
         if self.match_any(&[TokenType::LessLess]) {
@@ -650,11 +657,15 @@ impl<'a> Parser<'a> {
             return self.statement_block();
         }
 
-        if self.check(TokenType::Ident)
-            && (self.peek_next(TokenType::LeftParen) || self.peek_next(TokenType::LessLess))
-        {
-            self.consume(TokenType::Ident, "THIS SHOULD BE UNREACHABLE.");
-            return self.call_function();
+        if self.check(TokenType::Ident) {
+            let item = self.item();
+
+            if self.match_any(&[TokenType::LeftParen]) {
+                return self.call_function(item);
+            }
+            if self.match_any(&[TokenType::Dot]) {
+                return self.member(item);
+            }
         }
 
         if self.match_any(&[TokenType::Ident]) {
@@ -718,11 +729,6 @@ impl<'a> Parser<'a> {
         if self.match_any(&[TokenType::Ident]) {
             let name = self.previous().lexeme.clone();
 
-            // Generic placeholder
-            if name.chars().next().unwrap().is_uppercase() && !self.check(TokenType::LessLess) {
-                return Type::conceptual(&name);
-            }
-
             if self.match_any(&[TokenType::LessLess]) {
                 let mut gens = vec![];
 
@@ -762,6 +768,18 @@ impl<'a> Parser<'a> {
             line: token.line,
             column: token.column,
         }
+    }
+
+    fn item(&mut self) -> String {
+        self.consume(TokenType::Ident, "Expected item.");
+        let item = self.previous().lexeme.clone();
+        item
+    }
+
+    fn ident(&mut self) -> String {
+        self.consume(TokenType::Ident, "Expected identifier.");
+        let ident = self.previous().lexeme.clone();
+        ident
     }
 
     fn match_any(&mut self, types: &[TokenType]) -> bool {

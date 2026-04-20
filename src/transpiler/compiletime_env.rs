@@ -325,6 +325,23 @@ impl CompileTimeEnv {
         }
     }
 
+    pub fn get_member_type(&self, ty: &Type, name: &str) -> Option<Type> {
+        let class = self.members.get(ty);
+        match class {
+            Some(class) => {
+                let mut output = None;
+                for member in class.0.iter() {
+                    if member.0 == name {
+                        output = Some(member.1.clone());
+                        break;
+                    }
+                }
+                output
+            }
+            None => None,
+        }
+    }
+
     pub fn register_class(&mut self, ty: Type) -> usize {
         self.members.insert(ty.clone(), (vec![], 0));
         self.register_type(ty.clone())

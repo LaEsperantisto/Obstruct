@@ -1,3 +1,7 @@
 cls CTerminal {
     buffer: strlit
 };
+
+fn show(terminal: CTerminal) {
+    $terminal.buffer;
+};
