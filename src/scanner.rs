@@ -300,7 +300,7 @@ impl Scanner {
                         't' => value.push('\t'),
                         'r' => value.push('\r'),
                         '\\' => value.push('\\'),
-                        'x' => value.push('x'),
+                        'x' => value.push_str("\\x"),
                         '"' => value.push('"'),
                         _ => {
                             error(

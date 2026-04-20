@@ -263,6 +263,8 @@ impl Expr {
                 .as_str();
                 if expr.is_some() {
                     expr.clone().unwrap().to_c(cte, ctx);
+                } else {
+                    ctx.body.pop();
                 }
                 true
             }
