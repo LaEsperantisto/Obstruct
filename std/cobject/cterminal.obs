@@ -2,9 +2,9 @@ cls CTerminal {
     buffer: strlit
 };
 
-fn show(terminal: CTerminal) {
+fn show(terminal: &CTerminal) {
     $"\x1B[2J\x1B[1;1H";
-    $terminal.buffer;
+    $*terminal.buffer;
 };
 
 fn add_str(terminal: &CTerminal, s: strlit) {
