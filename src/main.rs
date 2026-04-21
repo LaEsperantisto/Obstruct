@@ -25,6 +25,7 @@ mod variable;
 mod tests;
 
 // FIXME
+//  Make references declared as "t_7C type D", instead of its own type (like "t_18")
 
 // TODO
 //  Add generic types
@@ -236,7 +237,7 @@ fn run() -> Result<(), ObstructError> {
                 SOURCES.lock().unwrap().push(source.clone());
                 let ast = parse(source);
 
-                let current_dir = std::path::Path::new(&name)
+                let current_dir = Path::new(&name)
                     .parent()
                     .map(|p| p.to_string_lossy().to_string())
                     .unwrap_or_default();

@@ -429,18 +429,11 @@ impl Expr {
                         right.to_c(cte, ctx);
                         cte.pop_this();
                     }
-                    Expr::Member(var, member, span) => {
-                        let var_type = cte.get_var(var).unwrap_or_else(|| {
-                            error(
-                                *span,
-                                &format!("Could not find variable '{}'", var),
-                                "transpiling",
-                            );
-                            (false, nil_type())
-                        });
+                    Expr::Member(expr, member, span) => {
+                        let var_type = expr.get_type(cte);
 
                         let member_type =
-                            cte.get_member_type(&var_type.1, member).unwrap_or_else(|| {
+                            cte.get_member_type(&var_type, member).unwrap_or_else(|| {
                                 error(
                                     *span,
                                     &format!("Could not find member '{}'", member),
@@ -453,16 +446,16 @@ impl Expr {
                             ctx.body.push_str("(*");
                         }
 
-                        ctx.body.push_str(&cte.c_var_name(var, *span));
-
-                        ctx.body.push('.');
-
-                        ctx.body
-                            .push_str(&cte.c_member_name(&var_type.1, member, *span));
+                        expr.to_c(cte, ctx);
 
                         if member_type.name() == "ref" {
                             ctx.body.push(')');
                         }
+
+                        ctx.body.push('.');
+
+                        ctx.body
+                            .push_str(&cte.c_member_name(&var_type, member, *span));
 
                         ctx.body.push('=');
                         right.to_c(cte, ctx);
@@ -526,22 +519,14 @@ impl Expr {
                 true
             }
 
-            Expr::Member(var_name, member, span) => {
-                let var = cte.get_var(var_name);
-                if var.is_none() {
-                    error(
-                        *span,
-                        &format!("Variable '{}' not defined", var_name),
-                        "type checker",
-                    );
-                }
-                let var_info = var.unwrap();
-                ctx.body.push_str(&cte.c_var_name(var_name, *span));
+            Expr::Member(expr, member, span) => {
+                let var_type = expr.get_type(cte);
+                expr.to_c(cte, ctx);
 
                 ctx.body.push('.');
 
                 ctx.body
-                    .push_str(&cte.c_member_name(&var_info.1, member, *span));
+                    .push_str(&cte.c_member_name(&var_type, member, *span));
                 false
             }
 
@@ -774,17 +759,8 @@ impl Expr {
             Expr::Discard(..) => nil_type(),
             Expr::Print(expr, _) => expr.get_type(cte),
             Expr::If(_, block, ..) => block.get_type(cte),
-            Expr::Member(variable, member_name, span) => {
-                let var = cte.get_var(variable);
-                if var.is_none() {
-                    error(
-                        *span,
-                        &format!("Variable '{}' not defined", variable),
-                        "type checker",
-                    );
-                }
-                let variable = var.unwrap();
-                let var_type = variable.1;
+            Expr::Member(expr, member_name, span) => {
+                let var_type = expr.get_type(cte);
 
                 let member = cte.get_member_type(&var_type, member_name);
 

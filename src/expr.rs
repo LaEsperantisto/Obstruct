@@ -81,8 +81,8 @@ pub enum Expr {
     // Data Structures
     /// new class, Vec<(member name, type)>, span
     Class(Type, Vec<(String, Type)>, Span),
-    /// variable, member, span
-    Member(String, String, Span),
+    /// value, member, span
+    Member(Box<Expr>, String, Span),
 
     // Others
     Custom(fn(&mut RuntimeEnvironment) -> Value),

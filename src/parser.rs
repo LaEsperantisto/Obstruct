@@ -166,10 +166,16 @@ impl<'a> Parser<'a> {
     }
     // ---------- MEMBER VARIABLE -----------
 
-    fn member(&mut self, variable: String) -> Expr {
-        let member = self.ident();
+    fn member(&mut self) -> Expr {
+        let variable = self.nth();
 
-        Expr::Member(variable, member, self.get_span())
+        if self.match_any(&[TokenType::Dot]) {
+            let member = self.ident();
+
+            Expr::Member(Box::new(variable), member, self.get_span())
+        } else {
+            variable
+        }
     }
 
     // ---------- WHILE LOOP -----------
@@ -236,6 +242,17 @@ impl<'a> Parser<'a> {
         Expr::Declare(name, var_type, expr, is_mutable, self.get_span())
     }
 
+    // ------- ASSIGNMENT -----------
+
+    fn assignment(&mut self) -> Expr {
+        let left = self.bools();
+        if self.match_any(&[TokenType::Equal]) {
+            let right = self.bools();
+            Expr::Assign(Box::new(left), Box::new(right), self.get_span())
+        } else {
+            left
+        }
+    }
     // ------- IF / ELSE IF / ELSE ----
 
     fn if_statement(&mut self, is_expr: bool) -> Expr {
@@ -443,7 +460,7 @@ impl<'a> Parser<'a> {
 
     // ---------- EXPRESSIONS ----------
     fn expression(&mut self) -> Expr {
-        self.bools()
+        self.assignment()
     }
 
     fn bools(&mut self) -> Expr {
@@ -577,10 +594,10 @@ impl<'a> Parser<'a> {
     }
 
     fn power(&mut self) -> Expr {
-        let mut expr = self.nth();
+        let mut expr = self.member();
 
         while self.match_any(&[TokenType::StarStar]) {
-            expr = Expr::Power(Box::new(expr), Box::new(self.nth()), self.get_span());
+            expr = Expr::Power(Box::new(expr), Box::new(self.member()), self.get_span());
         }
 
         expr
@@ -642,23 +659,6 @@ impl<'a> Parser<'a> {
 
             if self.check(TokenType::LeftParen) {
                 return self.call_function(item);
-            }
-            if self.match_any(&[TokenType::Dot]) {
-                let member_expr = self.member(item);
-                // NEW: Check for assignment after member access
-                if self.match_any(&[TokenType::Equal]) {
-                    let span = self.get_span();
-                    return Expr::Assign(Box::new(member_expr), Box::new(self.expression()), span);
-                }
-                return member_expr;
-            }
-            if self.match_any(&[TokenType::Equal]) {
-                let span = self.get_span();
-                return Expr::Assign(
-                    Box::new(Expr::Variable(item, self.get_span())),
-                    Box::new(self.expression()),
-                    span,
-                );
             }
             return Expr::Variable(item, self.get_span());
         }
