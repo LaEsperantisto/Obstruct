@@ -27,7 +27,9 @@ fn declare_locals_from_block(cte: &mut CompileTimeEnv, block: &Expr) {
                         cte.declare_var(name.clone(), *is_mutable, ty);
                     }
                     Expr::Discard(inner) => {
-                        if let Expr::Declare(name, var_type, expr_opt, is_mutable, _) = inner.as_ref() {
+                        if let Expr::Declare(name, var_type, expr_opt, is_mutable, _) =
+                            inner.as_ref()
+                        {
                             let ty = if let Some(vt) = var_type {
                                 vt.clone()
                             } else if let Some(e) = expr_opt {
@@ -354,11 +356,7 @@ impl Expr {
                 // Push scope and declare parameters. Struct params use pointers in C.
                 cte.push_scope();
                 for arg in args {
-                    if cte.is_class(&arg.1) {
-                        cte.declare_var_with_pointer(arg.0.clone(), false, arg.1.clone());
-                    } else {
-                        cte.declare_var(arg.0.clone(), false, arg.1.clone());
-                    }
+                    cte.declare_var(arg.0.clone(), false, arg.1.clone());
                 }
 
                 // Infer return type from return statements in the body.
@@ -408,31 +406,64 @@ impl Expr {
             Expr::Assign(left, right, span) => {
                 match left.as_ref() {
                     Expr::Variable(name, _) => {
+                        let var_info = cte.get_var(name).unwrap_or_else(|| {
+                            error(
+                                *span,
+                                &format!("Could not find variable '{}'", name),
+                                "transpiling",
+                            );
+                            (false, nil_type())
+                        });
+
                         cte.push_this(name);
-                        ctx.body.push_str(&cte.c_var_name(name, *span));
+
+                        if var_info.1.name() == "ref" {
+                            ctx.body.push_str("(*");
+                            ctx.body.push_str(&cte.c_var_name(name, *span));
+                            ctx.body.push(')');
+                        } else {
+                            ctx.body.push_str(&cte.c_var_name(name, *span));
+                        }
+
                         ctx.body.push('=');
                         right.to_c(cte, ctx);
                         cte.pop_this();
                     }
                     Expr::Member(var, member, span) => {
-                        let var_type = cte.get_var(var)
-                            .unwrap_or_else(|| {
+                        let var_type = cte.get_var(var).unwrap_or_else(|| {
+                            error(
+                                *span,
+                                &format!("Could not find variable '{}'", var),
+                                "transpiling",
+                            );
+                            (false, nil_type())
+                        });
+
+                        let member_type =
+                            cte.get_member_type(&var_type.1, member).unwrap_or_else(|| {
                                 error(
                                     *span,
-                                    &format!("Could not find variable '{}'", var),
+                                    &format!("Could not find member '{}'", member),
                                     "transpiling",
                                 );
-                                (false, nil_type())
+                                nil_type()
                             });
-                        ctx.body.push_str(&cte.c_var_name(var, *span));
-                        if cte.is_var_pointer(var) {
-                            ctx.body.push_str("->");
-                        } else {
-                            ctx.body.push('.');
+
+                        if member_type.name() == "ref" {
+                            ctx.body.push_str("(*");
                         }
-                        ctx.body.push_str(
-                            &cte.c_member_name(&var_type.1, member, *span),
-                        );
+
+                        ctx.body.push_str(&cte.c_var_name(var, *span));
+
+                        ctx.body.push('.');
+
+                        ctx.body
+                            .push_str(&cte.c_member_name(&var_type.1, member, *span));
+
+                        if member_type.name() == "ref" {
+                            ctx.body.push(')');
+                        }
+
                         ctx.body.push('=');
                         right.to_c(cte, ctx);
                     }
@@ -507,14 +538,21 @@ impl Expr {
                 let var_info = var.unwrap();
                 ctx.body.push_str(&cte.c_var_name(var_name, *span));
 
-                if cte.is_var_pointer(var_name) {
-                    ctx.body.push_str("->");
-                } else {
-                    ctx.body.push('.');
-                }
+                ctx.body.push('.');
 
                 ctx.body
                     .push_str(&cte.c_member_name(&var_info.1, member, *span));
+                false
+            }
+
+            Expr::Ref(expr, _span) => {
+                ctx.body.push('&');
+                expr.to_c(cte, ctx);
+                false
+            }
+            Expr::Deref(expr, _span) => {
+                ctx.body.push('*');
+                expr.to_c(cte, ctx);
                 false
             }
 
@@ -647,7 +685,9 @@ impl Expr {
                 }
             }
 
-            Expr::Discard(expr) => expr.pre_transpile(cte, ctx, programs_to_transpile, current_file_dir),
+            Expr::Discard(expr) => {
+                expr.pre_transpile(cte, ctx, programs_to_transpile, current_file_dir)
+            }
 
             Expr::Class(ty, members, span) => {
                 cte.register_class(ty.clone());
@@ -684,7 +724,7 @@ impl Expr {
         }
     }
 
-    fn get_type(&self, cte: &CompileTimeEnv) -> Type {
+    fn get_type(&self, cte: &mut CompileTimeEnv) -> Type {
         match self {
             Expr::Int(_) => "i32".into(),
             Expr::Float(_) => "f64".into(),
@@ -764,11 +804,24 @@ impl Expr {
 
                 member_type
             }
+            Expr::Ref(expr, _span) => {
+                let expr_type = expr.get_type(cte);
+                cte.register_type(expr_type.clone());
+                Type::with_generics("ref", vec![expr_type])
+            }
+            Expr::Deref(expr, span) => {
+                let expr_type = expr.get_type(cte);
+                if expr_type.name() != "ref" {
+                    error(*span, "Could not deref non-reference", "type checker");
+                    return nil_type();
+                }
+                expr_type.generics()[0].clone()
+            }
             _ => panic!("unexpected expression (for type check) '{:?}'", self),
         }
     }
 
-    fn returned_type(&self, cte: &CompileTimeEnv, span: Span) -> Option<Type> {
+    fn returned_type(&self, cte: &mut CompileTimeEnv, span: Span) -> Option<Type> {
         match self {
             Expr::Return(expr, _span) => Some(expr.get_type(cte)),
             Expr::Discard(expr) => expr.returned_type(cte, span),

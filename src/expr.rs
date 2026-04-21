@@ -40,6 +40,8 @@ pub enum Expr {
 
     // Unary Operators
     Not(Box<Expr>),
+    Ref(Box<Expr>, Span),
+    Deref(Box<Expr>, Span),
 
     // Statements
     StmtBlockWithScope(Vec<Box<Expr>>, Span),

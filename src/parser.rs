@@ -554,16 +554,14 @@ impl<'a> Parser<'a> {
         }
 
         if self.match_any(&[TokenType::And]) {
-            // Make a reference to the variable itself
+            // ref: create a reference to a variable
             return if self.check(TokenType::Ident) {
                 self.advance(); // consume the identifier
-                let var_name = self.previous().lexeme.clone();
-                Expr::CallFunc(
-                    "ref::new".into(),
-                    vec![],
-                    vec![Box::new(Expr::Str(var_name))],
+                let inner = Box::new(Expr::Variable(
+                    self.previous().lexeme.clone(),
                     self.get_span(),
-                )
+                ));
+                Expr::Ref(inner, self.get_span())
             } else {
                 error(self.get_span(), "Expected identifier after '&'.", "parsing");
                 Expr::Nothing()
@@ -571,13 +569,8 @@ impl<'a> Parser<'a> {
         }
 
         if self.match_any(&[TokenType::Star]) {
-            let expr = self.unary();
-            return Expr::CallFunc(
-                "ref::deref".into(),
-                vec![],
-                vec![Box::new(expr)],
-                self.get_span(),
-            );
+            let inner = Box::new(self.unary());
+            return Expr::Deref(inner, self.get_span());
         }
 
         self.power()
@@ -754,7 +747,11 @@ impl<'a> Parser<'a> {
 
             self.consume(TokenType::RightBrack, "Expected '>' after generics");
             return Type::with_generics("arr", gens);
+        } else if self.match_any(&[TokenType::And]) {
+            return Type::with_generics("ref", vec![self.get_type()]);
         }
+
+        error(self.get_span(), "Expected type", "parsing");
 
         nil_type()
     }

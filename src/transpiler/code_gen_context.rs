@@ -44,6 +44,7 @@ typedef bool t_3CD; // bool
 typedef char t_4CD; // char
 // typedef func t_5; // func - commented out as func is not a C type
 typedef char* t_6CD; // strlit
+// typedef *t_7; // ref - commented out as refs have to be "of" another type
 
 t_1CD v_0s_0Ct_0CDD(t_0CD i) { // print i32
     printf("%d", i);

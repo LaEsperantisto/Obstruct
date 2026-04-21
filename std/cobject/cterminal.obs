@@ -7,7 +7,7 @@ fn show(terminal: CTerminal) {
     $terminal.buffer;
 };
 
-fn add_str(terminal: CTerminal, s: strlit) {
+fn add_str(terminal: &CTerminal, s: strlit) {
     terminal.buffer = terminal.buffer + s;
 };
 

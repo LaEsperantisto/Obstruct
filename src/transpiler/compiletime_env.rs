@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 pub struct CompileTimeEnv {
     all_types: Vec<Type>,
-    scopes: Vec<HashMap<String, (usize, bool, Type, bool)>>, // variable: id, is_mutable, type, is_pointer
+    scopes: Vec<HashMap<String, (usize, bool, Type)>>, // variable: id, is_mutable, type
     current_scope: usize,
 
     these: Vec<String>,
@@ -45,6 +45,7 @@ impl CompileTimeEnv {
         this.register_type(Type::simple("char"));
         this.register_type(Type::simple("func"));
         this.register_type(Type::simple("strlit"));
+        this.register_type(Type::simple("ref"));
 
         // Declare and register _print: func(i32) -> arr
         this.declare_global_var(
@@ -350,20 +351,15 @@ impl CompileTimeEnv {
     // Variable Handling
 
     pub fn declare_var(&mut self, name: String, is_mutable: bool, var_type: Type) -> usize {
-        self.declare_var_inner(name, is_mutable, var_type, false)
+        self.declare_var_inner(name, is_mutable, var_type)
     }
 
-    /// Declare a variable with pointer flag. Struct params are passed by pointer in C.
-    pub fn declare_var_with_pointer(&mut self, name: String, is_mutable: bool, var_type: Type) -> usize {
-        self.declare_var_inner(name, is_mutable, var_type, true)
-    }
-
-    fn declare_var_inner(&mut self, name: String, is_mutable: bool, var_type: Type, is_pointer: bool) -> usize {
+    fn declare_var_inner(&mut self, name: String, is_mutable: bool, var_type: Type) -> usize {
         let id = self.next_var_id;
         self.next_var_id += 1;
 
         let scope = self.scopes.last_mut().unwrap();
-        scope.insert(name, (id, is_mutable, var_type, is_pointer));
+        scope.insert(name, (id, is_mutable, var_type));
 
         id
     }
@@ -373,7 +369,7 @@ impl CompileTimeEnv {
         self.next_var_id += 1;
 
         let scope = self.scopes.first_mut().unwrap();
-        scope.insert(name, (id, is_mutable, var_type, false));
+        scope.insert(name, (id, is_mutable, var_type));
 
         id
     }
@@ -387,19 +383,9 @@ impl CompileTimeEnv {
         None
     }
 
-    /// Check if a variable is a pointer (e.g., struct param)
-    pub fn is_var_pointer(&self, name: &str) -> bool {
-        for scope in self.scopes.iter().rev() {
-            if let Some(entry) = scope.get(name) {
-                return entry.3;
-            }
-        }
-        false
-    }
-
     pub fn get_var(&self, name: &str) -> Option<(bool, Type)> {
         for scope in self.scopes.iter().rev() {
-            if let Some((_id, is_mutable, var_type, _ptr)) = scope.get(name) {
+            if let Some((_id, is_mutable, var_type)) = scope.get(name) {
                 return Some((*is_mutable, var_type.clone()));
             }
         }
