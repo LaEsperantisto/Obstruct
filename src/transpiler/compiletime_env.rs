@@ -478,7 +478,13 @@ impl CompileTimeEnv {
     /// Returns the ID of a type. If the type is generic, it registers its generic types
     fn get_type_id(&mut self, ty: &Type) -> Option<usize> {
         let canonical = self.canonicalize_type(ty.clone());
-        self.all_types.iter().position(|t| t == &canonical)
+        if !ty.is_conceptual() {
+            self.all_types.iter().position(|t| t == &canonical)
+        } else {
+            self.all_types
+                .iter()
+                .position(|t| t.name() == ty.name() && !t.has_generics())
+        }
     }
 
     /// Registers the generic types in a generic type
@@ -530,7 +536,23 @@ impl CompileTimeEnv {
                 0
             });
 
-            format!("t_{}", type_id)
+            let mut name = format!("t_{}", type_id);
+
+            let gens = ty.generics();
+            if !gens.is_empty() {
+                name.push('C');
+
+                for (i, g) in gens.iter().enumerate() {
+                    name.push_str(&self.c_type_name_raw(g, span));
+                    if i != gens.len() - 1 {
+                        name.push('_');
+                    }
+                }
+
+                name.push('D');
+            }
+
+            name
         }
     }
 
@@ -548,11 +570,12 @@ impl CompileTimeEnv {
         // For function types, the raw name already ends with D, so don't add CD
         if ty.name() == "func" {
             name
-        } else {
-            // For non-function types, add CD suffix for consistency
+        } else if ty.generics().is_empty() {
             let mut result = name;
             result.push_str("CD");
             result
+        } else {
+            name
         }
     }
 

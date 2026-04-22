@@ -59,6 +59,7 @@ impl TypeEnvironment {
 pub enum Type {
     Concrete { name: String, generics: Vec<Type> }, // vec<<i32>>
     Conceptual(String),                             // T, U, etc
+    Generic { name: String, generics: usize },      // vec, 1
 }
 
 impl Type {
@@ -69,8 +70,19 @@ impl Type {
         }
     }
 
-    pub fn is_generic(&self) -> bool {
+    pub fn is_conceptual(&self) -> bool {
         matches!(self, Type::Conceptual(_))
+    }
+    pub fn is_generics(&self) -> bool {
+        matches!(self, Type::Generic { .. })
+    }
+
+    pub fn has_generics(&self) -> bool {
+        if let Type::Concrete { name: _, generics } = self {
+            generics.len() >= 1
+        } else {
+            false
+        }
     }
 
     pub fn conceptual(name: &str) -> Self {
@@ -95,6 +107,7 @@ impl Type {
         match self {
             Type::Concrete { name, .. } => name,
             Type::Conceptual(n) => n,
+            Type::Generic { name, .. } => name,
         }
     }
 
@@ -130,6 +143,9 @@ impl fmt::Display for Type {
                         .join(", ");
                     write!(f, "{}<<{}>>", name, g)
                 }
+            }
+            Type::Generic { name, generics } => {
+                write!(f, "{}<<{}>>", name, generics)
             }
         }
     }
@@ -184,5 +200,8 @@ pub fn substitute(t: &Type, map: &HashMap<String, Type>, span: Span) -> Type {
             name: name.clone(),
             generics: generics.iter().map(|g| substitute(g, map, span)).collect(),
         },
+        Type::Generic { .. } => {
+            todo!()
+        }
     }
 }

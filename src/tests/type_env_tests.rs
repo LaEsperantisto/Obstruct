@@ -1,7 +1,7 @@
 //! Type Environment tests
 //! Tests type checking, type inference, and type operations
 
-use crate::type_env::{substitute, unify, nil_type, Type, TypeEnvironment};
+use crate::type_env::{nil_type, substitute, unify, Type, TypeEnvironment};
 
 // ========== Type Creation ==========
 
@@ -16,7 +16,7 @@ fn test_simple_type_creation() {
 fn test_conceptual_type_creation() {
     let ty = Type::conceptual("T");
     assert_eq!(ty.name(), "T");
-    assert!(ty.is_generic());
+    assert!(ty.is_conceptual());
 }
 
 #[test]
@@ -110,8 +110,8 @@ fn test_is_generic() {
     let conceptual = Type::conceptual("T");
     let concrete = Type::simple("i32");
 
-    assert!(conceptual.is_generic());
-    assert!(!concrete.is_generic());
+    assert!(conceptual.is_conceptual());
+    assert!(!concrete.is_conceptual());
 }
 
 #[test]
@@ -333,10 +333,7 @@ fn test_unify_with_generics_different() {
 fn test_unify_with_generics_different_count() {
     let mut bindings = std::collections::HashMap::new();
     let ty1 = Type::with_generics("vec", vec![Type::simple("i32")]);
-    let ty2 = Type::with_generics("vec", vec![
-        Type::simple("i32"),
-        Type::simple("str"),
-    ]);
+    let ty2 = Type::with_generics("vec", vec![Type::simple("i32"), Type::simple("str")]);
 
     assert!(!unify(&ty1, &ty2, &mut bindings));
 }
