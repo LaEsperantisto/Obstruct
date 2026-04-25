@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 extern crate core;
-pub const DEBUG: bool = true;
+pub const DEBUG: bool = false;
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+const DEFAULT_PATH: &str = "/home/aster/dev/obstruct/main.obs";
 
 mod error;
 mod expr;
@@ -25,14 +27,11 @@ mod variable;
 mod tests;
 
 // FIXME
-//  Make references declared as "t_7C type D", instead of its own type (like "t_18")
+//  Rework generic types
 
 // TODO
-//  Add generic types
 //  Add "Vec"
 //  Add "str"
-//  Add references
-//  Add "&str"
 //  Add conversion (a function) from "strlit" to "&str"
 //  Add generic functions:
 //      Create function instances for each generic variant
@@ -135,70 +134,130 @@ fn run_compiled_c_file(path: &str) {
 }
 
 fn main() -> Result<(), ObstructError> {
-    let start = Instant::now();
+    let args: Vec<String> = std::env::args().collect();
 
-    *RUNNING_TESTS.lock().unwrap() = false;
+    let (command, filepath) = if DEBUG {
+        ("run".to_string(), Some(DEFAULT_PATH))
+    } else {
+        if args.len() < 2 {
+            eprintln!("{BOLD}{RED}error:{RESET} missing arguments");
+            eprintln!("Usage: {} <command> <file> [--release]", args[0]);
+            eprintln!("Commands: transpile, build, run, cleanup, --version");
+            std::process::exit(1);
+        }
+        let cmd = args[1].clone();
+        let needs_file = cmd == "transpile" || cmd == "build" || cmd == "run";
+        let filepath = if needs_file && args.len() >= 3 {
+            Some(args[2].as_str())
+        } else if needs_file {
+            eprintln!("{BOLD}{RED}error:{RESET} expected path after '{}'", cmd);
+            std::process::exit(1);
+        } else {
+            None
+        };
+        (cmd, filepath)
+    };
 
-    let result = run();
-
-    if result.is_err() {
-        let err = result.unwrap_err();
-        error(err.span, &err.message, "somewhere");
-        std::process::exit(1);
+    match command.as_str() {
+        "transpile" | "build" | "run" | "cleanup" | "--version" => {}
+        _ => {
+            eprintln!("{BOLD}{RED}error:{RESET} unknown command '{}'", command);
+            eprintln!("Usage: {} <transpile|build|run|cleanup> <file>", args[0]);
+            std::process::exit(1);
+        }
     }
 
-    let program_name = PROGRAM_NAME.lock().unwrap().clone();
+    if let Some(fp) = filepath {
+        if !Path::new(fp).exists() {
+            eprintln!("{BOLD}{RED}error:{RESET} file not found: {}", fp);
+            std::process::exit(1);
+        }
+    }
 
-    let transpile_time = start.elapsed();
-    println!("Took {:?} seconds to transpile into C.", transpile_time);
+    if command == "build" || command == "run" || command == "transpile" {
+        let start = Instant::now();
+        *RUNNING_TESTS.lock().unwrap() = false;
+        let result = run(filepath.unwrap_or_else(|| {
+            eprintln!("{BOLD}{RED}error:{RESET} expected path after '{}'", command);
+            DEFAULT_PATH
+        }));
 
-    compile_c_file(&(program_name.clone() + ".c"), &program_name);
+        if result.is_err() {
+            let err = result.unwrap_err();
+            error(err.span, &err.message, "transpilation");
+            std::process::exit(1);
+        }
 
-    let compile_time = start.elapsed();
-    println!("Took {:?} seconds to compile C code.", compile_time);
-    println!("Total: {:?}", compile_time + transpile_time);
+        let program_name = PROGRAM_NAME.lock().unwrap().clone();
+        let transpile_time = start.elapsed();
+        println!(
+            "{} Took {:?} to transpile into C.",
+            "Done:".green().bold(),
+            transpile_time
+        );
 
-    run_compiled_c_file(&program_name);
+        if command == "build" || command == "run" {
+            compile_c_file(&(program_name.clone() + ".c"), &program_name);
+            let compile_time = start.elapsed();
+            println!(
+                "{} Took {:?} to compile C code.",
+                "Done:".green().bold(),
+                compile_time - transpile_time
+            );
+        }
 
-    println!();
+        if command == "run" {
+            println!(
+                "{} Running {}...\n",
+                "Execute:".bright_blue().bold(),
+                program_name
+            );
+            run_compiled_c_file(&program_name);
+        }
 
-    result
+        result
+    } else {
+        match command.as_str() {
+            "cleanup" => {
+                let dir = Path::new(".");
+
+                for entry in fs::read_dir(dir).unwrap().filter_map(Result::ok) {
+                    let path = entry.path();
+
+                    if path.is_file() {
+                        if let Some(ext) = path.extension() {
+                            if ext == "c" {
+                                fs::remove_file(&path).unwrap();
+                            }
+                        }
+                    }
+                }
+
+                Ok(())
+            }
+            "--version" => {
+                println!("obstruct {VERSION}");
+                Ok(())
+            }
+            _ => unreachable!(),
+        }
+    }
 }
 
-fn run() -> Result<(), ObstructError> {
+fn run(filepath: &str) -> Result<(), ObstructError> {
     let img = image::open("/home/aster/dev/rust/Obstruct/gfx/icon.png").unwrap();
-
     let size = 50;
-
     let img = img.thumbnail(size as u32, size as u32);
-
     for y in 0..img.height() {
         for x in 0..img.width() {
             let pixel = img.get_pixel(x, y);
-            let r = pixel[0];
-            let g = pixel[1];
-            let b = pixel[2];
-
-            print!("{}", "  ".on_truecolor(r, g, b));
+            print!("{}", "  ".on_truecolor(pixel[0], pixel[1], pixel[2]));
         }
         println!();
     }
 
-    let args: Vec<String> = std::env::args().skip(1).collect();
-
-    let mut filepath = if DEBUG {
-        "/home/aster/dev/obstruct/main.obs".to_string()
-    } else {
-        "".to_string()
-    };
-    let mut debug = true;
-    for arg in &args {
-        if arg == "--release" {
-            debug = false;
-        } else {
-            filepath = arg.clone();
-        }
-    }
+    let is_release = std::env::args().any(|a| a == "--release");
+    let debug_val = !is_release;
 
     let main_program_name = Path::new(&filepath)
         .file_stem()
@@ -215,10 +274,19 @@ fn run() -> Result<(), ObstructError> {
 
     let mut ctx = CodeGenContext::new();
     let mut cte = CompileTimeEnv::new(&mut ctx);
-    ctx.body.push_str(&format!("\nbool DEBUG = {};\n\n", debug));
+
+    Expr::Discard(Box::new(Expr::Declare(
+        "DEBUG".to_string(),
+        None,
+        Some(Box::new(Expr::Bool(debug_val))),
+        false,
+        Span::empty(),
+    )))
+    .to_c(&mut cte, &mut ctx);
+    ctx.body.push_str(";\n");
 
     let mut programs_to_transpile = HashMap::new();
-    programs_to_transpile.insert(filepath, false);
+    programs_to_transpile.insert(filepath.to_string(), false);
 
     loop {
         let next_file = programs_to_transpile
@@ -228,21 +296,16 @@ fn run() -> Result<(), ObstructError> {
 
         match next_file {
             Some(name) => {
-                // Mark it as true immediately so we don't process it again
                 programs_to_transpile.insert(name.clone(), true);
-
                 let source = fs::read_to_string(&name)
-                    .map_err(|_| ObstructError::file_not_found(name.clone()))?;
-
+                    .map_err(|_| ObstructError::file_not_found(name.to_string()))?;
                 SOURCES.lock().unwrap().push(source.clone());
                 let ast = parse(source);
-
                 let current_dir = Path::new(&name)
                     .parent()
                     .map(|p| p.to_string_lossy().to_string())
                     .unwrap_or_default();
                 ast.pre_transpile(&mut cte, &mut ctx, &mut programs_to_transpile, &current_dir);
-
                 SOURCES.lock().unwrap().pop();
             }
             None => break,
@@ -252,16 +315,12 @@ fn run() -> Result<(), ObstructError> {
     for programs in programs_to_transpile.keys() {
         let source = fs::read_to_string(&programs)
             .map_err(|_| ObstructError::file_not_found(programs.clone()))?;
-
         SOURCES.lock().unwrap().push(source.clone());
         let ast = parse(source);
-
         ast.to_c(&mut cte, &mut ctx);
-
         SOURCES.lock().unwrap().pop();
     }
 
-    // Final combined C code
     let mut file = File::create(PROGRAM_NAME.lock().unwrap().clone() + ".c").unwrap();
     file.write_all(ctx.combine(&mut cte).as_bytes()).unwrap();
 

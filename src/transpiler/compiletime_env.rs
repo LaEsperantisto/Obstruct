@@ -3,7 +3,7 @@ use crate::expr::Expr;
 use crate::span::Span;
 use crate::transpiler::code_gen_context::CodeGenContext;
 use crate::type_env::{nil_type, Type};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub struct CompileTimeEnv {
     all_types: Vec<Type>,
@@ -19,6 +19,9 @@ pub struct CompileTimeEnv {
     next_type_id: usize,
 
     generic_functions: Vec<(Type, Expr)>,
+
+    /// Set of ref<T> type names that have already been emitted as typedefs
+    ref_typedefs_emitted: HashSet<String>,
 }
 
 impl CompileTimeEnv {
@@ -36,6 +39,8 @@ impl CompileTimeEnv {
             next_type_id: 0,
 
             generic_functions: Vec::new(),
+
+            ref_typedefs_emitted: HashSet::new(),
         };
 
         this.register_type(Type::simple("i32"));
@@ -434,9 +439,18 @@ impl CompileTimeEnv {
             result.push_str("CD");
         } else {
             // Generic function: add C{generics}D
+            // Each type name includes the CD suffix to match the inline
+            // function definitions (e.g. v_0s_0Ct_0CDD for _print).
             result.push('C');
             for (i, g) in generics.iter().enumerate() {
-                result.push_str(&self.c_type_name(g, span));
+                let raw = self.c_type_name_raw(g, span);
+                // Add CD suffix to match inline function definitions
+                result.push_str(&raw);
+                // Only add CD if the type name doesn't already end with D
+                // (func types end with D from mangling, e.g. t_5C...D)
+                if !raw.ends_with('D') {
+                    result.push_str("CD");
+                }
                 if i != generics.len() - 1 {
                     result.push('_');
                 }
@@ -467,15 +481,7 @@ impl CompileTimeEnv {
         id
     }
 
-    /// Returns the position of a type. Does not check if the type is generic
-    fn get_simple_type_id(&self, name: &str) -> usize {
-        if let Some(index) = self.all_types.iter().position(|t| t.name() == name) {
-            return index;
-        }
-
-        0
-    }
-    /// Returns the ID of a type. If the type is generic, it registers its generic types
+     /// Returns the ID of a type. If the type is generic, it registers its generic types
     fn get_type_id(&mut self, ty: &Type) -> Option<usize> {
         let canonical = self.canonicalize_type(ty.clone());
         if !ty.is_conceptual() {
@@ -526,15 +532,24 @@ impl CompileTimeEnv {
 
             name
         } else {
-            // For non-function types, use the standard ID-based naming
-            let type_id = self.get_type_id(ty).unwrap_or_else(|| {
-                error(
-                    span,
-                    format!("Could not find type '{}'", ty).as_str(),
-                    "transpiling",
-                );
-                0
-            });
+            // For non-function types, use the standard ID-based naming.
+            // For generic types, find the base type's ID (without generics)
+            // instead of the position of the full canonicalized type in all_types.
+            // e.g. ref<i32> should use the base ref type's ID (t_7), not the
+            // position of the instantiated type (which could be t_16).
+            let base_id = self.all_types.iter().position(|t| t.name() == ty.name() && !t.has_generics());
+            let type_id = if let Some(id) = base_id {
+                id
+            } else {
+                self.get_type_id(ty).unwrap_or_else(|| {
+                    error(
+                        span,
+                        format!("Could not find type '{}'", ty).as_str(),
+                        "transpiling",
+                    );
+                    0
+                })
+            };
 
             let mut name = format!("t_{}", type_id);
 
@@ -564,7 +579,7 @@ impl CompileTimeEnv {
     /// Format for generic types and for simple functions: t_{id}C{generic types}D\
     /// Format for generic functions: t_{id}C{argument types, return type}DC{generic types}D\
     /// ^^^Note that generic types, argument types and return type are separated by "_".
-    pub fn c_type_name(&mut self, ty: &Type, span: Span) -> String {
+    pub fn c_type_name(&mut self, ty: &Type, ctx: &mut CodeGenContext, span: Span) -> String {
         let name = self.c_type_name_raw(ty, span);
 
         // For function types, the raw name already ends with D, so don't add CD
@@ -574,6 +589,23 @@ impl CompileTimeEnv {
             let mut result = name;
             result.push_str("CD");
             result
+        } else if ty.name() == "ref" {
+            // Ensure a typedef like: typedef t_15CD* t_7Ct_15CD; exists for ref<SomeType>
+            let inner_type = ty.generics()[0].clone();
+            let inner_raw = self.c_type_name_raw(&inner_type, span);
+            let inner_c_type = if inner_type.name() == "func" {
+                inner_raw
+            } else {
+                inner_raw + "CD"
+            };
+            let typedef_name = name.clone();
+            let typedef_key = format!("ref_{}", inner_c_type);
+            if !self.ref_typedefs_emitted.contains(&typedef_key) {
+                self.ref_typedefs_emitted.insert(typedef_key);
+                ctx.types
+                    .push_str(&format!("typedef {}* {};\n", inner_c_type, typedef_name));
+            }
+            name
         } else {
             name
         }
@@ -598,21 +630,23 @@ impl CompileTimeEnv {
 
         self.register_type(func_type.clone());
 
-        let func_type_name = self.c_type_name(&func_type, span);
+        let func_type_name = self.c_type_name(&func_type, ctx, span);
+        let ret_type_name = self.c_type_name(&ret_type, ctx, span);
 
         // Generate the typedef for the function type
-        ctx.types.push_str("typedef ");
-        ctx.types.push_str(&self.c_type_name(&ret_type, span));
-        ctx.types.push_str(&format!("(*{})", func_type_name));
-        ctx.types.push('(');
+        let mut buf = String::from("typedef ");
+        buf.push_str(&ret_type_name);
+        buf.push_str(&format!("(*{})", func_type_name));
+        buf.push('(');
         for ty in arg_types.iter() {
-            ctx.types.push_str(&self.c_type_name(&ty, span));
-            ctx.types.push(',');
+            buf.push_str(&self.c_type_name(ty, ctx, span));
+            buf.push(',');
         }
         if arg_types.len() >= 1 {
-            ctx.types.pop();
+            buf.pop();
         }
-        ctx.types.push_str(");\n");
+        buf.push_str(");\n");
+        ctx.types.push_str(&buf);
     }
 
     pub fn push_this(&mut self, this: &str) {
@@ -639,11 +673,11 @@ impl CompileTimeEnv {
     }
 
     /// Returns the C type name for a parameter, using pointer for structs
-    pub fn c_param_type(&mut self, ty: &Type, span: Span) -> String {
+    pub fn c_param_type(&mut self, ty: &Type, ctx: &mut CodeGenContext, span: Span) -> String {
         if self.is_class(ty) {
-            format!("{}*", self.c_type_name(ty, span))
+            format!("{}*", self.c_type_name(ty, ctx, span))
         } else {
-            self.c_type_name(ty, span)
+            self.c_type_name(ty, ctx, span)
         }
     }
 

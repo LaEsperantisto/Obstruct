@@ -299,12 +299,9 @@ impl Expr {
                     t
                 };
 
-                ctx.body += format!(
-                    "{} {}",
-                    cte.c_type_name(&var_type, *span),
-                    cte.c_var_name(&name, *span),
-                )
-                .as_str();
+                let var_type_name = cte.c_type_name(&var_type, ctx, *span);
+                let var_name = cte.c_var_name(&name, *span);
+                ctx.body += format!("{} {}", var_type_name, var_name).as_str();
 
                 if expr.is_some() {
                     ctx.body.push('=');
@@ -374,21 +371,18 @@ impl Expr {
                     }
                 };
 
-                ctx.body.push_str(
-                    format!(
-                        "{} {}(",
-                        cte.c_type_name(&return_type, *span),
-                        cte.c_func_instance_name(&name, &[], *span),
-                    )
-                    .as_str(),
-                );
+                let return_type_name = cte.c_type_name(&return_type, ctx, *span);
+                let func_name = cte.c_func_instance_name(&name, &[], *span);
+                ctx.body
+                    .push_str(&format!("{} {}(", return_type_name, func_name));
 
+                let mut params: Vec<String> = Vec::new();
                 for arg in args {
-                    ctx.body.push_str(&cte.c_param_type(&arg.1, *span));
-                    ctx.body.push(' ');
-                    ctx.body.push_str(&cte.c_var_name(&arg.0, *span));
-                    ctx.body.push_str(", ");
+                    let param = cte.c_param_type(&arg.1, ctx, *span);
+                    let var = cte.c_var_name(&arg.0, *span);
+                    params.push(format!("{} {}", param, var));
                 }
+                ctx.body.push_str(&params.join(", "));
                 if ctx.body.ends_with(", ") {
                     ctx.body.pop();
                     ctx.body.pop();
@@ -489,26 +483,23 @@ impl Expr {
                 false
             }
 
-            Expr::Input(name) => {
-                ctx.body.push_str("scanf(\"%d\",&");
-                ctx.body.push_str(&cte.c_var_name(name, Span::empty()));
-                ctx.body.push_str(")");
-                true
-            }
-
             Expr::Use { .. } => false,
 
             Expr::Class(ty, members, span) => {
-                let c_type_name = cte.c_type_name(ty, *span);
+                let c_type_name = cte.c_type_name(ty, ctx, *span);
                 ctx.types.push_str("struct ");
                 ctx.types.push_str(&c_type_name);
                 ctx.types.push_str(" {\n");
-                for member in members {
-                    ctx.types.push_str(&cte.c_type_name(&member.1, *span));
-                    ctx.types.push(' ');
-                    ctx.types.push_str(&cte.c_member_name(ty, &member.0, *span));
-                    ctx.types.push_str("; \n");
-                }
+                let member_lines: Vec<String> = members
+                    .iter()
+                    .map(|(name, member_type)| {
+                        let ty_name = cte.c_type_name(member_type, ctx, *span);
+                        let m_name = cte.c_member_name(ty, name, *span);
+                        format!("{} {}", ty_name, m_name)
+                    })
+                    .collect();
+                ctx.types.push_str(&member_lines.join(";\n"));
+                ctx.types.push_str(";\n");
                 if ctx.types.ends_with("; \n") {
                     ctx.types.pop();
                     ctx.types.pop();
@@ -536,8 +527,9 @@ impl Expr {
                 false
             }
             Expr::Deref(expr, _span) => {
-                ctx.body.push('*');
+                ctx.body.push_str("(*");
                 expr.to_c(cte, ctx);
+                ctx.body.push(')');
                 false
             }
 
@@ -603,26 +595,18 @@ impl Expr {
                     }),
                 );
 
-                ctx.declarations.push_str(
-                    format!(
-                        "{} {}(",
-                        cte.c_type_name(&return_type, *span),
-                        cte.c_func_instance_name(&name, &[], *span),
-                    )
-                    .as_str(),
-                );
+                let return_type_name = cte.c_type_name(&return_type, ctx, *span);
+                let func_name = cte.c_func_instance_name(&name, &[], *span);
 
+                let mut decl_params: Vec<String> = Vec::new();
                 for arg in args {
-                    ctx.declarations.push_str(&cte.c_param_type(&arg.1, *span));
-                    ctx.declarations.push(' ');
-                    ctx.declarations.push_str(&cte.c_var_name(&arg.0, *span));
-                    ctx.declarations.push_str(", ");
+                    let param = cte.c_param_type(&arg.1, ctx, *span);
+                    let var = cte.c_var_name(&arg.0, *span);
+                    decl_params.push(format!("{} {}", param, var));
                 }
-                if ctx.declarations.ends_with(", ") {
-                    ctx.declarations.pop();
-                    ctx.declarations.pop();
-                }
-
+                ctx.declarations
+                    .push_str(&format!("{} {}(", return_type_name, func_name));
+                ctx.declarations.push_str(&decl_params.join(", "));
                 ctx.declarations.push_str(");\n");
 
                 cte.pop_scope();
@@ -681,7 +665,7 @@ impl Expr {
                     cte.declare_member(member.0.clone(), member.1.clone(), ty.clone());
                 }
 
-                let c_type_name = cte.c_type_name(ty, *span);
+                let c_type_name = cte.c_type_name(ty, ctx, *span);
                 ctx.include.push_str("struct ");
                 ctx.include.push_str(&c_type_name);
                 ctx.include.push_str(";\n");
@@ -780,6 +764,7 @@ impl Expr {
 
                 member_type
             }
+
             Expr::Ref(expr, _span) => {
                 let expr_type = expr.get_type(cte);
                 cte.register_type(expr_type.clone());

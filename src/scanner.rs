@@ -53,8 +53,8 @@ impl Scanner {
 
         self.tokens.push(Token::new(
             TokenType::EOF,
-            "".into(),
-            "".into(),
+            String::new(),
+            String::new(),
             self.line,
             self.column,
         ));

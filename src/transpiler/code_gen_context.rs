@@ -27,8 +27,7 @@ impl CodeGenContext {
 
     /// Combines all the parts of the variable into one single String.
     pub fn combine(&mut self, cte: &mut CompileTimeEnv) -> String {
-        self.include.push_str(
-            r#"
+        let base_include = r#"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -46,7 +45,9 @@ typedef char t_4CD; // char
 typedef char* t_6CD; // strlit
 // typedef *t_7; // ref - commented out as refs have to be "of" another type
 
-t_1CD v_0s_0Ct_0CDD(t_0CD i) { // print i32
+"#;
+
+        let base_body = r#"t_1CD v_0s_0Ct_0CDD(t_0CD i) { // print i32
     printf("%d", i);
 }
 
@@ -192,8 +193,10 @@ t_3CD v_13s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // less_equal f64
     return n1 <= n2;
 }
 
-"#,
-        );
+"#;
+
+        let include = base_include.to_string() + base_body;
+
         self.body.push_str(
             "
 int main() {\n    ",
@@ -202,8 +205,7 @@ int main() {\n    ",
             .push_str(&cte.c_func_instance_name("main", &[], Span::empty()));
         self.body.push_str("();\n}");
 
-        self.include.clone()
-            + "\n\n"
+        include + "\n\n"
             + &self.types
             + "\n\n"
             + &self.declarations
