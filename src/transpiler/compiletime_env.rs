@@ -60,7 +60,7 @@ impl CompileTimeEnv {
         );
         this.add_func_type(nil_type(), vec![Type::simple("i32")], ctx, Span::empty());
 
-        // Declare and register _add: func(i32, i32) -> i32
+        // Declare and register _add: func(type, type, return)
         this.declare_global_var(
             "_add".to_string(),
             false,
@@ -79,8 +79,26 @@ impl CompileTimeEnv {
             ctx,
             Span::empty(),
         );
+        this.add_func_type(
+            Type::simple("f64"),
+            vec![Type::simple("f64"), Type::simple("f64")],
+            ctx,
+            Span::empty(),
+        );
+        this.add_func_type(
+            Type::simple("strlit"),
+            vec![Type::simple("strlit"), Type::simple("strlit")],
+            ctx,
+            Span::empty(),
+        );
+        this.add_func_type(
+            Type::simple("strlit"),
+            vec![Type::simple("strlit"), Type::simple("char")],
+            ctx,
+            Span::empty(),
+        );
 
-        // Declare and register _less: func(i32, i32) -> i32
+        // Declare and register _less: func(arg1, arg2, return)
         this.declare_global_var(
             "_less".to_string(),
             false,
@@ -88,7 +106,33 @@ impl CompileTimeEnv {
                 "func",
                 vec![
                     Type::simple("i32"),
+                    Type::simple("f64"),
+                    Type::simple("bool"),
+                ],
+            ),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("i32"), Type::simple("i32")],
+            ctx,
+            Span::empty(),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("f64"), Type::simple("f64")],
+            ctx,
+            Span::empty(),
+        );
+
+        // Declare and register _sub: func(arg1, arg2, return)
+        this.declare_global_var(
+            "_sub".to_string(),
+            false,
+            Type::with_generics(
+                "func",
+                vec![
                     Type::simple("i32"),
+                    Type::simple("f64"),
                     Type::simple("i32"),
                 ],
             ),
@@ -99,10 +143,16 @@ impl CompileTimeEnv {
             ctx,
             Span::empty(),
         );
+        this.add_func_type(
+            Type::simple("f64"),
+            vec![Type::simple("f64"), Type::simple("f64")],
+            ctx,
+            Span::empty(),
+        );
 
-        // Declare and register _sub: func(i32, i32) -> i32
+        // Declare and register _mult: func(arg1, arg2, return)
         this.declare_global_var(
-            "_sub".to_string(),
+            "_mult".to_string(),
             false,
             Type::with_generics(
                 "func",
@@ -119,8 +169,14 @@ impl CompileTimeEnv {
             ctx,
             Span::empty(),
         );
+        this.add_func_type(
+            Type::simple("f64"),
+            vec![Type::simple("f64"), Type::simple("f64")],
+            ctx,
+            Span::empty(),
+        );
 
-        // Declare and register _pow: func(f64, f64) -> f64
+        // Declare and register _pow: func(arg1, arg2, return)
         this.declare_global_var(
             "_pow".to_string(),
             false,
@@ -140,7 +196,7 @@ impl CompileTimeEnv {
             Span::empty(),
         );
 
-        // Declare and register _div: func(f64, f64) -> f64
+        // Declare and register _div: func(arg1, arg2, return)
         this.declare_global_var(
             "_div".to_string(),
             false,
@@ -184,14 +240,14 @@ impl CompileTimeEnv {
         );
         this.add_func_type(Type::simple("strlit"), vec![], ctx, Span::empty());
 
-        // Declare and register _equal: func(f64, f64) -> bool
+        // Declare and register _equal: func(arg1, arg2, return)
         this.declare_global_var(
             "_equal".to_string(),
             false,
             Type::with_generics(
                 "func",
                 vec![
-                    Type::simple("f64"),
+                    Type::simple("i32"),
                     Type::simple("f64"),
                     Type::simple("bool"),
                 ],
@@ -199,23 +255,47 @@ impl CompileTimeEnv {
         );
         this.add_func_type(
             Type::simple("bool"),
+            vec![Type::simple("i32"), Type::simple("i32")],
+            ctx,
+            Span::empty(),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
             vec![Type::simple("f64"), Type::simple("f64")],
             ctx,
             Span::empty(),
         );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("strlit"), Type::simple("strlit")],
+            ctx,
+            Span::empty(),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("char"), Type::simple("char")],
+            ctx,
+            Span::empty(),
+        );
 
-        // Declare and register _greater: func(f64, f64) -> bool
+        // Declare and register _greater: func(arg1, arg2, return)
         this.declare_global_var(
             "_greater".to_string(),
             false,
             Type::with_generics(
                 "func",
                 vec![
-                    Type::simple("f64"),
+                    Type::simple("i32"),
                     Type::simple("f64"),
                     Type::simple("bool"),
                 ],
             ),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("i32"), Type::simple("i32")],
+            ctx,
+            Span::empty(),
         );
         this.add_func_type(
             Type::simple("bool"),
@@ -224,14 +304,14 @@ impl CompileTimeEnv {
             Span::empty(),
         );
 
-        // Declare and register _bang_equal: func(f64, f64) -> bool
+        // Declare and register _bang_equal: func(arg1, arg2, return)
         this.declare_global_var(
             "_bang_equal".to_string(),
             false,
             Type::with_generics(
                 "func",
                 vec![
-                    Type::simple("f64"),
+                    Type::simple("i32"),
                     Type::simple("f64"),
                     Type::simple("bool"),
                 ],
@@ -239,23 +319,47 @@ impl CompileTimeEnv {
         );
         this.add_func_type(
             Type::simple("bool"),
+            vec![Type::simple("i32"), Type::simple("i32")],
+            ctx,
+            Span::empty(),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
             vec![Type::simple("f64"), Type::simple("f64")],
             ctx,
             Span::empty(),
         );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("strlit"), Type::simple("strlit")],
+            ctx,
+            Span::empty(),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("char"), Type::simple("char")],
+            ctx,
+            Span::empty(),
+        );
 
-        // Declare and register _greater_equal: func(f64, f64) -> bool
+        // Declare and register _greater_equal: func(arg1, arg2, return)
         this.declare_global_var(
             "_greater_equal".to_string(),
             false,
             Type::with_generics(
                 "func",
                 vec![
-                    Type::simple("f64"),
+                    Type::simple("i32"),
                     Type::simple("f64"),
                     Type::simple("bool"),
                 ],
             ),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("i32"), Type::simple("i32")],
+            ctx,
+            Span::empty(),
         );
         this.add_func_type(
             Type::simple("bool"),
@@ -264,14 +368,14 @@ impl CompileTimeEnv {
             Span::empty(),
         );
 
-        // Declare and register _less_equal: func(f64, f64) -> bool
+        // Declare and register _less_equal: func(arg1, arg2, return)
         this.declare_global_var(
             "_less_equal".to_string(),
             false,
             Type::with_generics(
                 "func",
                 vec![
-                    Type::simple("f64"),
+                    Type::simple("i32"),
                     Type::simple("f64"),
                     Type::simple("bool"),
                 ],
@@ -279,10 +383,94 @@ impl CompileTimeEnv {
         );
         this.add_func_type(
             Type::simple("bool"),
+            vec![Type::simple("i32"), Type::simple("i32")],
+            ctx,
+            Span::empty(),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
             vec![Type::simple("f64"), Type::simple("f64")],
             ctx,
             Span::empty(),
         );
+
+        this.declare_global_var(
+            "or".to_string(),
+            false,
+            Type::with_generics(
+                "func",
+                vec![
+                    Type::simple("bool"),
+                    Type::simple("bool"),
+                    Type::simple("bool"),
+                ],
+            ),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("bool"), Type::simple("bool")],
+            ctx,
+            Span::empty(),
+        );
+
+        this.declare_global_var(
+            "and".to_string(),
+            false,
+            Type::with_generics(
+                "func",
+                vec![
+                    Type::simple("bool"),
+                    Type::simple("bool"),
+                    Type::simple("bool"),
+                ],
+            ),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("bool"), Type::simple("bool")],
+            ctx,
+            Span::empty(),
+	);
+
+        this.declare_global_var(
+            "not".to_string(),
+            false,
+            Type::with_generics("func", vec![Type::simple("bool"), Type::simple("bool")]),
+        );
+        this.add_func_type(
+            Type::simple("bool"),
+            vec![Type::simple("bool")],
+            ctx,
+            Span::empty(),
+        );
+
+        this.declare_global_var(
+            "terminal_width".to_string(),
+            false,
+            Type::with_generics("func", vec![Type::simple("i32")]),
+        );
+        this.add_func_type(Type::simple("i32"), vec![], ctx, Span::empty());
+
+        this.declare_global_var(
+            "terminal_height".to_string(),
+            false,
+            Type::with_generics("func", vec![Type::simple("i32")]),
+        );
+        this.add_func_type(Type::simple("i32"), vec![], ctx, Span::empty());
+	
+        this.declare_global_var(
+            "get_pressed_key".to_string(),
+            false,
+            Type::with_generics("func", vec![Type::simple("char")]),
+        );
+        this.add_func_type(Type::simple("char"), vec![], ctx, Span::empty());
+
+	this.declare_global_var(
+	    "sleep".to_string(),
+	    false,
+	    Type::with_generics("func", vec![Type::simple("i32"), nil_type()]),
+	);
+	this.add_func_type(nil_type(), vec![], ctx, Span::empty());
 
         this
     }
@@ -438,24 +626,16 @@ impl CompileTimeEnv {
             // Non-generic function: add CD suffix
             result.push_str("CD");
         } else {
-            // Generic function: add C{generics}D
-            // Each type name includes the CD suffix to match the inline
-            // function definitions (e.g. v_0s_0Ct_0CDD for _print).
+            // Match inline convention: C opens the mangling bracket,
+            // each type uses its raw name (e.g. t_0 for i32), types
+            // separated by C, ending with DD (= last type's CD + closing D).
+            // e.g. v_1s_0Ct_0Ct_0CDD for _add(i32, i32)
             result.push('C');
-            for (i, g) in generics.iter().enumerate() {
-                let raw = self.c_type_name_raw(g, span);
-                // Add CD suffix to match inline function definitions
-                result.push_str(&raw);
-                // Only add CD if the type name doesn't already end with D
-                // (func types end with D from mangling, e.g. t_5C...D)
-                if !raw.ends_with('D') {
-                    result.push_str("CD");
-                }
-                if i != generics.len() - 1 {
-                    result.push('_');
-                }
+            for g in generics.iter() {
+                result.push_str(&self.c_type_name_raw(g, span));
+                result.push('C');
             }
-            result.push('D');
+            result.push_str("DD");
         }
 
         result
@@ -481,7 +661,7 @@ impl CompileTimeEnv {
         id
     }
 
-     /// Returns the ID of a type. If the type is generic, it registers its generic types
+    /// Returns the ID of a type. If the type is generic, it registers its generic types
     fn get_type_id(&mut self, ty: &Type) -> Option<usize> {
         let canonical = self.canonicalize_type(ty.clone());
         if !ty.is_conceptual() {
@@ -537,7 +717,10 @@ impl CompileTimeEnv {
             // instead of the position of the full canonicalized type in all_types.
             // e.g. ref<i32> should use the base ref type's ID (t_7), not the
             // position of the instantiated type (which could be t_16).
-            let base_id = self.all_types.iter().position(|t| t.name() == ty.name() && !t.has_generics());
+            let base_id = self
+                .all_types
+                .iter()
+                .position(|t| t.name() == ty.name() && !t.has_generics());
             let type_id = if let Some(id) = base_id {
                 id
             } else {

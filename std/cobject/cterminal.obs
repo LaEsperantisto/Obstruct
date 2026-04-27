@@ -3,16 +3,86 @@ cls CTerminal {
 };
 
 fn show(terminal: &CTerminal) {
-    $"\x1B[2J\x1B[1;1H";
+    $"\x1B[2J";
+    move_cursor(terminal, 0, 0);
     $(*terminal).buffer;
 };
 
-fn add_str(terminal: &CTerminal, s: strlit) {
-    (*terminal).buffer = (*terminal).buffer + s;
+fn move_cursor(terminal: &CTerminal, x: i32, y: i32) {
+    #row = y + 1;
+    #col = x + 1;
+
+    $"\x1B[";
+    $row;
+    $";";
+    $col;
+    $"H";
 };
 
-fn new() CTerminal {
+fn len(s: strlit) i32 {
+
+    #@i = 0;
+    #@c = s[i];
+    £ c != '\0' {
+        i = i + 1;
+        c = s[i];
+    };
+
+    ret i;
+};
+
+fn write_at(terminal: &CTerminal, s: strlit, x: i32, y: i32) {
+    #@i = 0;
+
+    £ i < len(s) {
+        set_char(terminal, x + i, y, s[i]);
+        i = i + 1;
+    };
+};
+
+fn substr(s: strlit, start: i32, length: i32) strlit {
+    #@result = `s;
+
+    #i = 0;
+    £ i < length {
+        result = result + s[start + i];
+        i = i + 1;
+    };
+
+    ret result;
+};
+
+fn set_char(terminal: &CTerminal, x: i32, y: i32, c: char) {
+    ? DEBUG {
+        ? x < 0 | x >= terminal_width() {
+            ret;
+        } ~? y < 0 | y >= terminal_height() {
+            ret;
+        };
+    };
+
+    #idx = y * terminal_width() + x;
+
+    #old = (*terminal).buffer;
+
+    // rebuild string: left + char + right
+    #left = substr(old, 0, idx);
+    #right = substr(old, idx + 1, len(old) - (idx + 1));
+
+    (*terminal).buffer = left + c + right;
+};
+
+fn new_cterminal() CTerminal {
     #terminal: CTerminal;
-    terminal.buffer = `s;
+
+    #@buf = `s;
+
+    #i = 0;
+    £ i < terminal_width() * terminal_height() {
+        buf = buf + " ";
+        i = i + 1;
+    };
+
+    terminal.buffer = buf;
     ret terminal;
 };

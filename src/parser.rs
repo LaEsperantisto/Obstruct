@@ -567,7 +567,7 @@ impl<'a> Parser<'a> {
         }
 
         if self.match_any(&[TokenType::Bang]) {
-            return Expr::Not(Box::new(self.unary()));
+            return Expr::Not(Box::new(self.unary()), self.get_span());
         }
 
         if self.match_any(&[TokenType::And]) {
@@ -657,7 +657,7 @@ impl<'a> Parser<'a> {
         if self.check(TokenType::Ident) {
             let item = self.item();
 
-            if self.check(TokenType::LeftParen) {
+            if self.check(TokenType::LeftParen) || self.check(TokenType::LessLess) {
                 return self.call_function(item);
             }
             return Expr::Variable(item, self.get_span());

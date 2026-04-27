@@ -121,13 +121,16 @@ fn test_parse_assignment() {
     let expr = parse_source("x = 10;");
     match expr {
         crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
-            crate::expr::Expr::Assign(name, expr_value, _) => {
-                if let crate::expr::Expr::Int(10) = expr_value.as_ref() {
-                } else {
-                    panic!("Expected Int(10)");
+            crate::expr::Expr::Stmt(inner) => match inner.as_ref() {
+                crate::expr::Expr::Assign(_name, expr_value, _) => {
+                    if let crate::expr::Expr::Int(10) = expr_value.as_ref() {
+                    } else {
+                        panic!("Expected Int(10)");
+                    }
                 }
-            }
-            _ => panic!("Expected Assign"),
+                _ => panic!("Expected Assign"),
+            },
+            _ => panic!("Expected Stmt"),
         },
         _ => panic!("Expected StmtBlock"),
     }
@@ -614,7 +617,7 @@ fn test_parse_negation() {
     match expr {
         crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
             crate::expr::Expr::Stmt(inner) => {
-                if let crate::expr::Expr::Not(_) = inner.as_ref() {
+                if let crate::expr::Expr::Not(..) = inner.as_ref() {
                 } else {
                     panic!("Expected Not");
                 }

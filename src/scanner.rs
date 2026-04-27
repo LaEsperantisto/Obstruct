@@ -301,6 +301,7 @@ impl Scanner {
                         'r' => value.push('\r'),
                         '\\' => value.push('\\'),
                         'x' => value.push_str("\\x"),
+                        '0' => value.push_str("\0"),
                         '"' => value.push('"'),
                         _ => {
                             error(
@@ -405,6 +406,7 @@ impl Scanner {
                 '\\' => "\\".to_string(),
                 '\'' => "'".to_string(),
                 'r' => "\r".to_string(),
+                '0' => "\0".to_string(),
                 _ => {
                     error(
                         Span {

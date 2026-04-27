@@ -35,6 +35,10 @@ impl CodeGenContext {
 
 #include <string.h>
 #include <math.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <termios.h>
+#include <fcntl.h>
 
 typedef int32_t t_0CD; // i32
 typedef void t_1CD; // [] (arr)
@@ -49,18 +53,22 @@ typedef char* t_6CD; // strlit
 
         let base_body = r#"t_1CD v_0s_0Ct_0CDD(t_0CD i) { // print i32
     printf("%d", i);
+    fflush(stdout);
 }
 
 t_1CD v_0s_0Ct_2CDD(t_2CD n) { // print f64
     printf("%.6f", n);
+    fflush(stdout);
 }
 
 t_1CD v_0s_0Ct_3CDD(t_3CD n) { // print bool
     printf("%s", n ? "true" : "false");
+    fflush(stdout);
 }
 
 t_1CD v_0s_0Ct_6CDD(t_6CD s) { // print strlit
     printf("%s", s);
+    fflush(stdout);
 }
 
 t_0CD v_1s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // add i32
@@ -87,6 +95,19 @@ t_6CD v_1s_0Ct_6CDD(t_6CD a, t_6CD b) { // add str
     return result;
 }
 
+static char _catbuf[256];
+t_6CD v_1s_0Ct_6Ct_4CDD(t_6CD a, t_4CD b) { // add strlit+char
+    size_t len = strlen(a);
+    _catbuf[0] = b;
+    _catbuf[1] = '\0';
+    char* result = malloc(len + 2);
+    if (!result) return NULL;
+    strcpy(result, a);
+    strcat(result, _catbuf);
+    return result;
+}
+
+
 t_0CD v_2s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // less i32
     return n1 < n2;
 }
@@ -103,35 +124,43 @@ t_2CD v_3s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // sub f64
     return n1 - n2;
 }
 
-t_0CD v_4s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // pow i32
+t_0CD v_4s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // mult i32
+    return n1 * n2;
+}
+
+t_2CD v_4s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // mult f64
+    return n1 * n2;
+}
+
+t_0CD v_5s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // pow i32
     return pow(n1, n2);
 }
 
-t_2CD v_4s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // pow f64
+t_2CD v_5s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // pow f64
     return pow(n1, n2);
 }
 
-t_0CD v_5s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // div i32
+t_0CD v_6s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // div i32
     return n1 / n2;
 }
 
-t_2CD v_5s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // div f64
+t_2CD v_6s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // div f64
     return n1 / n2;
 }
 
-t_0CD v_6s_0CD() { // intput
+t_0CD v_7s_0CD() { // intput
     t_0CD output;
     scanf("%d", &output);
     return output;
 }
 
-t_2CD v_7s_0CD() { // fput
+t_2CD v_8s_0CD() { // fput
     t_2CD output;
     scanf("%f", &output);
     return output;
 }
 
-t_6CD v_8s_0CD() { // strput
+t_6CD v_9s_0CD() { // strput
     char* buffer = malloc(256 * sizeof(char));
     if (buffer == NULL) return NULL; // Handle allocation failure
 
@@ -145,52 +174,124 @@ t_6CD v_8s_0CD() { // strput
     return NULL;
 }
 
-t_3CD v_9s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // equal i32
+t_3CD v_10s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // equal i32
     return n1 == n2;
 }
 
-t_3CD v_9s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // equal f64
+t_3CD v_10s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // equal f64
     return n1 == n2;
 }
 
-t_3CD v_9s_0Ct_6CDD(t_6CD s1, t_6CD s2) { // equal strlit
+t_3CD v_10s_0Ct_6CDD(t_6CD s1, t_6CD s2) { // equal strlit
     return strcmp(s1, s2) == 0;
 }
 
-t_3CD v_10s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // greater i32
+t_3CD v_11s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // greater i32
     return n1 > n2;
 }
 
-t_3CD v_10s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // greater f64
+t_3CD v_11s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // greater f64
     return n1 > n2;
 }
 
-t_3CD v_11s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // bang_equal i32
+t_3CD v_12s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // bang_equal i32
     return n1 != n2;
 }
 
-t_3CD v_11s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // bang_equal f64
+t_3CD v_12s_0Ct_4CDD(t_4CD n1, t_4CD n2) { // bang_equal char
     return n1 != n2;
 }
 
-t_3CD v_11s_0Ct_6CDD(t_6CD s1, t_6CD s2) { // bang_equal strlit
+t_3CD v_12s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // bang_equal f64
+    return n1 != n2;
+}
+
+t_3CD v_12s_0Ct_6CDD(t_6CD s1, t_6CD s2) { // bang_equal strlit
     return strcmp(s1, s2) != 0;
 }
 
-t_3CD v_12s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // greater_equal i32
+t_3CD v_13s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // greater_equal i32
     return n1 >= n2;
 }
 
-t_3CD v_12s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // greater_equal f64
+t_3CD v_13s_0Ct_4CDD(t_4CD n1, t_4CD n2) { // greater_equal char
     return n1 >= n2;
 }
 
-t_3CD v_13s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // less_equal i32
+t_3CD v_13s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // greater_equal f64
+    return n1 >= n2;
+}
+
+t_3CD v_14s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // less_equal i32
     return n1 <= n2;
 }
 
-t_3CD v_13s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // less_equal f64
+t_3CD v_14s_0Ct_2CDD(t_2CD n1, t_2CD n2) { // less_equal f64
     return n1 <= n2;
+}
+
+t_3CD v_15s_0CD(t_3CD b1, t_3CD b2) { // or
+    return b1 || b2;
+}
+
+t_3CD v_16s_0CD(t_3CD b1, t_3CD b2) { // and
+    return b1 && b2;
+}
+
+t_3CD v_17s_0CD(t_3CD b) { // not
+    return !b;
+}
+
+t_0CD v_18s_0CD() { // terminal_width
+    struct winsize w;
+
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1) {
+        return -1;
+    }
+
+    return w.ws_col;
+}
+
+t_0CD v_19s_0CD() { // terminal_height
+    struct winsize w;
+
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1) {
+        return -1;
+    }
+
+    return w.ws_row;
+}
+
+t_4CD v_20s_0CD() { // get_pressed_key
+    struct termios oldt, newt;
+    char ch = '\0';
+
+    // Get current terminal settings
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+
+    // Disable canonical mode and echo
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    // Set non-blocking
+    int oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+
+    // Try to read
+    if (read(STDIN_FILENO, &ch, 1) <= 0) {
+        ch = '\0';
+    }
+
+    // Restore settings
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    fcntl(STDIN_FILENO, F_SETFL, oldf);
+
+    return ch;
+}
+
+t_1CD v_21s_0CD(t_0CD time) { // sleep
+    usleep(time);
 }
 
 "#;
@@ -205,7 +306,8 @@ int main() {\n    ",
             .push_str(&cte.c_func_instance_name("main", &[], Span::empty()));
         self.body.push_str("();\n}");
 
-        include + "\n\n"
+        include
+            + "\n\n"
             + &self.types
             + "\n\n"
             + &self.declarations

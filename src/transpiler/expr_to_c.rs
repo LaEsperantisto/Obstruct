@@ -75,7 +75,13 @@ impl Expr {
             }
             Expr::Char(c) => {
                 ctx.body.push('\'');
-                ctx.body.push_str(&c.to_string());
+                let c = c.chars().collect::<Vec<char>>()[0];
+                match c {
+                    '\n' => ctx.body.push_str("\\n"),
+                    '\t' => ctx.body.push_str("\\t"),
+                    '\0' => ctx.body.push_str("\\0"),
+                    _ => ctx.body.push(c),
+                }
                 ctx.body.push('\'');
                 false
             }
@@ -85,6 +91,7 @@ impl Expr {
                     match c {
                         '\n' => ctx.body.push_str("\\n"),
                         '\t' => ctx.body.push_str("\\t"),
+                        '\0' => ctx.body.push_str("\\0"),
                         _ => ctx.body.push(c),
                     }
                 }
@@ -93,13 +100,24 @@ impl Expr {
             }
 
             Expr::Add(l, r, span) => {
-                Expr::CallFunc(
-                    "_add".into(),
-                    vec![l.get_type(cte)],
-                    vec![l.clone(), r.clone()],
-                    *span,
-                )
-                .to_c(cte, ctx);
+                let left_type = l.get_type(cte);
+                let right_type = r.get_type(cte);
+                if left_type.name() == "strlit" && right_type.name() == "char" {
+                    // strlit + char: use dedicated strlit+char helper
+                    ctx.body.push_str("v_1s_0Ct_6Ct_4CDD(");
+                    l.to_c(cte, ctx);
+                    ctx.body.push_str(",");
+                    r.to_c(cte, ctx);
+                    ctx.body.push_str(")");
+                } else {
+                    Expr::CallFunc(
+                        "_add".into(),
+                        vec![left_type],
+                        vec![l.clone(), r.clone()],
+                        *span,
+                    )
+                    .to_c(cte, ctx);
+                }
                 false
             }
 
@@ -205,6 +223,23 @@ impl Expr {
                     *span,
                 )
                 .to_c(cte, ctx);
+                false
+            }
+
+            Expr::Not(expr, span) => {
+                Expr::CallFunc("not".into(), vec![], vec![expr.clone()], *span).to_c(cte, ctx);
+                false
+            }
+
+            Expr::Or(l, r, span) => {
+                Expr::CallFunc("or".into(), vec![], vec![l.clone(), r.clone()], *span)
+                    .to_c(cte, ctx);
+                false
+            }
+
+            Expr::And(l, r, span) => {
+                Expr::CallFunc("and".into(), vec![], vec![l.clone(), r.clone()], *span)
+                    .to_c(cte, ctx);
                 false
             }
 
@@ -533,6 +568,16 @@ impl Expr {
                 false
             }
 
+            Expr::Nth(left, right, _span) => {
+                left.to_c(cte, ctx);
+
+                ctx.body.push('[');
+                right.to_c(cte, ctx);
+                ctx.body.push(']');
+
+                false
+            }
+
             _ => panic!("unexpected expression (for transpilation) '{:?}'", self),
         }
     }
@@ -712,6 +757,7 @@ impl Expr {
             | Expr::Power(l, ..)
             | Expr::Div(l, ..) => l.get_type(cte),
             Expr::Return(_, _span) => nil_type(),
+            Expr::Nth(..) => "char".into(),
             Expr::CallFunc(name, _, _, span) => {
                 let function = cte
                     .get_var(name)
@@ -724,7 +770,7 @@ impl Expr {
                         (false, nil_type())
                     })
                     .1;
-                function.generics()[0].clone()
+                function.generics().last().cloned().unwrap_or_else(nil_type)
             }
             Expr::StmtBlock(exprs, _span) => exprs.last().unwrap().get_type(cte),
             Expr::StmtBlockWithScope(exprs, _span) => exprs.last().unwrap().get_type(cte),

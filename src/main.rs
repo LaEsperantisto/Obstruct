@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 extern crate core;
-pub const DEBUG: bool = false;
+pub const DEBUG: bool = true;
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_PATH: &str = "/home/aster/dev/obstruct/main.obs";
 

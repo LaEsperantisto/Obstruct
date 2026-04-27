@@ -39,7 +39,7 @@ pub enum Expr {
     Nth(Box<Expr>, Box<Expr>, Span),
 
     // Unary Operators
-    Not(Box<Expr>),
+    Not(Box<Expr>, Span),
     Ref(Box<Expr>, Span),
     Deref(Box<Expr>, Span),
 
