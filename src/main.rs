@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 extern crate core;
-pub const DEBUG: bool = true;
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_PATH: &str = "/home/aster/dev/obstruct/main.obs";
 
@@ -38,6 +37,8 @@ mod tests;
 //  Add generic classes
 //  Add checks for "\x"
 //  Let function calls accept any expression as left hand expression, not just directly calling a variable
+//  Add global variables handling
+//  Add compilation-time functions
 
 use crate::error::ObstructError;
 use crate::expr::Expr;
@@ -62,7 +63,7 @@ use std::time::Instant;
 pub const STD_PATH: &str = "/home/aster/dev/rust/Obstruct/std/"; // end in a "/" !!!
 
 // Global Variables
-static SOURCES: Mutex<Vec<String>> = Mutex::new(vec![]);
+static SOURCES: Mutex<Vec<(String, String)>> = Mutex::new(vec![]); // (file path, source)
 static ERROR: Mutex<Result<(), ObstructError>> = Mutex::new(Ok(()));
 static CALL_STACK: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static PROGRAM_NAME: Mutex<String> = Mutex::new(String::new());
@@ -136,7 +137,7 @@ fn run_compiled_c_file(path: &str) {
 fn main() -> Result<(), ObstructError> {
     let args: Vec<String> = std::env::args().collect();
 
-    let (command, filepath) = if DEBUG {
+    let (command, filepath) = if cfg!(debug_assertions) {
         ("run".to_string(), Some(DEFAULT_PATH))
     } else {
         if args.len() < 2 {
@@ -184,6 +185,9 @@ fn main() -> Result<(), ObstructError> {
 
         if result.is_err() {
             let err = result.unwrap_err();
+            if let Some(ref f) = err.file {
+                let _ = f;
+            }
             error(err.span, &err.message, "transpilation");
             std::process::exit(1);
         }
@@ -299,7 +303,7 @@ fn run(filepath: &str) -> Result<(), ObstructError> {
                 programs_to_transpile.insert(name.clone(), true);
                 let source = fs::read_to_string(&name)
                     .map_err(|_| ObstructError::file_not_found(name.to_string()))?;
-                SOURCES.lock().unwrap().push(source.clone());
+                SOURCES.lock().unwrap().push((name.clone(), source.clone()));
                 let ast = parse(source);
                 let current_dir = Path::new(&name)
                     .parent()
@@ -315,7 +319,7 @@ fn run(filepath: &str) -> Result<(), ObstructError> {
     for programs in programs_to_transpile.keys() {
         let source = fs::read_to_string(&programs)
             .map_err(|_| ObstructError::file_not_found(programs.clone()))?;
-        SOURCES.lock().unwrap().push(source.clone());
+        SOURCES.lock().unwrap().push((programs.clone(), source.clone()));
         let ast = parse(source);
         ast.to_c(&mut cte, &mut ctx);
         SOURCES.lock().unwrap().pop();
@@ -330,74 +334,110 @@ fn run(filepath: &str) -> Result<(), ObstructError> {
 
 pub fn error(span: Span, message: &str, place: &str) {
     if !RUNNING_TESTS.lock().unwrap().clone() {
-        report(span.line, span.column, message, place);
+        let file = get_current_file();
+        report(span.line, span.column, message, place, file.as_deref());
 
         panic::set_hook(Box::new(|_| {}));
     }
 }
 
-fn get_line(line: usize) -> String {
-    let src = SOURCES.lock().unwrap();
-    if !src.is_empty() {
-        let source = src.last().unwrap();
-        source
-            .lines()
-            .nth(line.saturating_sub(1))
-            .unwrap_or("")
-            .to_string()
-    } else {
-        String::new()
+fn get_source_and_file() -> Option<(String, String)> {
+    SOURCES.lock().unwrap().last().cloned()
+}
+
+fn get_current_file() -> Option<String> {
+    SOURCES.lock().unwrap().last().map(|(path, _)| path.clone())
+}
+
+fn get_line(line: usize, source: &str) -> String {
+    source
+        .lines()
+        .nth(line.saturating_sub(1))
+        .unwrap_or("")
+        .to_string()
+}
+
+fn classify_error<'a>(span: &'a Span, place: &'a str, message: &'a str) -> &'a str {
+    if span.line == 0 {
+        return "internal error";
+    }
+    match place {
+        "scanning" | "lexing" => "lexing error",
+        "parsing" => "parsing error",
+        "pre-transpiling" => "import error",
+        "transpiling" => "transpilation error",
+        "type checker" | "returned type checker" | "transpiler" => "type error",
+        "interpreting" => "runtime error",
+        "fetching mangled member name" => "type error",
+        _ => match message {
+            msg if msg.contains("unexpected") => "transpilation error",
+            msg if msg.contains("PANIC") => "internal error",
+            msg if msg.contains("already") => "declaration error",
+            msg if msg.contains("not") || msg.contains("undefined") || msg.contains("Unknown") => "resolution error",
+            msg if msg.contains("Expected") => "syntax error",
+            _ => "error",
+        },
     }
 }
 
-pub fn report(line: usize, column: usize, message: &str, place: &str) {
+pub fn report(line: usize, column: usize, message: &str, place: &str, file: Option<&str>) {
+    let (filename, source) = get_source_and_file().unwrap_or_default();
+
     let mut err = ERROR.lock().unwrap();
 
-    println!(
-        "\n{BOLD}{ERROR_COLOR}error{RESET} {HELP_COLOR}({place}){RESET}{BOLD}: {message}{RESET}"
-    );
-
-    println!("--> line {} column {}\n", line, column);
-
-    let source_line = get_line(line);
-
-    println!("    |");
-    if line as isize - 3 > 0 {
-        let prev_line = get_line(line - 3);
-        println!("{CYAN}{:>3}{RESET} | {}", line - 3, prev_line);
+    // --- Header ---
+    let span = Span { line, column };
+    let err_kind = classify_error(&span, place, message);
+    if let Some(f) = file {
+        println!(
+            "\n{BOLD}{RED}{err_kind}{RESET} {DIM}({place}){RESET} in {DIM}{f}{RESET}{BOLD}: {message}{RESET}"
+        );
+    } else {
+        println!(
+            "\n{BOLD}{RED}{err_kind}{RESET} {DIM}({place}){RESET}{BOLD}: {message}{RESET}"
+        );
     }
 
-    if line as isize - 2 > 0 {
-        let prev_line = get_line(line - 2);
-        println!("{CYAN}{:>3}{RESET} | {}", line - 2, prev_line);
+    // --- Location ---
+    println!("{DIM}  at {BRIGHT_CYAN}line {line}{RESET}{DIM}, column {column}{RESET}\n");
+
+    // --- Source context ---
+    if !source.is_empty() && line > 0 {
+        let prefix = "    | ";
+        let line_width = format!("{:>3}", line).len();
+
+        if line as isize - 3 > 0 {
+            println!("{BRIGHT_CYAN}{:>3}{RESET}{DIM} | {RESET}{}", line - 3, get_line(line - 3, &source));
+        }
+
+        if line as isize - 2 > 0 {
+            println!("{BRIGHT_CYAN}{:>3}{RESET}{DIM} | {RESET}{}", line - 2, get_line(line - 2, &source));
+        }
+
+        if line as isize - 1 > 0 {
+            println!("{BRIGHT_CYAN}{:>3}{RESET}{DIM} | {RESET}{}", line - 1, get_line(line - 1, &source));
+        }
+
+        println!("{BRIGHT_CYAN}{:>3}{RESET}{BRIGHT_RED} | {RESET}{}{BG_RED}{RESET}", line, get_line(line, &source));
+
+        let prefix_len = prefix.len();
+        let indent = (prefix_len + column).saturating_sub(line_width + 3);
+        let padding = " ".repeat(indent);
+        println!("{prefix}{padding}{BRIGHT_RED}^{RESET} {DIM}{message}{RESET}");
     }
 
-    if line as isize - 1 > 0 {
-        let prev_line = get_line(line - 1);
-        println!("{CYAN}{:>3}{RESET} | {}", line - 1, prev_line);
-    }
-    println!("{CYAN}{:>3}{RESET} | {}", line, source_line);
-
-    let prefix_len = format!("{:>3}  | ", line).len();
-    let caret_padding = " ".repeat((prefix_len + column).saturating_sub(3));
-
-    let mut caret_line = format!("{}{ERROR_COLOR}^{RESET} {message}", caret_padding);
-
-    caret_line.replace_range(4..4, "|");
-
-    println!("{}", caret_line);
-
+    // --- Stack trace ---
     let stack = CALL_STACK.lock().unwrap();
     if !stack.is_empty() {
-        println!("\n{BOLD}Stack trace:{RESET}");
+        println!("\n{BRIGHT_MAGENTA}Call stack:{RESET}");
         for func in stack.iter().rev() {
-            println!("  {BRIGHT_YELLOW}->{BRIGHT_BLUE} {}", func);
+            println!("  {BRIGHT_CYAN}--> {RESET}{BRIGHT_YELLOW}{func}{RESET}");
         }
     }
 
     println!("{RESET}\n");
 
-    *err = Err(ObstructError::new(line, column, message));
+    *err = Err(ObstructError::new(line, column, message, Some(filename)));
 }
 
 pub fn parse(source: String) -> Expr {

@@ -669,7 +669,7 @@ impl Expr {
                 };
 
                 if !Path::new(&full_path).exists() {
-                    error(*span, "File does not exist!", "pre-transpiling");
+                    error(*span, &format!("File at path '{}' does not exist!", full_path), "pre-transpiling");
                     return;
                 }
 

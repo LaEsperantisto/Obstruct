@@ -86,3 +86,15 @@ fn new_cterminal() CTerminal {
     terminal.buffer = buf;
     ret terminal;
 };
+
+fn clear_terminal(terminal: &CTerminal) {
+    #@buf = `s;
+
+    #i = 0;
+    £ i < terminal_width() * terminal_height() {
+        buf = buf + " ";
+        i = i + 1;
+    };
+
+    (*terminal).buffer = buf;
+};

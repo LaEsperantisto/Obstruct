@@ -186,6 +186,10 @@ t_3CD v_10s_0Ct_6CDD(t_6CD s1, t_6CD s2) { // equal strlit
     return strcmp(s1, s2) == 0;
 }
 
+t_3CD v_10s_0Ct_4CDD(t_4CD n1, t_4CD n2) { // equal char
+    return n1 == n2;
+}
+
 t_3CD v_11s_0Ct_0CDD(t_0CD n1, t_0CD n2) { // greater i32
     return n1 > n2;
 }
