@@ -472,6 +472,18 @@ impl CompileTimeEnv {
 	);
 	this.add_func_type(nil_type(), vec![], ctx, Span::empty());
 
+        this.declare_global_var(
+            "disable_input".to_string(),
+            false,
+            Type::with_generics("func", vec![Type::simple("i32"), nil_type()]),
+        );
+
+        this.declare_global_var(
+            "enable_input".to_string(),
+            false,
+            Type::with_generics("func", vec![Type::simple("i32"), nil_type()]),
+        );
+
         this
     }
 

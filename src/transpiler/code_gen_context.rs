@@ -51,7 +51,11 @@ typedef char* t_6CD; // strlit
 
 "#;
 
-        let base_body = r#"t_1CD v_0s_0Ct_0CDD(t_0CD i) { // print i32
+        let base_body = r#"
+static struct termios G_orig_term;
+static int G_input_disabled = 0;
+
+t_1CD v_0s_0Ct_0CDD(t_0CD i) { // print i32
     printf("%d", i);
     fflush(stdout);
 }
@@ -267,28 +271,17 @@ t_0CD v_19s_0CD() { // terminal_height
 }
 
 t_4CD v_20s_0CD() { // get_pressed_key
-    struct termios oldt, newt;
     char ch = '\0';
-
-    // Get current terminal settings
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-
-    // Disable canonical mode and echo
-    newt.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-
-    // Set non-blocking
     int oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+
+    // Set to non-blocking mode temporarily
     fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
 
-    // Try to read
     if (read(STDIN_FILENO, &ch, 1) <= 0) {
         ch = '\0';
     }
 
-    // Restore settings
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    // Restore blocking mode
     fcntl(STDIN_FILENO, F_SETFL, oldf);
 
     return ch;
@@ -297,6 +290,32 @@ t_4CD v_20s_0CD() { // get_pressed_key
 t_1CD v_21s_0CD(t_0CD time) { // sleep
     usleep(time);
 }
+
+
+void v_22s_0CD() { // disable_input
+    if (G_input_disabled) return;
+
+    struct termios newt;
+    tcgetattr(STDIN_FILENO, &G_orig_term);
+    newt = G_orig_term;
+
+    // ICANON off: read char-by-char instead of line-by-line
+    // ECHO off: don't print the char back to the screen
+    newt.c_lflag &= ~(ICANON | ECHO);
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    G_input_disabled = 1;
+}
+
+
+void v_23s_0CD() { // enable_input
+    if (!G_input_disabled) return;
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &G_orig_term);
+    G_input_disabled = 0;
+}
+
+
 
 "#;
 
