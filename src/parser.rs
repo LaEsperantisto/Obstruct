@@ -325,13 +325,15 @@ impl<'a> Parser<'a> {
 
         let start_span = self.get_span();
 
-        let parameters: Vec<(String, Type)> = if self.match_any(&[TokenType::LeftParen]) {
+        let parameters: Vec<(String, Type, bool)> = if self.match_any(&[TokenType::LeftParen]) {
             let mut parameters = vec![];
             while !self.is_at_end() && !self.check(TokenType::RightParen) {
-                let name = self.advance().lexeme;
+                let is_mutable = self.match_any(&[TokenType::At]);
+                self.consume(TokenType::Ident, "Expected parameter name.");
+                let name = self.previous().lexeme.clone();
                 self.consume(TokenType::Colon, "Expected ':' after parameter name.");
                 let var_type = self.get_type();
-                parameters.push((name, var_type));
+                parameters.push((name, var_type, is_mutable));
                 if !self.match_any(&[TokenType::Comma]) {
                     break;
                 }
@@ -384,13 +386,15 @@ impl<'a> Parser<'a> {
             self.consume(TokenType::GreaterGreater, "Expected '>'");
         }
 
-        let parameters: Vec<(String, Type)> = if self.match_any(&[TokenType::LeftParen]) {
+        let parameters: Vec<(String, Type, bool)> = if self.match_any(&[TokenType::LeftParen]) {
             let mut parameters = vec![];
             while !self.is_at_end() && !self.check(TokenType::RightParen) {
-                let name = self.advance().lexeme;
+                let is_mutable = self.match_any(&[TokenType::At]);
+                self.consume(TokenType::Ident, "Expected parameter name.");
+                let name = self.previous().lexeme.clone();
                 self.consume(TokenType::Colon, "Expected ':' after parameter name.");
                 let var_type = self.get_type();
-                parameters.push((name, var_type));
+                parameters.push((name, var_type, is_mutable));
                 if !self.match_any(&[TokenType::Comma]) {
                     break;
                 }

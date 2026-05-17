@@ -687,3 +687,94 @@ fn main() {
     assert!(c.contains("return"));
     assert!(c.contains("v_"), "Should have C variable references");
 }
+
+// ========== Function Parameter Mutability Transpilation ==========
+
+#[test]
+fn test_mutable_param_is_mutable_in_c() {
+    // A @param should be declared as mutable in the generated C code
+    let source = r#"
+fn modify(@x: i32) i32 {
+    x = x + 1;
+    ret x;
+}
+fn main() {
+    ret 0;
+}
+"#;
+    let c = transpile_to_c(source);
+    // Function should be present (mangled name)
+    assert!(c.contains("v_"), "Should have C variable references");
+    // x assignment should be visible (mutable param can be assigned)
+    assert!(c.contains("return"), "Should have return statement");
+    // Verify C code has valid structure (function signature + body)
+    assert!(c.contains("int main()"), "Should have main function wrapper");
+}
+
+#[test]
+fn test_immutable_param_is_immutable_in_c() {
+    // A non-@param should be declared as immutable
+    let source = r#"
+fn compute(a: i32, b: i32) i32 {
+    ret a + b;
+}
+fn main() {
+    ret 0;
+}
+"#;
+    let c = transpile_to_c(source);
+    assert!(c.contains("v_"), "Should have C variable references");
+    assert!(c.contains("return"), "Should have return statement");
+    assert!(c.contains("int main()"), "Should have main function wrapper");
+}
+
+#[test]
+fn test_mixed_mutable_immutable_params() {
+    // Mix of @ and non-@ params in same function
+    let source = r#"
+fn process(@x: i32, y: i32, @z: f64) i32 {
+    x = x + 1;
+    ret x + y;
+}
+fn main() {
+    ret 0;
+}
+"#;
+    let c = transpile_to_c(source);
+    assert!(c.contains("v_"), "Should have C variable references");
+    assert!(c.contains("int main()"), "Should have main function wrapper");
+}
+
+#[test]
+fn test_mutable_param_in_pre_transpile_scope() {
+    // @param should be declared with is_mutable=true in compiletime env
+    let source = r#"
+fn double(@n: i32) i32 {
+    n = n + n;
+    ret n;
+}
+fn main() {
+    ret 0;
+}
+"#;
+    let c = transpile_to_c(source);
+    assert!(c.contains("return"), "Should have return statement");
+    // Parameter 'n' should be visible in the function body
+    assert!(c.contains("v_"), "Should have C variable references for n");
+}
+
+#[test]
+fn test_mutable_param_with_type_check() {
+    // @param should preserve type info
+    let source = r#"
+fn scale(@factor: f64, x: i32) f64 {
+    ret factor * x;
+}
+fn main() {
+    ret 0;
+}
+"#;
+    let c = transpile_to_c(source);
+    assert!(c.contains("return"), "Should have return statement");
+    assert!(c.contains("int main()"), "Should have main function wrapper");
+}

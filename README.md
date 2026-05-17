@@ -8,21 +8,20 @@ A terse, statically-typed programming language written in Rust that transpiles t
 
 - Immutable variables:
 
-```Obstruct
+```obstruct
 #my_var = 0; // equivalent to Rust: let my_var = 0;
 ```
 
 - Mutable variables:
 
-```Obstruct
+```obstruct
 #@my_var = 1.1; // equivalent to Rust: let mut my_var = 1.1;
 ```
 
 - Declaring without assigning (requires a type):
 
-```Obstruct
-#my_var: vec; // vec defaults to empty
-#my_var2: i32; // defaults to 0
+```obstruct
+#my_var: i32; // defaults to 0
 ```
 
 _**You must give the type, a value, or both!**_
@@ -35,7 +34,7 @@ _**You must give the type, a value, or both!**_
 
 - `if` statement:
 
-```Obstruct
+```obstruct
 ? condition {
     // do something
 }
@@ -43,7 +42,7 @@ _**You must give the type, a value, or both!**_
 
 - `else if` statement:
 
-```Obstruct
+```obstruct
 ~? other_condition {
     // do something else
 }
@@ -51,7 +50,7 @@ _**You must give the type, a value, or both!**_
 
 - `else` statement:
 
-```Obstruct
+```obstruct
 ~ {
     // fallback action
 }
@@ -61,7 +60,7 @@ _**You must give the type, a value, or both!**_
 
 - `while` loop (using `£`):
 
-```Obstruct
+```obstruct
 £ condition {
     // loop body
 }
@@ -69,7 +68,7 @@ _**You must give the type, a value, or both!**_
 
 - `for` loop:
 
-```Obstruct
+```obstruct
 for i : expr {
     // loop body
 }
@@ -83,13 +82,13 @@ Printing is a statement, not an expression.
 
 - `$` prints without newline (like `print(end="")` in Python):
 
-```Obstruct
+```obstruct
 $"Hello, world!";
 ```
 
 - `$$` prints with a newline:
 
-```Obstruct
+```obstruct
 $$1;
 $2;
 ```
@@ -100,15 +99,17 @@ $2;
 
 - Defining a function:
 
-```Obstruct
-fn my_func(arg1: type, @arg2: type) return_type {
+```obstruct
+fn my_func(arg1: i32, @arg2: i32) i32 {
     // function body
 }
 ```
 
+Parameters prefixed with `@` are mutable inside the function body.
+
 If there is no return type, it can be omitted:
 
-```Obstruct
+```obstruct
 fn print_num(n: i32) {
     $n;
 }
@@ -116,7 +117,7 @@ fn print_num(n: i32) {
 
 - Returning from a function uses `ret`:
 
-```Obstruct
+```obstruct
 fn add(a: i32, b: i32) i32 {
     ret a + b;
 }
@@ -124,19 +125,9 @@ fn add(a: i32, b: i32) i32 {
 
 - Calling a function:
 
-```Obstruct
+```obstruct
 my_func(arg1);
 ```
-
-- Lambdas use `lam`:
-
-```obstruct
-#main = lam {
-  $"Hello from a lambda!";
-};
-```
-
-Lambdas are called like functions: `main()`.
 
 ---
 
@@ -168,12 +159,10 @@ Call generic functions with `<<T>>` syntax: `push<<i32>>(v, 5)`. The generic typ
 ### Literals
 
 - Numbers: `42` (int), `3.14` (float)
-- Strings: `"Hello"` (with `\\n`, `\\t`, `\\r`, `\\\\`, `\\"` escapes)
-- Characters: `'c'` (with `\\n`, `\\t`, `\\r`, `\\\\`, `'\\''` escapes)
+- Strings: `"Hello"` (with `\n`, `\t`, `\r`, `\\`, `\"` escapes)
+- Characters: `'c'` (with `\n`, `\t`, `\r`, `\\`, `\'` escapes)
 - Booleans: `` `t `` (true), `` `f `` (false)
 - Empty string: `` `s ``
-- Vectors: `\{1, 2, 3}`
-- Arrays: `[1, 2, 3]`
 
 ---
 
@@ -182,13 +171,9 @@ Call generic functions with `<<T>>` syntax: `push<<i32>>(v, 5)`. The generic typ
 - `cls` — declare a class/struct using `cls`.
 
 ```obstruct
-struct Point {
-    x: f64,
-    y: f64,
-}
-
 cls Circle {
-    center: Point,
+    center_x: f64,
+    center_y: f64,
     radius: f64,
 }
 ```
@@ -199,7 +184,7 @@ cls Circle {
 
 Import other `.obs` files:
 
-```Obstruct
+```obstruct
 use "path/to/file.obs";
 use std "math.obs"; // from the std/ directory
 ```
@@ -208,8 +193,7 @@ use std "math.obs"; // from the std/ directory
 
 ## Built-in Functions
 
-The following functions are registered at compile time. All operators are implemented via internal typed functions (
-e.g., `_add`, `_sub`, `_less`) that are generated per type combination.
+The following functions are registered at compile time. All operators are implemented via internal typed functions (e.g., `_add`, `_sub`, `_less`) that are generated per type combination.
 
 ### Input
 
@@ -217,39 +201,34 @@ e.g., `_add`, `_sub`, `_less`) that are generated per type combination.
 - `fput() -> f64` — reads a float from stdin
 - `strput() -> strlit` — reads a string from stdin
 
-### Print (internal, invoked automatically via `$` / `$$`)
-
-`_print` is overloaded for: `i32`, `f64`, `bool`, `strlit`
-
 ### Comparison
 
-Comparison operators are overloaded for `i32`, `f64`, and `strlit` (for `==`/`!=`):
+Comparison operators are overloaded for `i32` and `f64`:
 
-- `==` (equal)
-- `!=` (not equal)
+- `==` (equal) — also works for `strlit` and `char`
+- `!=` (not equal) — also works for `strlit` and `char`
 - `<` (less)
 - `>` (greater)
 - `<=` (less or equal)
-- `>=` (greater or equal)
+- `>=` (greater or equal) — also works for `char`
 
 ### Arithmetic
 
-- `+` — addition (`i32`, `f64`)
+- `+` — addition (`i32`, `f64`, `strlit`; also `strlit` + `char`)
 - `-` — subtraction (`i32`, `f64`)
-- `*` — multiplication (`f64` only)
-- `/` — division (`f64` only)
-- `**` — exponentiation (`f64` only, uses C `pow()`)
+- `*` — multiplication (`i32`, `f64`)
+- `/` — division (`i32`, `f64`)
+- `**` — exponentiation (`i32`, `f64`, uses C `pow()`)
+- `&` — logical and (also `&&`)
+- `|` — logical or (also `||`)
+- `!` — logical not
 
-Note: `%` (modulo) is parsed but not yet transpiled. `&&` / `||` (and / or) are parsed but not yet transpiled.
+### Reference Operators
 
----
+The `&` and `*` operators produce C reference/dereference expressions:
 
-## Reference Syntax
-
-The `&` and `*` operators are recognized in expressions:
-
-- `&name` — resolves to a call to `ref::new(name)` (not currently a registered builtin)
-- `*expr` — resolves to a call to `ref::deref(expr)` (not currently a registered builtin)
+- `&name` — generates C `&name` (reference to variable)
+- `*expr` — generates C `(*expr)` (dereference expression)
 
 ---
 
@@ -266,14 +245,13 @@ del foo;
 
 ## Main
 
-Every Obstruct program needs a `main` function as the entry point. The transpiler generates `main()` with no arguments
-in C.
+Every Obstruct program needs a `main` function as the entry point. The transpiler generates `main()` with no arguments in C.
 
 ---
 
 ## Example Program
 
-```Obstruct
+```obstruct
 fn main() {
     #x = 10;
     #@y = 5.0;
@@ -314,5 +292,17 @@ Obstruct compiles through these stages:
 5. **C output** — combines includes, typedefs, operator implementations, and function bodies
 6. **gcc** — compiles the C code with `-lm`
 
-Binary operators are lowered to typed function calls (`_add`, `_sub`, `_less`, etc.) at transpilation time, allowing
-type-specific C implementations to be generated for each type combination.
+Binary operators are lowered to typed function calls (`_add`, `_sub`, `_less`, etc.) at transpilation time, allowing type-specific C implementations to be generated for each type combination.
+
+---
+
+## Known Issues
+
+- `%` (modulo) — parsed but not yet transpiled (will panic during transpilation)
+- `for` loop — parsed but not yet transpiled
+- `lam` (lambdas) — parsed but not yet transpiled
+- `\{1, 2, 3}` (vector literals) — parsed but not yet transpiled
+- `[1, 2, 3]` (array literals) — parsed but not yet transpiled
+- `vec<T>` (variable-length vectors) — type exists but not fully implemented
+- `ref` types — `&`/`*` emit C reference expressions but cannot be used as first-class values (not yet registered as builtin functions)
+- `cls` (classes with inheritance/overrides) — basic struct definition works; `stc` and `ovr` keywords recognized but not fully implemented

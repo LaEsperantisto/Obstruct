@@ -15,7 +15,7 @@ impl Variable {
     }
     pub fn new_func(
         block: Box<Expr>,
-        parameters: Vec<(String, Type)>,
+        parameters: Vec<(String, Type, bool)>,
         return_type: Type,
         gens: Vec<String>,
         is_mutable: bool,

@@ -388,7 +388,7 @@ impl Expr {
                 // Push scope and declare parameters. Struct params use pointers in C.
                 cte.push_scope();
                 for arg in args {
-                    cte.declare_var(arg.0.clone(), false, arg.1.clone());
+                    cte.declare_var(arg.0.clone(), arg.2, arg.1.clone());
                 }
 
                 // Infer return type from return statements in the body.
@@ -609,7 +609,7 @@ impl Expr {
                 // Push scope and declare parameters.
                 cte.push_scope();
                 for arg in args {
-                    cte.declare_var(arg.0.clone(), false, arg.1.clone());
+                    cte.declare_var(arg.0.clone(), arg.2, arg.1.clone());
                 }
 
                 // Process the body first so local variable declarations (like #x = ...)

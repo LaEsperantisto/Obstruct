@@ -988,3 +988,59 @@ fn test_parse_expression_if() {
         _ => panic!("Expected StmtBlock"),
     }
 }
+
+// ========== Function Parameter Mutability ==========
+
+#[test]
+fn test_parse_function_with_mutable_param() {
+    let expr = parse_source("fn add(@x: i32, y: i32) i32 { ret x + y; }");
+    match expr {
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::DeclareFunction(_, _, _, params, _, _) => {
+                assert_eq!(params.len(), 2);
+                assert_eq!(params[0].0, "x");
+                assert_eq!(params[0].2, true, "@x should be mutable");
+                assert_eq!(params[1].0, "y");
+                assert_eq!(params[1].2, false, "y should be immutable");
+            }
+            _ => panic!("Expected DeclareFunction"),
+        },
+        _ => panic!("Expected StmtBlock"),
+    }
+}
+
+#[test]
+fn test_parse_function_with_all_mutable_params() {
+    let expr = parse_source("fn foo(@a: i32, @b: f64, @c: bool) { ret; }");
+    match expr {
+        crate::expr::Expr::StmtBlock(statements, _) => match statements[0].as_ref() {
+            crate::expr::Expr::DeclareFunction(_, _, _, params, _, _) => {
+                assert_eq!(params.len(), 3);
+                assert!(params.iter().all(|p| p.2), "all params should be mutable");
+            }
+            _ => panic!("Expected DeclareFunction"),
+        },
+        _ => panic!("Expected StmtBlock"),
+    }
+}
+
+#[test]
+fn test_parse_lambda_with_mutable_param() {
+    let expr = parse_source("fn main() { #f = lam (@x: i32) { ret x + 1; }; }");
+    match expr {
+        crate::expr::Expr::StmtBlock(statements, _) => {
+            for stmt in statements {
+                if let crate::expr::Expr::Declare(_, _, Some(decl_expr), _, _) = stmt.as_ref() {
+                    if let crate::expr::Expr::Assign(_, lambda, _) = decl_expr.as_ref() {
+                        if let crate::expr::Expr::Function(_, _, params, _) = lambda.as_ref() {
+                            assert_eq!(params.len(), 1);
+                            assert_eq!(params[0].0, "x");
+                            assert_eq!(params[0].2, true, "@x should be mutable in lambda");
+                        }
+                    }
+                }
+            }
+        }
+        _ => panic!("Expected StmtBlock"),
+    }
+}

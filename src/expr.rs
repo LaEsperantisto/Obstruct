@@ -55,11 +55,11 @@ pub enum Expr {
         String,
         Box<Expr>,
         Option<Type>,
-        Vec<(String, Type)>,
+        Vec<(String, Type, bool)>,                  // parameters: (name, type, is_mutable)
         Vec<String>,
         Span,
     ),
-    Function(Box<Expr>, Type, Vec<(String, Type)>, Vec<String>),
+    Function(Box<Expr>, Type, Vec<(String, Type, bool)>, Vec<String>),
     /// function, generics, args, span
     CallFunc(String, Vec<Type>, Vec<Box<Expr>>, Span),
     Return(Box<Expr>, Span),
@@ -93,5 +93,4 @@ pub enum Expr {
         path: String,
         span: Span,
     },
-    Input(String),
 }

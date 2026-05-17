@@ -192,7 +192,7 @@ impl RuntimeEnvironment {
         name: &str,
         block: Box<Expr>,
         return_type: Type,
-        parameters: Vec<(String, Type)>,
+        parameters: Vec<(String, Type, bool)>,
         gens: Vec<String>,
         is_mutable: bool,
         span: Span,

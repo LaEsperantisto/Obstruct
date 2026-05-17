@@ -91,7 +91,7 @@ pub fn native_func(
 #[derive(Clone, Debug)]
 pub struct Func {
     pub body: Box<Expr>,
-    pub args: Vec<(String, Type)>,
+    pub args: Vec<(String, Type, bool)>,
     pub return_type: Type,
     pub gens: Vec<String>,
 }
@@ -99,7 +99,7 @@ pub struct Func {
 impl Func {
     pub fn new(
         body: Box<Expr>,
-        args: Vec<(String, Type)>,
+        args: Vec<(String, Type, bool)>,
         return_type: Type,
         gens: Vec<String>,
     ) -> Func {
@@ -112,8 +112,8 @@ impl Func {
     }
 }
 
-impl From<Func> for (Box<Expr>, Vec<(String, Type)>, Type, Vec<String>) {
-    fn from(f: Func) -> (Box<Expr>, Vec<(String, Type)>, Type, Vec<String>) {
+impl From<Func> for (Box<Expr>, Vec<(String, Type, bool)>, Type, Vec<String>) {
+    fn from(f: Func) -> (Box<Expr>, Vec<(String, Type, bool)>, Type, Vec<String>) {
         (f.body, f.args, f.return_type, f.gens)
     }
 }
